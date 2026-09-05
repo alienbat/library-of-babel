@@ -13,6 +13,26 @@ void test('distant cache survives movement, with unchanged book detail and conse
     const camera=new T.PerspectiveCamera(75,16/9,.1,16000);
     camera.position.set(30,1.68,16.94);
     world.update(30,0,camera);
+    // Check the actual rendered bed bounds against every nearby wall and bed.
+    const beds:T.Box3[]=[],walls:T.Box3[]=[],matrix=new T.Matrix4();
+    const position=new T.Vector3(),scale=new T.Vector3(),rotation=new T.Quaternion();
+    scene.children[0].traverse(object=>{
+      if(!(object instanceof T.InstancedMesh)||Array.isArray(object.material))return;
+      const color=(object.material as T.MeshStandardMaterial).color.getHexString();
+      if(color!=='854a3d'&&color!=='a8a69a')return;
+      for(let i=0;i<object.count;i++){
+        object.getMatrixAt(i,matrix);matrix.decompose(position,rotation,scale);
+        if(position.x<15||position.x>29||position.y<0||position.y>3.6)continue;
+        const bounds=new T.Box3().setFromCenterAndSize(position,scale);
+        if(color==='a8a69a')walls.push(bounds);
+        else if(Math.abs(scale.x-1)<.001&&Math.abs(scale.y-.14)<.001)beds.push(bounds);
+      }
+    });
+    assert.equal(beds.length,14,'retain seven beds on each side');
+    beds.forEach((bed,i)=>{
+      for(const wall of walls)assert.equal(bed.intersectsBox(wall),false,'bed must clear every wall');
+      for(const other of beds.slice(i+1))assert.equal(bed.intersectsBox(other),false,'beds need separate space');
+    });
     const horizon=scene.children[1],cached=horizon.children.slice();
     let books=0;
     scene.traverse(object=>{

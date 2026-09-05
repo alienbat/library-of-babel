@@ -19,7 +19,7 @@ export function floorAt(x: number, z: number, previousY: number): number {
 }
 export function allowed(x: number, z: number): boolean {
   const a = Math.abs(z), t = mod(x, PERIOD);
-  if (a < INNER + RADIUS || a > OUTER + 5 - RADIUS) return false;
+  if (a < INNER + RADIUS || a > OUTER + 5.2 - RADIUS) return false;
   // Stairs sit behind the shelves. Their side wall prevents stepping off mid-flight.
   if (a <= OUTER - RADIUS) {
     // Food kiosk, set back from the rail.
@@ -32,7 +32,7 @@ export function allowed(x: number, z: number): boolean {
   }
   // Bathroom side doorway lines up with the aisle between the seven beds.
   if (t >= 22 - RADIUS && t <= 22 + RADIUS + .1) {
-    return a > OUTER + 1.7 + RADIUS && a < OUTER + 3.1 - RADIUS;
+    return a > OUTER + 2 + RADIUS && a < OUTER + 3.5 - RADIUS;
   }
   if (t > 22 + RADIUS + .1 && t < 28 - .1 - RADIUS) {
     const d=a-OUTER;
@@ -47,10 +47,10 @@ export function allowed(x: number, z: number): boolean {
   if (t > 16 + RADIUS && t < 22 - RADIUS) {
     if (a < OUTER + 0.3 && !(t > 18 && t < 20)) return false;
     for (let i = 0; i < 4; i++) {
-      if (t > 16.3 + i * 1.4 - RADIUS && t < 17.3 + i * 1.4 + RADIUS && a > OUTER + 2.7 - RADIUS) return false;
+      if (t > 16.3 + i * 1.4 - RADIUS && t < 17.3 + i * 1.4 + RADIUS && a > OUTER + 3.25 - RADIUS) return false;
     }
     for (let i = 0; i < 3; i++) {
-      if (t > 16.3 + [0,3.5,4.7][i] - RADIUS && t < 17.3 + [0,3.5,4.7][i] + RADIUS && a < OUTER + 2 + RADIUS) return false;
+      if (t > 16.3 + [0,3.2,4.4][i] - RADIUS && t < 17.3 + [0,3.2,4.4][i] + RADIUS && a < OUTER + 2.3 + RADIUS) return false;
     }
     return true;
   }

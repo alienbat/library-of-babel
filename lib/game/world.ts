@@ -181,16 +181,16 @@ export function createWorld(scene: T.Scene) {
         floors.push([x+2.5,y,side*(OUTER+1.9),3,.10,3.8],[x+13.5,y,side*(OUTER+1.9),3,.10,3.8]);
         for(let s=0;s<24;s++) slabs.push([x+4+(s+.5)/3,y+(s+1)*HEIGHT/24-.09,side*(OUTER+2.05),1/3,.18,2.9]);
         // Dormitory, seven beds, fountain and an inert food kiosk.
-        floors.push([x+19,y,side*(OUTER+2.5),6,.12,5]);
-        slabs.push([x+19,y+HEIGHT-.18,side*(OUTER+2.5),6,.36,5]);
-        walls.push([x+19,y+1.8,side*(OUTER+5),6,3.6,.2],[x+16,y+1.8,side*(OUTER+2.5),.2,3.6,5],[x+22,y+1.8,side*(OUTER+.85),.2,3.6,1.7],[x+22,y+1.8,side*(OUTER+4.05),.2,3.6,1.9],[x+22,y+3.1,side*(OUTER+2.4),.2,1,1.4]);
+        floors.push([x+19,y,side*(OUTER+2.65),6,.12,5.3]);
+        slabs.push([x+19,y+HEIGHT-.18,side*(OUTER+2.65),6,.36,5.3]);
+        walls.push([x+19,y+1.8,side*(OUTER+5.3),6,3.6,.2],[x+16,y+1.8,side*(OUTER+2.65),.2,3.6,5.3],[x+22,y+1.8,side*(OUTER+1),.2,3.6,2],[x+22,y+1.8,side*(OUTER+4.4),.2,3.6,1.8],[x+22,y+3.1,side*(OUTER+2.75),.2,1,1.5]);
         for(let bed=0;bed<7;bed++) {
-          const back=bed<4, xx=x+16.8+(back?bed*1.4:[0,3.5,4.7][bed-4]), zz=side*(OUTER+(back?3.7:1.05));
+          const back=bed<4, xx=x+16.8+(back?bed*1.4:[0,3.2,4.4][bed-4]), zz=side*(OUTER+(back?4.15:1.4));
           furniture.push([xx,y+.39,zz,1,.14,1.8]);linens.push([xx,y+.53,zz,.96,.15,1.77],[xx,y+.66,zz+side*.63,.70,.13,.35]);blankets.push([xx,y+.62,zz-side*.22,.97,.055,1.25]);
           for(const dx of [-.42,.42])for(const dz of [-.76,.76])furniture.push([xx+dx,y+.2,zz+dz,.045,.4,.045]);
         }
         // Bathroom attached to the sleeping room; an open doorway meets its aisle.
-        tiles.push([x+25,y-.06,side*(OUTER+2.5),6,.12,5]);
+        tiles.push([x+25,y-.06,side*(OUTER+2.65),6,.12,5.3]);
         slabs.push([x+25,y+HEIGHT-.18,side*(OUTER+2.5),6,.36,5]);
         walls.push([x+25,y+1.8,side*(OUTER+.15),6,3.6,.3],
           [x+25,y+1.8,side*(OUTER+5),6,3.6,.2],
