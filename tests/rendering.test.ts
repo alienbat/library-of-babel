@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as T from 'three';
+import {OUTER} from '../lib/game/physics.ts';
 import {createWorld} from '../lib/game/world.ts';
 
 void test('distant cache survives movement, with unchanged book detail and conservative culling',()=>{
@@ -33,6 +34,24 @@ void test('distant cache survives movement, with unchanged book detail and conse
       for(const wall of walls)assert.equal(bed.intersectsBox(wall),false,'bed must clear every wall');
       for(const other of beds.slice(i+1))assert.equal(bed.intersectsBox(other),false,'beds need separate space');
     });
+    for(const side of [-1,1]){
+      let floorSurfaces=0,liningDepth=0,shelfDepth=0;
+      scene.children[0].traverse(object=>{
+        if(!(object instanceof T.InstancedMesh))return;
+        const material=Array.isArray(object.material)?object.material[0]:object.material;
+        const standard=material as T.MeshStandardMaterial;
+        for(let i=0;i<object.count;i++){
+          object.getMatrixAt(i,matrix);matrix.decompose(position,rotation,scale);
+          if(position.z*side<0)continue;
+          const depth=Math.abs(position.z)-OUTER;
+          if(Math.abs(position.x-25)<scale.x/2&&Math.abs(depth-2.8)<scale.z/2&&Math.abs(position.y+scale.y/2)<1e-5)floorSurfaces++;
+          if(Math.abs(position.y-1.8)<.001&&Math.abs(position.x-25)<.001&&depth<1&&standard.color.getHexString()==='a8a69a')liningDepth=depth+scale.z/2;
+          if(Math.abs(position.y-1.62)<.001&&position.x-scale.x/2<28&&position.x+scale.x/2>23&&standard.map?.image?.width===2048)shelfDepth=Math.max(shelfDepth,depth+scale.z/2);
+        }
+      });
+      assert.equal(floorSurfaces,1,'bathroom has exactly one exposed floor surface, including the ceiling below');
+      assert.ok(shelfDepth>0&&liningDepth>shelfDepth+.05,'solid inner wall conceals the gallery shelf backs');
+    }
     const horizon=scene.children[1],cached=horizon.children.slice();
     let books=0;
     scene.traverse(object=>{

@@ -36,7 +36,7 @@ export function allowed(x: number, z: number): boolean {
   }
   if (t > 22 + RADIUS + .1 && t < 28 - .1 - RADIUS) {
     const d=a-OUTER;
-    if(d < .3+RADIUS || d > 4.9-RADIUS)return false;
+    if(d < .5+RADIUS || d > 4.9-RADIUS)return false;
     if(t>24.05-RADIUS&&t<25.15+RADIUS&&d<.975+RADIUS)return false;
     if(t<23.3+RADIUS&&d>3.86-RADIUS)return false;
     if(Math.abs(t-23.75)<.05+RADIUS&&d>3.25-RADIUS)return false;

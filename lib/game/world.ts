@@ -181,8 +181,8 @@ export function createWorld(scene: T.Scene) {
         floors.push([x+2.5,y,side*(OUTER+1.9),3,.10,3.8],[x+13.5,y,side*(OUTER+1.9),3,.10,3.8]);
         for(let s=0;s<24;s++) slabs.push([x+4+(s+.5)/3,y+(s+1)*HEIGHT/24-.09,side*(OUTER+2.05),1/3,.18,2.9]);
         // Dormitory, seven beds, fountain and an inert food kiosk.
-        floors.push([x+19,y,side*(OUTER+2.65),6,.12,5.3]);
-        slabs.push([x+19,y+HEIGHT-.18,side*(OUTER+2.65),6,.36,5.3]);
+        // Each room deck also forms the ceiling below; never overlap two slabs.
+        floors.push([x+19,y-.18,side*(OUTER+2.65),6,.36,5.3]);
         walls.push([x+19,y+1.8,side*(OUTER+5.3),6,3.6,.2],[x+16,y+1.8,side*(OUTER+2.65),.2,3.6,5.3],[x+22,y+1.8,side*(OUTER+1),.2,3.6,2],[x+22,y+1.8,side*(OUTER+4.4),.2,3.6,1.8],[x+22,y+3.1,side*(OUTER+2.75),.2,1,1.5]);
         for(let bed=0;bed<7;bed++) {
           const back=bed<4, xx=x+16.8+(back?bed*1.4:[0,3.2,4.4][bed-4]), zz=side*(OUTER+(back?4.15:1.4));
@@ -190,9 +190,8 @@ export function createWorld(scene: T.Scene) {
           for(const dx of [-.42,.42])for(const dz of [-.76,.76])furniture.push([xx+dx,y+.2,zz+dz,.045,.4,.045]);
         }
         // Bathroom attached to the sleeping room; an open doorway meets its aisle.
-        tiles.push([x+25,y-.06,side*(OUTER+2.65),6,.12,5.3]);
-        slabs.push([x+25,y+HEIGHT-.18,side*(OUTER+2.5),6,.36,5]);
-        walls.push([x+25,y+1.8,side*(OUTER+.15),6,3.6,.3],
+        tiles.push([x+25,y-.18,side*(OUTER+2.5),6,.36,5]);
+        walls.push([x+25,y+1.8,side*(OUTER+.325),6,3.6,.35],
           [x+25,y+1.8,side*(OUTER+5),6,3.6,.2],
           [x+28,y+1.8,side*(OUTER+2.5),.2,3.6,5]);
         lamps.push([x+25,y+HEIGHT-.38,side*(OUTER+2.5),2,.04,.4]);
@@ -231,16 +230,16 @@ export function createWorld(scene: T.Scene) {
         if(Math.abs(f-fy)<=1&&Math.abs(b-bx)<=12) {
           sign('STAIRS\nUP →     ← DOWN',x+8,y+2.2,side*(OUTER+.38),side,2.6);
           sign('REST AREA\n7 BEDS · BATH →',x+17,y+2.2,side*(OUTER+.04),side,1.2);
-          sign('BATHROOM\nSHOWERS · WC',x+24.6,y+2.8,side*(OUTER+.32),-side,1.5);
+          sign('BATHROOM\nSHOWERS · WC',x+24.6,y+2.8,side*(OUTER+.515),-side,1.5);
           sign('LIBRARY\nFind the story of your life.\nYour search has no deadline.',x+21,y+2.1,side*(OUTER+.04),side,1.5);
           const clockTex=texture(256,256,c=>{c.fillStyle='#d4d4c4';c.beginPath();c.arc(128,128,124,0,Math.PI*2);c.fill();c.strokeStyle='#2c332e';c.lineWidth=7;for(let h=0;h<12;h++){const a=h*Math.PI/6;c.beginPath();c.moveTo(128+Math.sin(a)*98,128-Math.cos(a)*98);c.lineTo(128+Math.sin(a)*112,128-Math.cos(a)*112);c.stroke();}c.beginPath();c.moveTo(128,54);c.lineTo(128,128);c.lineTo(176,128);c.stroke();c.fillStyle='#343c33';c.fillRect(63,155,130,28);c.fillStyle='#c4d4b8';c.font='17px monospace';c.fillText('YEAR 1 DAY 1',68,175);});
           const m=new T.MeshBasicMaterial({map:clockTex,transparent:true});materials.push(m);const g=new T.PlaneGeometry(.9,.9);geometries.push(g);const clock=new T.Mesh(g,m);clock.position.set(x+17,y+3,side*(OUTER+.025));clock.rotation.y=side===1?Math.PI:0;group.add(clock);
         }
       }
     }
-    batch(tiles,tileMat);batch(ceramics,ceramicMat);batch(bowls,ceramicMat,group,bowlGeo);batch(seats,ceramicMat,group,seatGeo);batch(chrome,chromeMat);batch(mirrors,mirrorMat);
+    batch(tiles,[slabMat,tileMat],group,deckGeometry);batch(ceramics,ceramicMat);batch(bowls,ceramicMat,group,bowlGeo);batch(seats,ceramicMat,group,seatGeo);batch(chrome,chromeMat);batch(mirrors,mirrorMat);
     const deckMaterials=[slabMat,floorMat];
-    batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,floorMat);batch(shelves,shelfMat);batch(trim,woodMat);pipes(rails);batch(lamps,lightMat);batch(walls,wallMat);batch(furniture,railMat);batch(linens,linenMat);batch(blankets,blanketMat);batch(dark,darkMat);batch(screens,screenMat);
+    batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,[slabMat,floorMat],group,deckGeometry);batch(shelves,shelfMat);batch(trim,woodMat);pipes(rails);batch(lamps,lightMat);batch(walls,wallMat);batch(furniture,railMat);batch(linens,linenMat);batch(blankets,blanketMat);batch(dark,darkMat);batch(screens,screenMat);
     // This periodic horizon never needs to be regenerated when walking. Moving its
     // origin by whole bays/floors preserves the same shelf and lamp alignment.
     distantGroup.position.set(bx*BAY,fy*HEIGHT,0);
