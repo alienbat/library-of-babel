@@ -39,8 +39,8 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
     renderer.clippingPlanes=[];
     if(limits.minX!==undefined)renderer.clippingPlanes.push(new T.Plane(new T.Vector3(1,0,0),-limits.minX));
     if(limits.maxX!==undefined)renderer.clippingPlanes.push(new T.Plane(new T.Vector3(-1,0,0),limits.maxX));
-    if(limits.minY!==undefined)renderer.clippingPlanes.push(new T.Plane(new T.Vector3(0,1,0),-limits.minY));
-    if(limits.maxY!==undefined)renderer.clippingPlanes.push(new T.Plane(new T.Vector3(0,-1,0),limits.maxY));
+    if(limits.minY!==undefined)renderer.clippingPlanes.push(new T.Plane(new T.Vector3(0,1,0),-limits.minY+.36));
+    if(limits.maxY!==undefined)renderer.clippingPlanes.push(new T.Plane(new T.Vector3(0,-1,0),limits.maxY+.36));
     world.setLimits(limits);totalDistance=0;mode='walking';fallSpeed=0;stepDistance=0;bob=0;
     closeBook(false);setTarget(null);callbacks.onDestination(destination);emitStats();closeTeleport();
   }

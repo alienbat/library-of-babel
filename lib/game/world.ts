@@ -1,4 +1,5 @@
 import * as T from 'three';
+import {createBoundaryLighting,BOUNDARY_SPAN} from './boundary-lighting.ts';
 import {createInfiniteHorizon,withHorizonFade} from './horizon.ts';
 import {bakeGalleryLighting} from './lighting.ts';
 import { BAY, HEIGHT, INNER, OUTER, mod,type WorldLimits } from './physics.ts';
@@ -55,13 +56,33 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   });
   const lighting=bakeGalleryLighting();
   spines.wrapS=T.RepeatWrapping;
-  const horizon=createInfiniteHorizon(scene,spines,lighting.negative);
-  const boundaryGroup=new T.Group();scene.add(boundaryGroup);
-  const capMaterial=new T.MeshBasicMaterial({color:new T.Color('#aaa99c').multiplyScalar(.7),side:T.DoubleSide});materials.push(capMaterial);
-  const endGeometry=new T.PlaneGeometry(40000,40000),capGeometry=new T.PlaneGeometry(40000,INNER*2);
-  const endWall=new T.Mesh(endGeometry,capMaterial),endCap=new T.Mesh(capGeometry,capMaterial);
+  const boundary=createBoundaryLighting(carpet);
+  const horizon=createInfiniteHorizon(scene,spines,lighting.negative,boundary.uniforms);
+  const boundaryGroup=new T.Group();boundaryGroup.name='corner-boundaries';scene.add(boundaryGroup);
+  const endGeometry=new T.PlaneGeometry(40000,40000),capGeometry=new T.PlaneGeometry(40000,BOUNDARY_SPAN);
+  const endWall=new T.Mesh(endGeometry,boundary.wall),endCap=new T.Mesh(capGeometry,boundary.floor);
   boundaryGroup.add(endWall,endCap);endWall.visible=endCap.visible=false;
+  let cornerLimits:WorldLimits={},fixtureX=Infinity,fixtureY=Infinity;
+  const frameMaterial=new T.MeshBasicMaterial({color:'#353c38'}),lensMaterial=new T.MeshBasicMaterial({color:new T.Color('#fff0c9').multiplyScalar(2.2)});materials.push(frameMaterial,lensMaterial);
+  const frames=new T.InstancedMesh(boxGeo,frameMaterial,600),lenses=new T.InstancedMesh(boxGeo,lensMaterial,600);boundaryGroup.add(frames,lenses);frames.count=lenses.count=0;
+  function updateFixtures(px:number,py:number){
+    const bx=Math.floor(px/7.62),by=Math.floor(py/(HEIGHT*2));
+    if(bx===fixtureX&&by===fixtureY)return;fixtureX=bx;fixtureY=by;
+    let count=0;
+    const put=(x:number,y:number,z:number,wall:boolean)=>{
+      if(x<(cornerLimits.minX??-Infinity)||x>(cornerLimits.maxX??Infinity)||y<(cornerLimits.minY??-Infinity)||y>(cornerLimits.maxY??Infinity))return;
+      dummy.rotation.set(0,0,0);dummy.position.set(x,y,z);dummy.scale.set(wall?.08:1.8,wall?1.8:.04,.38);dummy.updateMatrix();frames.setMatrixAt(count,dummy.matrix);
+      dummy.position.x+=wall?(cornerLimits.minX!==undefined?.05:-.05):0;
+      dummy.position.y+=wall?0:cornerLimits.minY!==undefined?.026:-.026;
+      dummy.scale.set(wall?.025:1.6,wall?1.6:.012,.20);dummy.updateMatrix();lenses.setMatrixAt(count++,dummy.matrix);
+    };
+    if(endCap.visible)for(let i=bx-32;i<=bx+32;i++)for(let k=-2;k<=1;k++)put((i+.5)*7.62,endCap.position.y+(cornerLimits.minY!==undefined?.025:-.025),(k+.5)*7.62,false);
+    if(endWall.visible)for(let i=by-20;i<=by+20;i++)for(let k=-2;k<=1;k++)put(endWall.position.x+(cornerLimits.minX!==undefined?.045:-.045),(i+.5)*HEIGHT*2,(k+.5)*7.62,true);
+    for(const mesh of [frames,lenses]){mesh.count=count;mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();}
+  }
   function setLimits(next:WorldLimits){
+    cornerLimits=next;fixtureX=fixtureY=Infinity;
+    endCap.material=next.minY!==undefined?boundary.floor:boundary.ceiling;
     horizon.setLimits(next);
     endWall.visible=next.minX!==undefined||next.maxX!==undefined;
     endCap.visible=next.minY!==undefined||next.maxY!==undefined;
@@ -307,11 +328,11 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   }
   function update(px:number,py:number,camera?:T.Camera){
     rebuild(px,py);
-    endWall.position.y=py;endCap.position.x=px;
+    endWall.position.y=py;endCap.position.x=px;updateFixtures(px,py);
     if(!camera)return;
     camera.updateMatrixWorld();horizon.update(camera);clipMatrix.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);
     frustum.setFromProjectionMatrix(clipMatrix);
     for(const {mesh,bounds} of distantBatches){worldBounds.copy(bounds).translate(distantGroup.position);mesh.visible=frustum.intersectsBox(worldBounds);}
   }
-  return { update, markOpened,setLimits, dispose(){scene.remove(boundaryGroup);endGeometry.dispose();capGeometry.dispose();horizon.dispose();lighting.dispose();scene.remove(group,distantGroup);for(const root of [group,distantGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
+  return { update, markOpened,setLimits, dispose(){boundary.dispose();frames.dispose();lenses.dispose();scene.remove(boundaryGroup);endGeometry.dispose();capGeometry.dispose();horizon.dispose();lighting.dispose();scene.remove(group,distantGroup);for(const root of [group,distantGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
 }

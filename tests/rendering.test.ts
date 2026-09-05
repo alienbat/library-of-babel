@@ -104,6 +104,19 @@ void test('distant cache survives movement, with unchanged book detail and conse
     }});
     assert.ok(baked>0);
     world.update(30,0,camera);assert.equal(coloredCount(),1,'read color returns after leaving the geometry window');
+    world.setLimits({minX:0,minY:0});world.update(30,0,camera);
+    const boundaries=scene.getObjectByName('corner-boundaries')!;
+    const cap=boundaries.children[1] as T.Mesh<T.PlaneGeometry,T.MeshBasicMaterial>;
+    assert.equal(cap.material.name,'boundary-floor');
+    assert.ok(cap.geometry.parameters.height<30.48,'cap does not overlap gallery decks');
+    assert.ok(cap.position.y>0&&cap.position.y<.01);
+    const fixtureFrames=boundaries.children[2] as T.InstancedMesh;
+    assert.ok(fixtureFrames.count>0&&fixtureFrames.count<=600,'bounded instanced fixture window');
+    world.setLimits({maxX:45.72,maxY:3.62});world.update(30,0,camera);
+    assert.equal(cap.material.name,'boundary-ceiling');assert.ok(cap.position.y<3.62);
+    world.setLimits({});world.update(30,0,camera);
+    assert.equal(cap.visible,false);assert.equal(fixtureFrames.count,0);
+
   } finally {
     world.dispose();
     if(descriptor)Object.defineProperty(globalThis,'document',descriptor);else Reflect.deleteProperty(globalThis,'document');
