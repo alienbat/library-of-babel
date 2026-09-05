@@ -57,7 +57,19 @@ export function createWorld(scene: T.Scene) {
   const darkMat=mat({color:'#353c38',roughness:.55,metalness:.3});
   const linenMat=mat({color:'#b7b5a8',roughness:1});
   const blanketMat=mat({color:'#666d65',roughness:1});
-  const bookMat=mat({color:'#a48358',roughness:.78});
+  // The close-up volumes sample the exact same atlas as their backing shelves.
+  // A different solid colour here made the player's current level look brighter.
+  const bookMat=mat({map:spines,roughness:1,emissive:'#75644c',emissiveMap:spines,emissiveIntensity:.20});
+  bookMat.onBeforeCompile=shader=>{
+    shader.vertexShader=shader.vertexShader.replace('#include <uv_vertex>',`#include <uv_vertex>
+      vec3 shelfPoint = (modelMatrix * instanceMatrix * vec4(position, 1.0)).xyz;
+      float shelfU = shelfPoint.z > 0.0 ? -shelfPoint.x / ${BAY} : shelfPoint.x / ${BAY};
+      float shelfV = (mod(shelfPoint.y, ${HEIGHT}) - 0.03) / 3.18;
+      vMapUv = vec2(fract(shelfU), shelfV);
+      vEmissiveMapUv = vMapUv;
+    `);
+  };
+  bookMat.customProgramCacheKey=()=> 'book-volumes-matching-shelf-atlas-v1';
   const goldMat=mat({color:'#b59b59',roughness:.65,metalness:.35});
   const screenMat=mat({color:'#b3c9b3',emissive:'#7d9d80',emissiveIntensity:.6});
   // Point lights have a 15 m maximum radius; none can reach the distant strips.
