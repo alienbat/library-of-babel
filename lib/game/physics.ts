@@ -61,3 +61,76 @@ export function move(p: Position, dx: number, dz: number): Position {
   }
   return { x, y, z };
 }
+
+export type TravelMode = 'walking' | 'flying' | 'falling';
+export const BODY_HEIGHT = EYE + 0.12;
+export const GRAVITY = 9.81;
+// Peck explicitly recalls a limit of around 120 mph during the fall.
+export const TERMINAL_SPEED = 120 * 0.44704;
+
+/** A camera-relative flight vector, with normalized diagonal movement. */
+export function flightVector(yaw:number,pitch:number,forward:number,right:number):Position {
+  const length=Math.hypot(forward,right);
+  if(!length)return {x:0,y:0,z:0};
+  forward/=length;right/=length;
+  return {
+    x:-Math.sin(yaw)*Math.cos(pitch)*forward+Math.cos(yaw)*right,
+    y:Math.sin(pitch)*forward,
+    z:-Math.cos(yaw)*Math.cos(pitch)*forward-Math.sin(yaw)*right,
+  };
+}
+
+/** Highest actual walking surface below the feet; the chasm has no support. */
+export function supportBelow(p:Position):number|null {
+  if(!allowed(p.x,p.z))return null;
+  const t=mod(p.x,PERIOD);
+  const ramp=Math.abs(p.z)>OUTER+.48&&t>=4&&t<=12?(t-4)/8*HEIGHT:0;
+  return Math.floor((p.y-ramp+1e-8)/HEIGHT)*HEIGHT+ramp;
+}
+
+export function airClear(p:Position):boolean {
+  const a=Math.abs(p.z);
+  if(a<INNER-RADIUS-.04)return true;
+  const inRail=a<INNER+RADIUS+.04;
+  if(!inRail&&!allowed(p.x,p.z))return false;
+  const t=mod(p.x,PERIOD);
+  const ramp=a>OUTER+.48&&t>=4&&t<=12?(t-4)/8*HEIGHT:0;
+  const level=Math.floor((p.y-ramp+1e-8)/HEIGHT)*HEIGHT+ramp;
+  const height=p.y-level;
+  // A full body must fit between the deck and the ceiling. Crossing above the
+  // 4-foot rail is possible, but passing through a deck or shelving is not.
+  if(height< -1e-7||height+BODY_HEIGHT>HEIGHT-.34)return false;
+  if(inRail&&height<1.2192+.04)return false;
+  return true;
+}
+
+export function flyMove(p:Position,dx:number,dy:number,dz:number):Position {
+  const next={...p};
+  const steps=Math.max(1,Math.ceil(Math.hypot(dx,dy,dz)/.06));
+  for(let i=0;i<steps;i++) {
+    for(const axis of ['y','x','z'] as const) {
+      const amount=(axis==='x'?dx:axis==='y'?dy:dz)/steps;
+      const candidate={...next,[axis]:next[axis]+amount};
+      if(airClear(candidate))next[axis]=candidate[axis];
+    }
+  }
+  return next;
+}
+
+/** Exact quadratic-drag integration: acceleration eases smoothly to terminal speed. */
+export function fallStep(p:Position,speed:number,dt:number) {
+  if(dt<=0)return {position:{...p},speed,landed:false};
+  const v=Math.max(0,Math.min(speed,TERMINAL_SPEED));
+  let nextSpeed:number,drop:number;
+  if(v>=TERMINAL_SPEED*(1-1e-10)) {
+    nextSpeed=TERMINAL_SPEED;drop=TERMINAL_SPEED*dt;
+  } else {
+    const a=Math.atanh(v/TERMINAL_SPEED),b=a+GRAVITY*dt/TERMINAL_SPEED;
+    nextSpeed=TERMINAL_SPEED*Math.tanh(b);
+    const logCosh=(x:number)=>x+Math.log1p(Math.exp(-2*x))-Math.LN2;
+    drop=TERMINAL_SPEED**2/GRAVITY*(logCosh(b)-logCosh(a));
+  }
+  const surface=supportBelow(p);
+  if(surface!==null&&p.y-drop<=surface)return {position:{...p,y:surface},speed:0,landed:true};
+  return {position:{...p,y:p.y-drop},speed:nextSpeed,landed:false};
+}

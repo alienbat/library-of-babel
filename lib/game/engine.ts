@@ -1,9 +1,10 @@
 import * as T from 'three';
 import { createWorld } from './world';
-import { EYE, HEIGHT, INNER, move, type Position } from './physics';
+import { EYE, HEIGHT, INNER, move, flightVector, flyMove, fallStep, type Position, type TravelMode } from './physics';
 
 type Settings={sound:boolean;motion:boolean;fov:number;sensitivity:number;quality:string};
-type Callbacks={onPause:()=>void;onStats:(s:{floor:number;distance:number})=>void;onFallback:()=>void;onError:(s:string)=>void};
+export type GameStats={floor:number;distance:number;mode:TravelMode;fallSpeed:number};
+type Callbacks={onPause:()=>void;onStats:(s:GameStats)=>void;onFallback:()=>void;onError:(s:string)=>void};
 export type GameHandle=ReturnType<typeof createGame>;
 export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const renderer=new T.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true,powerPreference:'high-performance'});
@@ -19,6 +20,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   for(let i=0;i<6;i++){const l=new T.PointLight('#fff3d0',12,13,1.7);scene.add(l);localLights.push(l);}
   const world=createWorld(scene);
   let p:Position={x:30,y:0,z:INNER+1.7},yaw=-.88,pitch=-.04,active=false,disposed=false,fallback=false;
+  let mode:TravelMode='walking',fallSpeed=0;
   let config:Settings={sound:true,motion:false,fov:75,sensitivity:1,quality:'high'};
   const keys=new Set<string>();let totalDistance=0,lastStats=0,lastTime=performance.now(),frame=0,stepDistance=0,bob=0;
   let audio:AudioContext|undefined,master:GainNode|undefined;
@@ -39,7 +41,9 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
       try{const result=canvas.requestPointerLock();if(result&&typeof result.catch==='function')void result.catch(()=>{fallback=true;callbacks.onFallback();});}catch{fallback=true;callbacks.onFallback();}
     }
   }
-  const keydown=(e:KeyboardEvent)=>{if(!active)return;if(e.code==='Escape'){pause();return;}if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}};
+  const emitStats=()=>callbacks.onStats({floor:Math.round(p.y/HEIGHT),distance:Math.floor(totalDistance),mode,fallSpeed});
+  function toggleFlight(){mode=mode==='flying'?'falling':'flying';fallSpeed=0;stepDistance=0;emitStats();}
+  const keydown=(e:KeyboardEvent)=>{if(!active)return;if(e.code==='Escape'){pause();return;}if(e.code==='Space'){e.preventDefault();if(!e.repeat)toggleFlight();return;}if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}};
   const keyup=(e:KeyboardEvent)=>{keys.delete(e.code);};
   function look(dx:number,dy:number){yaw-=dx*.0018*config.sensitivity;pitch=T.MathUtils.clamp(pitch-dy*.0018*config.sensitivity,-1.48,1.48);}
   const mousemove=(e:MouseEvent)=>{if(active&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);};
@@ -63,22 +67,35 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
     if(active){
       if(keys.has('ArrowLeft'))yaw+=dt*1.4;if(keys.has('ArrowRight'))yaw-=dt*1.4;if(keys.has('ArrowUp'))pitch=Math.min(1.48,pitch+dt);if(keys.has('ArrowDown'))pitch=Math.max(-1.48,pitch-dt);
       let forward=Number(keys.has('KeyW'))-Number(keys.has('KeyS')),right=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
-      const norm=Math.hypot(forward,right);if(norm){forward/=norm;right/=norm;const speed=(keys.has('ShiftLeft')||keys.has('ShiftRight'))?3.4:1.7;
-        const next=move(p,(-Math.sin(yaw)*forward+Math.cos(yaw)*right)*speed*dt,(-Math.cos(yaw)*forward-Math.sin(yaw)*right)*speed*dt);
-        const distance=Math.hypot(next.x-p.x,next.y-p.y,next.z-p.z);totalDistance+=distance;stepDistance+=distance;bob+=distance*8;p=next;if(stepDistance>.78){footstep();stepDistance=0;}
+      const norm=Math.hypot(forward,right);
+      const previous=p;
+      const fast=keys.has('ShiftLeft')||keys.has('ShiftRight');
+      if(mode==='flying') {
+        const direction=flightVector(yaw,pitch,forward,right),speed=fast?24:8;
+        p=flyMove(p,direction.x*speed*dt,direction.y*speed*dt,direction.z*speed*dt);
+      } else if(mode==='falling') {
+        if(norm){const direction=flightVector(yaw,0,forward,right);p=flyMove(p,direction.x*2.4*dt,0,direction.z*2.4*dt);}
+        const result=fallStep(p,fallSpeed,dt);p=result.position;fallSpeed=result.speed;
+        if(result.landed){mode='walking';stepDistance=0;emitStats();}
+      } else if(norm) {
+        forward/=norm;right/=norm;const speed=fast?3.4:1.7;
+        p=move(p,(-Math.sin(yaw)*forward+Math.cos(yaw)*right)*speed*dt,(-Math.cos(yaw)*forward-Math.sin(yaw)*right)*speed*dt);
+        const distance=Math.hypot(p.x-previous.x,p.y-previous.y,p.z-previous.z);
+        stepDistance+=distance;bob+=distance*8;if(stepDistance>.78){footstep();stepDistance=0;}
       }
+      totalDistance+=Math.hypot(p.x-previous.x,p.y-previous.y,p.z-previous.z);
     }
-    camera.position.set(p.x,p.y+EYE+(config.motion&&active?Math.sin(bob)*.018:0),p.z);camera.rotation.set(pitch,yaw,0,'YXZ');
+    camera.position.set(p.x,p.y+EYE+(config.motion&&active&&mode==='walking'?Math.sin(bob)*.018:0),p.z);camera.rotation.set(pitch,yaw,0,'YXZ');
     playerLight.position.set(p.x,p.y+2.5,p.z);
-    const side=Math.sign(p.z);localLights.forEach((l,i)=>{l.position.set(Math.floor(p.x/7.62)*7.62+(i-2)*7.62+3.81,Math.round(p.y/HEIGHT)*HEIGHT+3.5,side*(INNER+1.8));});
+    const side=p.z>=0?1:-1;localLights.forEach((l,i)=>{l.position.set(Math.floor(p.x/7.62)*7.62+(i-2)*7.62+3.81,Math.round(p.y/HEIGHT)*HEIGHT+3.5,side*(INNER+1.8));});
     world.update(p.x,p.y,camera);renderer.render(scene,camera);
-    if(now-lastStats>300){lastStats=now;callbacks.onStats({floor:Math.round(p.y/HEIGHT),distance:Math.floor(totalDistance)});}
+    if(now-lastStats>300){lastStats=now;emitStats();}
   }
   frame=requestAnimationFrame(animate);
   const lifecycle=new AbortController();
   const handle = {
-    start,pause,
-    reset(){p={x:30,y:0,z:INNER+1.7};yaw=-.88;pitch=-.04;totalDistance=0;callbacks.onStats({floor:0,distance:0});},
+    start,pause,toggleFlight,
+    reset(){p={x:30,y:0,z:INNER+1.7};yaw=-.88;pitch=-.04;totalDistance=0;mode='walking';fallSpeed=0;stepDistance=0;emitStats();},
     touchMove(direction:string,pressed:boolean){const code=({forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'} as Record<string,string>)[direction];if(pressed)keys.add(code);else keys.delete(code);},
     configure(next:Settings){config=next;camera.fov=next.fov;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio,next.quality==='low'?1:1.7));renderer.setSize(host.clientWidth,host.clientHeight);if(master&&audio)master.gain.setTargetAtTime(next.sound&&active?.13:0,audio.currentTime,.1);},
     dispose(){lifecycle.abort();disposed=true;cancelAnimationFrame(frame);observer.disconnect();events.forEach(([target,name,listener])=>target.removeEventListener(name,listener));if(document.pointerLockElement===canvas)document.exitPointerLock();void audio?.close();world.dispose();renderer.dispose();canvas.remove();},
@@ -86,7 +103,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   type ModelContext={registerTool:(tool:{name:string;description:string;inputSchema:object;annotations:{readOnlyHint:boolean};execute:(input:unknown)=>unknown},options:{signal:AbortSignal})=>void|Promise<void>};
   const context=(document as Document & {modelContext?:ModelContext}).modelContext;
   if(context?.registerTool){
-    const state=()=>({floor:Math.round(p.y/HEIGHT),distance:Math.floor(totalDistance),walking:active});
+    const state=()=>({floor:Math.round(p.y/HEIGHT),distance:Math.floor(totalDistance),walking:active&&mode==='walking',mode,fallSpeed});
     const tools=[
       {name:'read_walk_state',description:'Read the current relative library floor, walked distance, and pause state.',readOnly:true,action:state},
       {name:'pause_walk',description:'Pause the library walk and release mouse capture.',readOnly:false,action:()=>{pause();return state();}},

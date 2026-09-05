@@ -35,6 +35,11 @@ void test('distant cache survives movement, with unchanged book detail and conse
     assert.deepEqual(horizon.children,cached,'crossing a bay must reuse the distant meshes');
     assert.equal(horizon.position.x,45.72);assert.equal(horizon.position.y,3.96);
     assert.deepEqual(disposed,[],'cached geometry must remain live');
+    const nearMeshes=scene.children[0].children.slice();
+    world.update(54,3.96*60,camera);
+    assert.deepEqual(scene.children[0].children,nearMeshes,'vertical flight must reuse detailed geometry');
+    assert.equal(scene.children[0].position.y,3.96*59);
+    assert.equal(horizon.position.y,3.96*60);
     let optimized=0;
     for(const mesh of cached)if(mesh instanceof T.Mesh){
       for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material]){

@@ -131,11 +131,18 @@ export function createWorld(scene: T.Scene) {
     const m=new T.MeshBasicMaterial({map:tex});materials.push(m);const g=new T.PlaneGeometry(width,width/2);geometries.push(g);const mesh=new T.Mesh(g,m);mesh.position.set(x,y,z);mesh.rotation.y=side===1?Math.PI:0;group.add(mesh);
   }
   // Bounded window of repeated geometry; shifted around the walker, never an end wall.
-  let centerX=Infinity, centerY=Infinity;
+  let centerX=Infinity, centerY=Infinity,nearBaseY=0;
   function rebuild(px:number,py:number) {
     const bx=Math.floor(px/BAY), fy=Math.round(py/HEIGHT);
-    if(bx===centerX&&fy===centerY)return;
-    centerX=bx;centerY=fy;
+    if(bx===centerX){
+      if(fy!==centerY){
+        // Every level has the same architecture. Translate the existing detailed
+        // window during flight/fall instead of rebuilding it 14 times a second.
+        group.position.y=(fy-nearBaseY)*HEIGHT;distantGroup.position.y=fy*HEIGHT;centerY=fy;
+      }
+      return;
+    }
+    centerX=bx;centerY=fy;nearBaseY=fy;group.position.y=0;
     while(group.children.length) {const child=group.children[0];group.remove(child);if(child instanceof T.InstancedMesh)child.dispose();}
     // Signs have per-window assets; release before replacing them.
     while(textures.length>baseTextureCount)textures.pop()!.dispose();
