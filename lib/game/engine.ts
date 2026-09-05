@@ -2,9 +2,11 @@ import * as T from 'three';
 import { createWorld } from './world';
 import { EYE, HEIGHT, INNER, move, flightVector, flyMove, fallStep, type Position, type TravelMode } from './physics';
 
+import {bookId,bookCenter,pickBook,loadOpened,OPENED_STORAGE_KEY,type BookLocation} from './books';
+
 type Settings={sound:boolean;motion:boolean;fov:number;sensitivity:number;quality:string};
 export type GameStats={floor:number;distance:number;mode:TravelMode;fallSpeed:number};
-type Callbacks={onPause:()=>void;onStats:(s:GameStats)=>void;onFallback:()=>void;onError:(s:string)=>void};
+type Callbacks={onPause:()=>void;onStats:(s:GameStats)=>void;onFallback:()=>void;onError:(s:string)=>void;onTarget:(b:BookLocation|null)=>void;onBook:(b:BookLocation|null)=>void;onPage:(delta:number)=>void;onStorageWarning:()=>void};
 export type GameHandle=ReturnType<typeof createGame>;
 export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const renderer=new T.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true,powerPreference:'high-performance'});
@@ -18,7 +20,30 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const playerLight=new T.PointLight('#ffe7b4',10,15,1.7);scene.add(playerLight);
   const localLights:T.PointLight[]=[];
   for(let i=0;i<6;i++){const l=new T.PointLight('#fff3d0',12,13,1.7);scene.add(l);localLights.push(l);}
-  const world=createWorld(scene);
+  let opened=new Set<string>();
+  try{opened=loadOpened(localStorage);}catch{/* Session history still works without storage. */}
+  const world=createWorld(scene,opened);
+  const highlightGeometry=new T.BoxGeometry(.043,.352,.31);
+  const highlightEdges=new T.EdgesGeometry(highlightGeometry);
+  const highlightMaterial=new T.LineBasicMaterial({color:'#fff3a8',toneMapped:false});
+  const highlight=new T.LineSegments(highlightEdges,highlightMaterial);highlight.visible=false;scene.add(highlight);
+  const aimDirection=new T.Vector3();
+  let target:BookLocation|null=null,reading:BookLocation|null=null;
+  function setTarget(next:BookLocation|null){
+    if((next?bookId(next):null)!==(target?bookId(target):null)){target=next;callbacks.onTarget(next);}
+    highlight.visible=!!next;
+    if(next){const c=bookCenter(next);highlight.position.set(c.x,c.y,c.z);}
+  }
+  function openBook(){
+    if(!active||reading||!target)return;
+    reading=target;clearKeys();dragId=null;
+    opened.add(bookId(reading));world.markOpened(reading);
+    try{localStorage.setItem(OPENED_STORAGE_KEY,JSON.stringify([...opened]));}catch{callbacks.onStorageWarning();}
+    callbacks.onBook(reading);setTarget(null);
+    if(document.pointerLockElement===canvas)document.exitPointerLock();
+  }
+  function closeBook(resume=true){if(!reading)return;reading=null;clearKeys();callbacks.onBook(null);if(resume&&active)start();}
+
   let p:Position={x:30,y:0,z:INNER+1.7},yaw=-.88,pitch=-.04,active=false,disposed=false,fallback=false;
   let mode:TravelMode='walking',fallSpeed=0;
   let config:Settings={sound:true,motion:false,fov:75,sensitivity:1,quality:'high'};
@@ -34,7 +59,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   }
   function footstep(){if(!audio||!master||!config.sound)return;const size=audio.sampleRate*.13;const b=audio.createBuffer(1,size,audio.sampleRate),a=b.getChannelData(0);for(let i=0;i<size;i++)a[i]=(Math.random()*2-1)*Math.exp(-i/(size*.2));const src=audio.createBufferSource();src.buffer=b;const filter=audio.createBiquadFilter();filter.type='lowpass';filter.frequency.value=420;const gain=audio.createGain();gain.gain.value=.25;src.connect(filter);filter.connect(gain);gain.connect(master);src.start();src.onended=()=>{src.disconnect();filter.disconnect();gain.disconnect();};}
   const clearKeys=()=>keys.clear();
-  function pause(){active=false;clearKeys();if(document.pointerLockElement===canvas)document.exitPointerLock();if(master&&audio)master.gain.setTargetAtTime(0,audio.currentTime,.1);callbacks.onPause();}
+  function pause(){active=false;closeBook(false);clearKeys();if(document.pointerLockElement===canvas)document.exitPointerLock();if(master&&audio)master.gain.setTargetAtTime(0,audio.currentTime,.1);callbacks.onPause();}
   function start(){active=true;clearKeys();soundStart();if(master&&audio)master.gain.setTargetAtTime(config.sound?.13:0,audio.currentTime,.1);
     if(!matchMedia('(pointer: coarse)').matches){
       if(!canvas.requestPointerLock){fallback=true;callbacks.onFallback();return;}
@@ -42,29 +67,33 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
     }
   }
   const emitStats=()=>callbacks.onStats({floor:Math.round(p.y/HEIGHT),distance:Math.floor(totalDistance),mode,fallSpeed});
-  function toggleFlight(){mode=mode==='flying'?'falling':'flying';fallSpeed=0;stepDistance=0;emitStats();}
-  const keydown=(e:KeyboardEvent)=>{if(!active)return;if(e.code==='Escape'){pause();return;}if(e.code==='Space'){e.preventDefault();if(!e.repeat)toggleFlight();return;}if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}};
+  function toggleFlight(){if(reading)return;mode=mode==='flying'?'falling':'flying';fallSpeed=0;stepDistance=0;emitStats();}
+  const keydown=(e:KeyboardEvent)=>{if(!active)return;if(reading){if(['ArrowLeft','ArrowRight','Escape','Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();if(e.code==='ArrowRight')callbacks.onPage(1);else if(e.code==='ArrowLeft')callbacks.onPage(-1);else if(e.code==='Escape')closeBook();return;}if(e.code==='Escape'){pause();return;}if(e.code==='Space'){e.preventDefault();if(!e.repeat)toggleFlight();return;}if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}};
   const keyup=(e:KeyboardEvent)=>{keys.delete(e.code);};
   function look(dx:number,dy:number){yaw-=dx*.0018*config.sensitivity;pitch=T.MathUtils.clamp(pitch-dy*.0018*config.sensitivity,-1.48,1.48);}
-  const mousemove=(e:MouseEvent)=>{if(active&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);};
-  let dragId:number|null=null,dragX=0,dragY=0;
-  const pointerdown=(e:PointerEvent)=>{if(!active||(!fallback&&e.pointerType==='mouse'))return;dragId=e.pointerId;dragX=e.clientX;dragY=e.clientY;canvas.setPointerCapture(e.pointerId);};
-  const pointermove=(e:PointerEvent)=>{if(active&&dragId===e.pointerId){look(e.clientX-dragX,e.clientY-dragY);dragX=e.clientX;dragY=e.clientY;}};
-  const pointerup=()=>{dragId=null;};
-  const lockchange=()=>{if(!document.pointerLockElement&&!fallback&&active)pause();};
+  const mousemove=(e:MouseEvent)=>{if(active&&!reading&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);};
+  let dragId:number|null=null,dragX=0,dragY=0,dragDistance=0;
+  const pointerdown=(e:PointerEvent)=>{if(!active||reading||e.button!==0)return;if(document.pointerLockElement===canvas){openBook();return;}if(!fallback&&e.pointerType==='mouse')return;dragDistance=0;dragId=e.pointerId;dragX=e.clientX;dragY=e.clientY;canvas.setPointerCapture(e.pointerId);};
+  const pointermove=(e:PointerEvent)=>{if(active&&!reading&&dragId===e.pointerId){dragDistance+=Math.hypot(e.clientX-dragX,e.clientY-dragY);look(e.clientX-dragX,e.clientY-dragY);dragX=e.clientX;dragY=e.clientY;}};
+  const pointerup=(e:PointerEvent)=>{const tap=dragId===e.pointerId&&dragDistance<5;dragId=null;if(e.type==='pointerup'&&tap)openBook();};
+  const rightClick=(e:MouseEvent)=>{if(active&&reading&&e.button===2){e.preventDefault();closeBook();}};
+  const contextmenu=(e:Event)=>{if(active)e.preventDefault();};
+  const lockchange=()=>{if(!document.pointerLockElement&&!fallback&&active&&!reading)pause();};
   const lockerror=()=>{fallback=true;callbacks.onFallback();};
   const visibility=()=>{if(document.hidden)pause();};
   const lost=(e:Event)=>{e.preventDefault();pause();callbacks.onError('Graphics were interrupted. Refresh the page to return to the library.');};
   const resize=()=>{camera.aspect=host.clientWidth/host.clientHeight;camera.updateProjectionMatrix();renderer.setSize(host.clientWidth,host.clientHeight);};
   const events:[EventTarget,string,EventListener][]=[
+    [window,'mousedown',rightClick as EventListener],[window,'contextmenu',contextmenu],
     [window,'keydown',keydown as EventListener],[window,'keyup',keyup as EventListener],[window,'blur',pause],
     [document,'mousemove',mousemove as EventListener],[document,'pointerlockchange',lockchange],[document,'pointerlockerror',lockerror],[document,'visibilitychange',visibility],
-    [canvas,'pointerdown',pointerdown as EventListener],[canvas,'pointermove',pointermove as EventListener],[canvas,'pointerup',pointerup],[canvas,'pointercancel',pointerup],[canvas,'webglcontextlost',lost],
+    [canvas,'pointerdown',pointerdown as EventListener],[canvas,'pointermove',pointermove as EventListener],[canvas,'pointerup',pointerup as EventListener],[canvas,'pointercancel',pointerup as EventListener],[canvas,'webglcontextlost',lost],
   ];events.forEach(([target,name,listener])=>target.addEventListener(name,listener));
   const observer=new ResizeObserver(resize);observer.observe(host);
   function animate(now:number){
     if(disposed)return;frame=requestAnimationFrame(animate);const dt=Math.min((now-lastTime)/1000,.05);lastTime=now;
-    if(active){
+    if(reading)return; // The reader freezes the world; no hidden scene renders are needed.
+    if(active&&!reading){
       if(keys.has('ArrowLeft'))yaw+=dt*1.4;if(keys.has('ArrowRight'))yaw-=dt*1.4;if(keys.has('ArrowUp'))pitch=Math.min(1.48,pitch+dt);if(keys.has('ArrowDown'))pitch=Math.max(-1.48,pitch-dt);
       let forward=Number(keys.has('KeyW'))-Number(keys.has('KeyS')),right=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
       const norm=Math.hypot(forward,right);
@@ -88,17 +117,19 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
     camera.position.set(p.x,p.y+EYE+(config.motion&&active&&mode==='walking'?Math.sin(bob)*.018:0),p.z);camera.rotation.set(pitch,yaw,0,'YXZ');
     playerLight.position.set(p.x,p.y+2.5,p.z);
     const side=p.z>=0?1:-1;localLights.forEach((l,i)=>{l.position.set(Math.floor(p.x/7.62)*7.62+(i-2)*7.62+3.81,Math.round(p.y/HEIGHT)*HEIGHT+3.5,side*(INNER+1.8));});
-    world.update(p.x,p.y,camera);renderer.render(scene,camera);
+    world.update(p.x,p.y,camera);
+    if(active&&!reading){camera.getWorldDirection(aimDirection);setTarget(pickBook(camera.position,aimDirection,Math.round(p.y/HEIGHT)));}else setTarget(null);
+    renderer.render(scene,camera);
     if(now-lastStats>300){lastStats=now;emitStats();}
   }
   frame=requestAnimationFrame(animate);
   const lifecycle=new AbortController();
   const handle = {
-    start,pause,toggleFlight,
+    start,pause,toggleFlight,openBook,closeBook,
     reset(){p={x:30,y:0,z:INNER+1.7};yaw=-.88;pitch=-.04;totalDistance=0;mode='walking';fallSpeed=0;stepDistance=0;emitStats();},
     touchMove(direction:string,pressed:boolean){const code=({forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'} as Record<string,string>)[direction];if(pressed)keys.add(code);else keys.delete(code);},
     configure(next:Settings){config=next;camera.fov=next.fov;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio,next.quality==='low'?1:1.7));renderer.setSize(host.clientWidth,host.clientHeight);if(master&&audio)master.gain.setTargetAtTime(next.sound&&active?.13:0,audio.currentTime,.1);},
-    dispose(){lifecycle.abort();disposed=true;cancelAnimationFrame(frame);observer.disconnect();events.forEach(([target,name,listener])=>target.removeEventListener(name,listener));if(document.pointerLockElement===canvas)document.exitPointerLock();void audio?.close();world.dispose();renderer.dispose();canvas.remove();},
+    dispose(){lifecycle.abort();disposed=true;cancelAnimationFrame(frame);observer.disconnect();events.forEach(([target,name,listener])=>target.removeEventListener(name,listener));if(document.pointerLockElement===canvas)document.exitPointerLock();void audio?.close();world.dispose();highlightGeometry.dispose();highlightEdges.dispose();highlightMaterial.dispose();renderer.dispose();canvas.remove();},
   };
   type ModelContext={registerTool:(tool:{name:string;description:string;inputSchema:object;annotations:{readOnlyHint:boolean};execute:(input:unknown)=>unknown},options:{signal:AbortSignal})=>void|Promise<void>};
   const context=(document as Document & {modelContext?:ModelContext}).modelContext;

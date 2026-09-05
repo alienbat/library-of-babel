@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as T from 'three';
+import {bookId} from '../lib/game/books.ts';
 import {OUTER} from '../lib/game/physics.ts';
 import {createWorld} from '../lib/game/world.ts';
 
@@ -9,7 +10,7 @@ void test('distant cache survives movement, with unchanged book detail and conse
   const descriptor=Object.getOwnPropertyDescriptor(globalThis,'document');
   const context=new Proxy({}, {get:()=>()=>{},set:()=>true});
   Object.defineProperty(globalThis,'document',{configurable:true,value:{createElement:()=>({width:0,height:0,getContext:()=>context})}});
-  const scene=new T.Scene();const world=createWorld(scene);
+  const scene=new T.Scene(),opened=new Set<string>();const world=createWorld(scene,opened);
   try {
     const camera=new T.PerspectiveCamera(75,16/9,.1,16000);
     camera.position.set(30,1.68,16.94);
@@ -52,6 +53,15 @@ void test('distant cache survives movement, with unchanged book detail and conse
       assert.equal(floorSurfaces,1,'bathroom has exactly one exposed floor surface, including the ceiling below');
       assert.ok(shelfDepth>0&&liningDepth>shelfDepth+.05,'solid inner wall conceals the gallery shelf backs');
     }
+    const readLocation={level:0,side:1 as const,bay:1,row:3,book:120};
+    const coloredCount=()=>{
+      let count=0;const color=new T.Color();
+      scene.children[0].traverse(object=>{if(object instanceof T.InstancedMesh&&object.instanceColor)for(let i=0;i<object.count;i++){object.getColorAt(i,color);if(color.r<.9)count++;}});
+      return count;
+    };
+    assert.equal(coloredCount(),0);
+    opened.add(bookId(readLocation));world.markOpened(readLocation);
+    assert.equal(coloredCount(),1,'only the opened book changes color');
     const horizon=scene.children[1],cached=horizon.children.slice();
     let books=0;
     scene.traverse(object=>{
@@ -72,6 +82,7 @@ void test('distant cache survives movement, with unchanged book detail and conse
     for(const m of cached)if(m instanceof T.Mesh){m.geometry.addEventListener('dispose',()=>disposed.push(m.uuid));}
     camera.position.set(54,5.64,16.94);world.update(54,3.96,camera);
     assert.deepEqual(horizon.children,cached,'crossing a bay must reuse the distant meshes');
+    assert.equal(coloredCount(),0,'another floor must not inherit read colors');
     assert.equal(horizon.position.x,45.72);assert.equal(horizon.position.y,3.96);
     assert.deepEqual(disposed,[],'cached geometry must remain live');
     const nearMeshes=scene.children[0].children.slice();
@@ -92,6 +103,7 @@ void test('distant cache survives movement, with unchanged book detail and conse
       }
     }
     assert.ok(optimized>0);
+    world.update(30,0,camera);assert.equal(coloredCount(),1,'read color returns after leaving the geometry window');
   } finally {
     world.dispose();
     if(descriptor)Object.defineProperty(globalThis,'document',descriptor);else Reflect.deleteProperty(globalThis,'document');

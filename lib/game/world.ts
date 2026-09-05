@@ -1,8 +1,10 @@
 import * as T from 'three';
 import { BAY, HEIGHT, INNER, OUTER, mod } from './physics.ts';
 
+import {bookId,ROWS,BOOKS_PER_ROW,type BookLocation} from './books.ts';
+
 type Box = [number, number, number, number, number, number];
-export function createWorld(scene: T.Scene) {
+export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()) {
   const group = new T.Group(), distantGroup = new T.Group(); scene.add(group,distantGroup);
   const geometries: T.BufferGeometry[] = [];
   const textures: T.Texture[] = [];
@@ -142,6 +144,21 @@ export function createWorld(scene: T.Scene) {
     const tex=texture(512,256,c=>{c.fillStyle='#dad8c7';c.fillRect(0,0,512,256);c.strokeStyle='#7b7667';c.lineWidth=5;c.strokeRect(10,10,492,236);c.fillStyle='#353b36';c.textAlign='center';c.font='22px sans-serif';text.split('\n').forEach((s,i)=>c.fillText(s,256,62+i*44));});
     const m=new T.MeshBasicMaterial({map:tex});materials.push(m);const g=new T.PlaneGeometry(width,width/2);geometries.push(g);const mesh=new T.Mesh(g,m);mesh.position.set(x,y,z);mesh.rotation.y=side===1?Math.PI:0;group.add(mesh);
   }
+  const bookBatches:{mesh:T.InstancedMesh;bay:number;side:-1|1}[]=[];
+  const unreadColor=new T.Color('#ffffff'),openedColor=new T.Color('#43c9c0');
+  function refreshBookColors(){
+    for(const {mesh,bay,side} of bookBatches){
+      for(let row=0;row<ROWS;row++)for(let book=0;book<BOOKS_PER_ROW;book++){
+        mesh.setColorAt(row*BOOKS_PER_ROW+book,opened.has(bookId({level:centerY,bay,side,row,book}))?openedColor:unreadColor);
+      }
+      if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+    }
+  }
+  function markOpened(location:BookLocation){
+    if(location.level!==centerY)return;
+    const batch=bookBatches.find(b=>b.bay===location.bay&&b.side===location.side);
+    if(batch){batch.mesh.setColorAt(location.row*BOOKS_PER_ROW+location.book,openedColor);batch.mesh.instanceColor!.needsUpdate=true;}
+  }
   // Bounded window of repeated geometry; shifted around the walker, never an end wall.
   let centerX=Infinity, centerY=Infinity,nearBaseY=0;
   function rebuild(px:number,py:number) {
@@ -150,10 +167,11 @@ export function createWorld(scene: T.Scene) {
       if(fy!==centerY){
         // Every level has the same architecture. Translate the existing detailed
         // window during flight/fall instead of rebuilding it 14 times a second.
-        group.position.y=(fy-nearBaseY)*HEIGHT;distantGroup.position.y=fy*HEIGHT;centerY=fy;
+        group.position.y=(fy-nearBaseY)*HEIGHT;distantGroup.position.y=fy*HEIGHT;centerY=fy;refreshBookColors();
       }
       return;
     }
+    bookBatches.length=0;
     centerX=bx;centerY=fy;nearBaseY=fy;group.position.y=0;
     while(group.children.length) {const child=group.children[0];group.remove(child);if(child instanceof T.InstancedMesh)child.dispose();}
     // Signs have per-window assets; release before replacing them.
@@ -271,8 +289,10 @@ export function createWorld(scene: T.Scene) {
       const x=b*BAY+(i+.5)*BAY/570;
       books.push([x,fy*HEIGHT+.30+row*.39,side*(OUTER-.08),.037,.34,.3]);
     }
-    batch(books,[bookMat,goldMat],group,bookGeometry);
+    const mesh=batch(books,[bookMat,goldMat],group,bookGeometry);
+    bookBatches.push({mesh,bay:b,side:side as -1|1});
     }
+    refreshBookColors();
   }
   function update(px:number,py:number,camera?:T.Camera){
     rebuild(px,py);
@@ -281,5 +301,5 @@ export function createWorld(scene: T.Scene) {
     frustum.setFromProjectionMatrix(clipMatrix);
     for(const {mesh,bounds} of distantBatches){worldBounds.copy(bounds).translate(distantGroup.position);mesh.visible=frustum.intersectsBox(worldBounds);}
   }
-  return { update, dispose(){scene.remove(group,distantGroup);for(const root of [group,distantGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
+  return { update, markOpened, dispose(){scene.remove(group,distantGroup);for(const root of [group,distantGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
 }

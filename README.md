@@ -26,7 +26,7 @@ To find the nearest stairs from arrival, walk left along the gallery for approxi
 
 The text describes 12-foot corridors, 4-foot brown-red pipe railings, gray carpet, a 100-foot chasm, matching floors, identical light-brown bindings with gilt page edges, and periodic rest areas with seven beds, clocks, and food kiosks. These guide the model. Reference: [story text](https://studylib.net/doc/28486607/pudge), arrival and first book examination passages.
 
-Stair layout, fixtures, precise shelf construction, and lighting are interpretations. The game fixes the time at daytime, includes bathrooms attached to the seven-bed sleeping rooms, and keeps walking players behind railings; flight can cross above them. The finite but unthinkably large library is represented by a moving window of repeated geometry; there is no reachable end, top, or bottom in this prototype. Distant books use a patterned facade; nearby books are individual volumes. Books and kiosks cannot be used.
+Stair layout, fixtures, precise shelf construction, and lighting are interpretations. The game fixes the time at daytime, includes bathrooms attached to the seven-bed sleeping rooms, and keeps walking players behind railings; flight can cross above them. The finite but unthinkably large library is represented by a moving window of repeated geometry; there is no reachable end, top, or bottom in this prototype. Distant books use a patterned facade; nearby books are individual volumes. Kiosks cannot be used. Books can be selected and read.
 
 ## Project structure
 
@@ -50,3 +50,9 @@ The production build and movement tests are checked. Interactive browser/renderi
 Flight uses 8 m/s, or 24 m/s with Shift. Gravity uses quadratic drag approaching 120 mph (53.64 m/s), the speed recalled in the story. Landing restores walking; the open chasm has no reachable bottom. The repeating geometry is reused during vertical travel.
 
 Bathrooms include two showers, a sink and soap pump, a full-length polished mirror panel, and a screened toilet with paper. The toilet and precise layout are interpretations; fixtures are scenery and the mirror does not render a live reflection.
+
+Book reading: approach a shelf, aim at a highlighted spine and left-click. Left/right arrows turn one page, stopping at pages 1 and 410. Right-click or Escape returns the book; movement and falling pause while reading. Touch players can use Open book and the reader buttons.
+
+Each page contains 40 lines of 80 printable ASCII characters (95 symbols including space), following Peck's appendix: https://studylib.net/doc/28486607/pudge. Content is pseudorandom and deterministic, seeded by a versioned location ID and page index. IDs encode relative level, gallery side, shelf (signed bay * 8 + row), and book number. Pages are generated independently, not stored; this finite seeded approximation does not enumerate every possible book in the fictional library. Keep the v1 algorithm unchanged to preserve existing books.
+
+Opened spines turn teal. Their IDs persist in localStorage in this browser; clearing site data clears the color history but never changes the generated text. If storage is unavailable, the reader reports that history lasts only for the session. Nearby instance colors are refreshed when the geometry window moves between floors or bays. Selection uses the exposed spines and rejects shelf gaps, uprights, amenity bays, rear approaches and books beyond 2.2 metres.
