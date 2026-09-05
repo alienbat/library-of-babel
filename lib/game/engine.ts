@@ -13,7 +13,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(host.clientWidth,host.clientHeight);
   renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
   const canvas=renderer.domElement;host.appendChild(canvas);
-  const scene=new T.Scene();scene.background=new T.Color('#202825');scene.fog=new T.Fog('#202825',3500,8500);
+  const scene=new T.Scene();scene.background=new T.Color('#202825');scene.fog=null;
   const camera=new T.PerspectiveCamera(75,host.clientWidth/host.clientHeight,.1,16000);camera.rotation.order='YXZ';
   let opened=new Set<string>();
   try{opened=loadOpened(localStorage);}catch{/* Session history still works without storage. */}

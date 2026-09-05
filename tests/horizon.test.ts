@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import * as T from 'three';
+import {createInfiniteHorizon,withHorizonFade,HORIZON_BLEND_START,HORIZON_BLEND_END} from '../lib/game/horizon.ts';
+void test('infinite background is one camera-aligned triangle, fills only uncovered pixels and disposes cleanly',()=>{
+  const scene=new T.Scene(),spines=new T.Texture(),volume=new T.Data3DTexture();
+  const horizon=createInfiniteHorizon(scene,spines,volume);
+  const mesh=scene.children[0] as T.Mesh<T.BufferGeometry,T.ShaderMaterial>;
+  assert.equal(mesh.geometry.attributes.position.count,3);assert.equal(mesh.frustumCulled,false);
+  assert.equal(mesh.material.depthWrite,false);assert.equal(mesh.material.depthTest,true);
+  assert.ok(mesh.renderOrder>0);
+  const camera=new T.PerspectiveCamera(90,2,.1,16000);camera.position.set(-800,2000,0);camera.rotation.x=Math.PI/2;camera.updateMatrixWorld();horizon.update(camera);
+  assert.deepEqual(mesh.material.uniforms.cameraWorld.value,camera.matrixWorld);
+  assert.deepEqual(mesh.material.uniforms.inverseProjection.value,camera.projectionMatrixInverse);
+  assert.ok(mesh.material.fragmentShader.includes('fwidth(phase)'));
+  assert.ok(mesh.material.fragmentShader.includes('max(abs(ray.z),1.e-8)'));
+  assert.ok(!mesh.material.fragmentShader.includes('discard'));
+  horizon.dispose();assert.equal(scene.children.length,0);spines.dispose();volume.dispose();
+});
+void test('distant handoff preserves source shading and reaches background before the geometry boundary',()=>{
+  const source=new T.MeshBasicMaterial();source.onBeforeCompile=shader=>{shader.uniforms.original={value:1};};
+  const fade=withHorizonFade(source);
+  const shader={uniforms:{},vertexShader:T.ShaderLib.basic.vertexShader,fragmentShader:T.ShaderLib.basic.fragmentShader} as T.WebGLProgramParametersWithUniforms;
+  fade.onBeforeCompile(shader,{} as T.WebGLRenderer);
+  assert.equal(shader.uniforms.original.value,1);
+  assert.ok(shader.fragmentShader.includes('length(horizonWorld-cameraPosition)'));
+  assert.ok(shader.fragmentShader.includes('discard'));
+  assert.ok(HORIZON_BLEND_START>400&&HORIZON_BLEND_END<9000);
+  assert.ok(!source.customProgramCacheKey().includes('infinite-handoff'));
+  fade.dispose();source.dispose();
+});

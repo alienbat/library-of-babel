@@ -1,4 +1,5 @@
 import * as T from 'three';
+import {createInfiniteHorizon,withHorizonFade} from './horizon.ts';
 import {bakeGalleryLighting} from './lighting.ts';
 import { BAY, HEIGHT, INNER, OUTER, mod } from './physics.ts';
 
@@ -53,6 +54,9 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     }
   });
   const lighting=bakeGalleryLighting();
+  spines.wrapS=T.RepeatWrapping;
+  const horizon=createInfiniteHorizon(scene,spines,lighting.negative);
+  const fade=(source:T.MeshBasicMaterial)=>{const m=withHorizonFade(source);materials.push(m);return m;};
   const mat=(params:T.MeshStandardMaterialParameters)=>{const m=lighting.material(params);materials.push(m);return m;};
   const floorMat=mat({map:carpet,roughness:1,color:'#b1b1a7'});
   const slabMat=mat({color:'#aaa99c',roughness:1});
@@ -91,16 +95,16 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const goldMat=mat({color:'#b59b59',roughness:.65,metalness:.35});
   const screenMat=mat({color:'#b3c9b3',emissive:'#7d9d80',emissiveIntensity:.6});
   goldMat.name='book-edges';
-  const distantSlabMat=slabMat,distantFloorMat=floorMat,distantRailMat=railMat;
+  const distantSlabMat=fade(slabMat),distantFloorMat=fade(floorMat),distantRailMat=fade(railMat);
   // Lightweight distant strips extend the view without duplicating nearby furnishings.
   const farShelfMaterials=[841,405].map(repeats=>{
     const t=spines.clone();t.wrapS=T.RepeatWrapping;t.repeat.set(repeats,1);t.needsUpdate=true;textures.push(t);
-    return mat({map:t});
+    return fade(mat({map:t}));
   });
   const farLampMaterials=[841,405].map(repeats=>{
     const t=texture(128,8,c=>{c.fillStyle='#fff0c9';c.fillRect(51,0,27,8);});
     t.wrapS=T.RepeatWrapping;t.repeat.set(repeats*3,1);
-    const m=new T.MeshBasicMaterial({map:t,color:'#fff0c9',transparent:true,depthWrite:false});materials.push(m);return m;
+    const m=new T.MeshBasicMaterial({map:t,color:'#fff0c9',transparent:true,depthWrite:false});materials.push(m);return fade(m);
   });
   const baseTextureCount=textures.length,baseMaterialCount=materials.length;
   function batch(boxes:Box[], material:T.Material|T.Material[], target=group,geometry:T.BufferGeometry=boxGeo) {
@@ -291,9 +295,9 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   function update(px:number,py:number,camera?:T.Camera){
     rebuild(px,py);
     if(!camera)return;
-    camera.updateMatrixWorld();clipMatrix.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);
+    camera.updateMatrixWorld();horizon.update(camera);clipMatrix.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);
     frustum.setFromProjectionMatrix(clipMatrix);
     for(const {mesh,bounds} of distantBatches){worldBounds.copy(bounds).translate(distantGroup.position);mesh.visible=frustum.intersectsBox(worldBounds);}
   }
-  return { update, markOpened, dispose(){lighting.dispose();scene.remove(group,distantGroup);for(const root of [group,distantGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
+  return { update, markOpened, dispose(){horizon.dispose();lighting.dispose();scene.remove(group,distantGroup);for(const root of [group,distantGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
 }
