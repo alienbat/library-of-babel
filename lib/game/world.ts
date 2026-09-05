@@ -48,6 +48,17 @@ export function createWorld(scene: T.Scene) {
   const bookMat=mat({color:'#a48358',roughness:.78});
   const goldMat=mat({color:'#b59b59',roughness:.65,metalness:.35});
   const screenMat=mat({color:'#b3c9b3',emissive:'#7d9d80',emissiveIntensity:.6});
+  // Lightweight distant strips extend the view without duplicating nearby furnishings.
+  const farShelfMaterials=[121,45].map(repeats=>{
+    const t=spines.clone();t.wrapS=T.RepeatWrapping;t.repeat.set(repeats,1);t.needsUpdate=true;textures.push(t);
+    return mat({map:t,roughness:1,emissive:'#75644c',emissiveMap:t,emissiveIntensity:.20});
+  });
+  const farLampMaterials=[121,45].map(repeats=>{
+    const t=texture(128,8,c=>{c.fillStyle='#fff0c9';c.fillRect(51,0,27,8);});
+    t.wrapS=T.RepeatWrapping;t.repeat.set(repeats*3,1);
+    const m=new T.MeshBasicMaterial({map:t,color:'#fff0c9',alphaTest:.5});materials.push(m);return m;
+  });
+  const baseTextureCount=textures.length,baseMaterialCount=materials.length;
   function batch(boxes:Box[], material:T.Material|T.Material[], target=group) {
     const m=new T.InstancedMesh(boxGeo,material,boxes.length);
     boxes.forEach((b,i)=>{dummy.position.set(b[0],b[1],b[2]);dummy.rotation.set(0,0,0);dummy.scale.set(b[3],b[4],b[5]);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});
@@ -69,8 +80,8 @@ export function createWorld(scene: T.Scene) {
     centerX=bx;centerY=fy;
     while(group.children.length) {const child=group.children[0];group.remove(child);if(child instanceof T.InstancedMesh)child.dispose();}
     // Signs have per-window assets; release before replacing them.
-    while(textures.length>2)textures.pop()!.dispose();
-    while(materials.length>13)materials.pop()!.dispose();
+    while(textures.length>baseTextureCount)textures.pop()!.dispose();
+    while(materials.length>baseMaterialCount)materials.pop()!.dispose();
     while(geometries.length>2)geometries.pop()!.dispose();
     const slabs:Box[]=[], floors:Box[]=[], shelves:Box[]=[], trim:Box[]=[], rails:Box[]=[], lamps:Box[]=[], walls:Box[]=[], furniture:Box[]=[], linens:Box[]=[], blankets:Box[]=[], dark:Box[]=[], screens:Box[]=[];
     for(let f=fy-32;f<=fy+32;f++)for(let b=bx-15;b<=bx+15;b++)for(const side of [-1,1]) {
@@ -112,6 +123,24 @@ export function createWorld(scene: T.Scene) {
       }
     }
     batch(slabs,slabMat);batch(floors,floorMat);batch(shelves,shelfMat);batch(trim,woodMat);pipes(rails);batch(lamps,lightMat);batch(walls,wallMat);batch(furniture,railMat);batch(linens,linenMat);batch(blankets,blanketMat);batch(dark,darkMat);batch(screens,screenMat);
+    const farSlabs:Box[]=[],farFloors:Box[]=[],farRails:Box[]=[];
+    const farShelves:[Box[],Box[]]=[[],[]],farLamps:[Box[],Box[]]=[[],[]];
+    for(let f=fy-260;f<=fy+260;f++) {
+      // No overlap with the full-detail rectangle above.
+      const strips=Math.abs(f-fy)<=32
+        ? [{start:bx-60,count:45,material:1},{start:bx+16,count:45,material:1}]
+        : [{start:bx-60,count:121,material:0}];
+      for(const strip of strips)for(const side of [-1,1]) {
+        const width=strip.count*BAY,x=(strip.start+strip.count/2)*BAY,y=f*HEIGHT,z=side*(INNER+1.8288);
+        farSlabs.push([x,y-.17,z,width,.34,3.6576]);
+        farFloors.push([x,y+.007,z,width,.014,3.6576]);
+        farShelves[strip.material].push([x,y+1.62,side*(OUTER+.18),width,3.18,.38]);
+        farLamps[strip.material].push([x,y+HEIGHT-.38,z,width,.035,.28]);
+        farRails.push([x,y+1.2192,side*INNER,width,.07,.07],[x,y+.55,side*INNER,width,.07,.07]);
+      }
+    }
+    batch(farSlabs,slabMat);batch(farFloors,floorMat);batch(farRails,railMat);
+    for(let i=0;i<2;i++){batch(farShelves[i],farShelfMaterials[i]);batch(farLamps[i],farLampMaterials[i]);}
     // Real book volumes close to the player, patterned shelf facades in the distance.
     const books:Box[]=[];
     seed=3451;
