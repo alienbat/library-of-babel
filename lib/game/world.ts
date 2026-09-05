@@ -1,7 +1,7 @@
 import * as T from 'three';
 import {createInfiniteHorizon,withHorizonFade} from './horizon.ts';
 import {bakeGalleryLighting} from './lighting.ts';
-import { BAY, HEIGHT, INNER, OUTER, mod } from './physics.ts';
+import { BAY, HEIGHT, INNER, OUTER, mod,type WorldLimits } from './physics.ts';
 
 import {bookId,ROWS,BOOKS_PER_ROW,type BookLocation} from './books.ts';
 
@@ -56,6 +56,19 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const lighting=bakeGalleryLighting();
   spines.wrapS=T.RepeatWrapping;
   const horizon=createInfiniteHorizon(scene,spines,lighting.negative);
+  const boundaryGroup=new T.Group();scene.add(boundaryGroup);
+  const capMaterial=new T.MeshBasicMaterial({color:new T.Color('#aaa99c').multiplyScalar(.7),side:T.DoubleSide});materials.push(capMaterial);
+  const endGeometry=new T.PlaneGeometry(40000,40000),capGeometry=new T.PlaneGeometry(40000,INNER*2);
+  const endWall=new T.Mesh(endGeometry,capMaterial),endCap=new T.Mesh(capGeometry,capMaterial);
+  boundaryGroup.add(endWall,endCap);endWall.visible=endCap.visible=false;
+  function setLimits(next:WorldLimits){
+    horizon.setLimits(next);
+    endWall.visible=next.minX!==undefined||next.maxX!==undefined;
+    endCap.visible=next.minY!==undefined||next.maxY!==undefined;
+    endWall.rotation.y=Math.PI/2;endWall.position.x=next.minX!==undefined?next.minX+.01:next.maxX!==undefined?next.maxX-.01:0;
+    endCap.rotation.x=-Math.PI/2;endCap.position.y=next.minY!==undefined?next.minY+.005:next.maxY!==undefined?next.maxY-.005:0;
+  }
+
   const fade=(source:T.MeshBasicMaterial)=>{const m=withHorizonFade(source);materials.push(m);return m;};
   const mat=(params:T.MeshStandardMaterialParameters)=>{const m=lighting.material(params);materials.push(m);return m;};
   const floorMat=mat({map:carpet,roughness:1,color:'#b1b1a7'});
@@ -294,10 +307,11 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   }
   function update(px:number,py:number,camera?:T.Camera){
     rebuild(px,py);
+    endWall.position.y=py;endCap.position.x=px;
     if(!camera)return;
     camera.updateMatrixWorld();horizon.update(camera);clipMatrix.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);
     frustum.setFromProjectionMatrix(clipMatrix);
     for(const {mesh,bounds} of distantBatches){worldBounds.copy(bounds).translate(distantGroup.position);mesh.visible=frustum.intersectsBox(worldBounds);}
   }
-  return { update, markOpened, dispose(){horizon.dispose();lighting.dispose();scene.remove(group,distantGroup);for(const root of [group,distantGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
+  return { update, markOpened,setLimits, dispose(){scene.remove(boundaryGroup);endGeometry.dispose();capGeometry.dispose();horizon.dispose();lighting.dispose();scene.remove(group,distantGroup);for(const root of [group,distantGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
 }

@@ -56,20 +56,27 @@ export function allowed(x: number, z: number): boolean {
   }
   return false;
 }
-export function move(p: Position, dx: number, dz: number): Position {
+export type WorldLimits={minX?:number;maxX?:number;minY?:number;maxY?:number};
+export function withinLimits(p:Position,limits:WorldLimits={}){
+  return p.x>=(limits.minX??-Infinity)+RADIUS&&p.x<=(limits.maxX??Infinity)-RADIUS&&p.y>=(limits.minY??-Infinity)&&p.y+EYE+.12<=(limits.maxY??Infinity);
+}
+function walkable(x:number,z:number,y:number,limits:WorldLimits){
+  return allowed(x,z)||(limits.minY!==undefined&&Math.abs(y-limits.minY)<.001&&Math.abs(z)<INNER-RADIUS-.04);
+}
+export function move(p: Position, dx: number, dz: number,limits:WorldLimits={}): Position {
   let { x, y, z } = p;
   // Substeps prevent tunnelling through shelves at low frame rates.
   const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.08));
   for (let i = 0; i < steps; i++) {
     const nx = x + dx / steps;
-    if (allowed(nx, z)) {
+    if (walkable(nx,z,y,limits)) {
       const ny = floorAt(nx, z, y);
-      if (Math.abs(ny - y) < 0.18) { x = nx; y = ny; }
+      if (Math.abs(ny - y) < 0.18&&withinLimits({x:nx,y:ny,z},limits)) { x = nx; y = ny; }
     }
     const nz = z + dz / steps;
-    if (allowed(x, nz)) {
+    if (walkable(x,nz,y,limits)) {
       const ny = floorAt(x, nz, y);
-      if (Math.abs(ny - y) < 0.18) { z = nz; y = ny; }
+      if (Math.abs(ny - y) < 0.18&&withinLimits({x,y:ny,z:nz},limits)) { z = nz; y = ny; }
     }
   }
   return { x, y, z };
@@ -117,21 +124,21 @@ export function airClear(p:Position):boolean {
   return true;
 }
 
-export function flyMove(p:Position,dx:number,dy:number,dz:number):Position {
+export function flyMove(p:Position,dx:number,dy:number,dz:number,limits:WorldLimits={}):Position {
   const next={...p};
   const steps=Math.max(1,Math.ceil(Math.hypot(dx,dy,dz)/.06));
   for(let i=0;i<steps;i++) {
     for(const axis of ['y','x','z'] as const) {
       const amount=(axis==='x'?dx:axis==='y'?dy:dz)/steps;
       const candidate={...next,[axis]:next[axis]+amount};
-      if(airClear(candidate))next[axis]=candidate[axis];
+      if(withinLimits(candidate,limits)&&airClear(candidate))next[axis]=candidate[axis];
     }
   }
   return next;
 }
 
 /** Exact quadratic-drag integration: acceleration eases smoothly to terminal speed. */
-export function fallStep(p:Position,speed:number,dt:number) {
+export function fallStep(p:Position,speed:number,dt:number,limits:WorldLimits={}) {
   if(dt<=0)return {position:{...p},speed,landed:false};
   const v=Math.max(0,Math.min(speed,TERMINAL_SPEED));
   let nextSpeed:number,drop:number;
@@ -143,7 +150,8 @@ export function fallStep(p:Position,speed:number,dt:number) {
     const logCosh=(x:number)=>x+Math.log1p(Math.exp(-2*x))-Math.LN2;
     drop=TERMINAL_SPEED**2/GRAVITY*(logCosh(b)-logCosh(a));
   }
-  const surface=supportBelow(p);
+  const support=supportBelow(p);
+  const surface=limits.minY===undefined?support:Math.max(support??-Infinity,limits.minY);
   if(surface!==null&&p.y-drop<=surface)return {position:{...p,y:surface},speed:0,landed:true};
   return {position:{...p,y:p.y-drop},speed:nextSpeed,landed:false};
 }

@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {HEIGHT,OUTER,BAY} from './physics.ts';
+import {HEIGHT,OUTER,BAY,type WorldLimits} from './physics.ts';
 import {LIGHT_PERIOD} from './lighting.ts';
 export const HORIZON_BLEND_START=3500,HORIZON_BLEND_END=6500;
 /** One background triangle analytically projects infinitely repeating galleries. */
@@ -7,10 +7,11 @@ export function createInfiniteHorizon(scene:T.Scene,spines:T.Texture,negative:T.
   const geometry=new T.BufferGeometry();
   geometry.setAttribute('position',new T.Float32BufferAttribute([-1,-1,0,3,-1,0,-1,3,0],3));
   const material=new T.ShaderMaterial({depthTest:true,depthWrite:false,toneMapped:true,
-    uniforms:{inverseProjection:{value:new T.Matrix4()},cameraWorld:{value:new T.Matrix4()},spines:{value:spines},bakedNegative:{value:negative},shelfMean:{value:new T.Color('#806849')},slabColor:{value:new T.Color('#aaa99c')}},
+    uniforms:{corner:{value:new T.Vector4()},inverseProjection:{value:new T.Matrix4()},cameraWorld:{value:new T.Matrix4()},spines:{value:spines},bakedNegative:{value:negative},shelfMean:{value:new T.Color('#806849')},slabColor:{value:new T.Color('#aaa99c')}},
     vertexShader:`varying vec2 screenPoint;void main(){screenPoint=position.xy;gl_Position=vec4(position.xy,1.0,1.0);}`,
     fragmentShader:`
       uniform mat4 inverseProjection,cameraWorld;
+      uniform vec4 corner;
       uniform sampler2D spines;
       uniform highp sampler3D bakedNegative;
       uniform vec3 shelfMean,slabColor;
@@ -50,12 +51,16 @@ export function createInfiniteHorizon(scene:T.Scene,spines:T.Texture,negative:T.
         float lamp=band(phase.y,(${HEIGHT}-.40)/${HEIGHT},.04/${HEIGHT},footprint.y)
           *band(hit.x/${LIGHT_PERIOD},(3.81-.8)/${LIGHT_PERIOD},1.6/${LIGHT_PERIOD},fwidth(hit.x/${LIGHT_PERIOD}));
         color=mix(color,vec3(2.0,1.8,1.35),lamp);
+        float capDistance=1.e20;
+        if(corner.z!=0.0&&abs(ray.x)>1.e-8){float t=(corner.x-eye.x)/ray.x;if(t>0.0)capDistance=min(capDistance,t);}
+        if(corner.w!=0.0&&abs(ray.y)>1.e-8){float t=(corner.y-eye.y)/ray.y;if(t>0.0)capDistance=min(capDistance,t);}
+        if(capDistance<travel)color=slabColor*.7;
         gl_FragColor=vec4(color,1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`});
   const mesh=new T.Mesh(geometry,material);mesh.name='infinite-gallery-horizon';mesh.frustumCulled=false;mesh.renderOrder=10000;scene.add(mesh);
-  return {update(camera:T.Camera){material.uniforms.inverseProjection.value.copy(camera.projectionMatrixInverse);material.uniforms.cameraWorld.value.copy(camera.matrixWorld);},dispose(){scene.remove(mesh);geometry.dispose();material.dispose();}};
+  return {setLimits(limits:WorldLimits){material.uniforms.corner.value.set(limits.minX??limits.maxX??0,limits.minY??limits.maxY??0,limits.minX!==undefined?1:limits.maxX!==undefined?-1:0,limits.minY!==undefined?1:limits.maxY!==undefined?-1:0);},update(camera:T.Camera){material.uniforms.inverseProjection.value.copy(camera.projectionMatrixInverse);material.uniforms.cameraWorld.value.copy(camera.matrixWorld);},dispose(){scene.remove(mesh);geometry.dispose();material.dispose();}};
 }
 /** Screen-door coverage preserves opaque depth ordering while handing off to the backdrop. */
 export function withHorizonFade(source:T.MeshBasicMaterial){
