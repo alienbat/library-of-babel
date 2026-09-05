@@ -6,12 +6,12 @@ type Settings={sound:boolean;motion:boolean;fov:number;sensitivity:number;qualit
 type Callbacks={onPause:()=>void;onStats:(s:{floor:number;distance:number})=>void;onFallback:()=>void;onError:(s:string)=>void};
 export type GameHandle=ReturnType<typeof createGame>;
 export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
-  const renderer=new T.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+  const renderer=new T.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(host.clientWidth,host.clientHeight);
   renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
   const canvas=renderer.domElement;host.appendChild(canvas);
-  const scene=new T.Scene();scene.background=new T.Color('#202825');scene.fog=new T.FogExp2('#202825',.003);
-  const camera=new T.PerspectiveCamera(75,host.clientWidth/host.clientHeight,.04,1800);camera.rotation.order='YXZ';
+  const scene=new T.Scene();scene.background=new T.Color('#202825');scene.fog=new T.Fog('#202825',3500,8500);
+  const camera=new T.PerspectiveCamera(75,host.clientWidth/host.clientHeight,.1,16000);camera.rotation.order='YXZ';
   scene.add(new T.HemisphereLight('#f2eedc','#5a625d',2.0));
   const fill=new T.DirectionalLight('#f8edcc',1.0);fill.position.set(-20,40,-10);scene.add(fill);
   const playerLight=new T.PointLight('#ffe7b4',10,15,1.7);scene.add(playerLight);
