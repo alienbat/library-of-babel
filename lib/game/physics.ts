@@ -30,6 +30,19 @@ export function allowed(x: number, z: number): boolean {
     if (t > 4 && t < 12 && a < OUTER + 0.5 + RADIUS) return false;
     return true;
   }
+  // Bathroom side doorway lines up with the aisle between the seven beds.
+  if (t >= 22 - RADIUS && t <= 22 + RADIUS + .1) {
+    return a > OUTER + 1.7 + RADIUS && a < OUTER + 3.1 - RADIUS;
+  }
+  if (t > 22 + RADIUS + .1 && t < 28 - .1 - RADIUS) {
+    const d=a-OUTER;
+    if(d < .3+RADIUS || d > 4.9-RADIUS)return false;
+    if(t>24.05-RADIUS&&t<25.15+RADIUS&&d<.975+RADIUS)return false;
+    if(t<23.3+RADIUS&&d>3.86-RADIUS)return false;
+    if(Math.abs(t-23.75)<.05+RADIUS&&d>3.25-RADIUS)return false;
+    if(t>26-RADIUS&&Math.abs(d-2.5)<.05+RADIUS)return false;
+    return true;
+  }
   // Dormitory doorway and room, with solid bed furniture.
   if (t > 16 + RADIUS && t < 22 - RADIUS) {
     if (a < OUTER + 0.3 && !(t > 18 && t < 20)) return false;

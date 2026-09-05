@@ -20,6 +20,9 @@ export function createWorld(scene: T.Scene) {
   // Consolidate identical face materials: two draws instead of six per batch.
   const deckGeometry=faces([0,1,3,4,5,2]);deckGeometry.addGroup(0,30,0);deckGeometry.addGroup(30,6,1);
   const bookGeometry=faces([0,1,4,5,2,3]);bookGeometry.addGroup(0,24,0);bookGeometry.addGroup(24,12,1);
+  const bowlGeo=new T.SphereGeometry(1,12,8);
+  const seatGeo=new T.TorusGeometry(1,.16,6,20);seatGeo.rotateX(Math.PI/2);
+  geometries.push(bowlGeo,seatGeo);
   const baseGeometryCount=geometries.length;
   const dummy = new T.Object3D();
   let seed = 9834;
@@ -56,6 +59,15 @@ export function createWorld(scene: T.Scene) {
   const lightMat=mat({color:'#fff0c9',emissive:'#fff0c9',emissiveIntensity:2.2});
   const darkMat=mat({color:'#353c38',roughness:.55,metalness:.3});
   const linenMat=mat({color:'#b7b5a8',roughness:1});
+  const tileMap=texture(256,256,c=>{
+    c.fillStyle='#bebfb5';c.fillRect(0,0,256,256);
+    c.strokeStyle='#858c83';c.lineWidth=2;
+    for(let i=0;i<=256;i+=32){c.beginPath();c.moveTo(i,0);c.lineTo(i,256);c.moveTo(0,i);c.lineTo(256,i);c.stroke();}
+  });
+  const tileMat=mat({map:tileMap,roughness:.75});
+  const ceramicMat=mat({color:'#e1e2d7',roughness:.25});
+  const chromeMat=mat({color:'#adb6b4',metalness:.75,roughness:.28});
+  const mirrorMat=mat({color:'#8faba8',metalness:.65,roughness:.12});
   const blanketMat=mat({color:'#666d65',roughness:1});
   // The close-up volumes sample the exact same atlas as their backing shelves.
   // A different solid colour here made the player's current level look brighter.
@@ -95,7 +107,7 @@ export function createWorld(scene: T.Scene) {
     const m=new T.MeshBasicMaterial({map:t,color:'#fff0c9',transparent:true,depthWrite:false});materials.push(m);return m;
   });
   const baseTextureCount=textures.length,baseMaterialCount=materials.length;
-  function batch(boxes:Box[], material:T.Material|T.Material[], target=group,geometry=boxGeo) {
+  function batch(boxes:Box[], material:T.Material|T.Material[], target=group,geometry:T.BufferGeometry=boxGeo) {
     const m=new T.InstancedMesh(geometry,material,boxes.length);
     boxes.forEach((b,i)=>{dummy.position.set(b[0],b[1],b[2]);dummy.rotation.set(0,0,0);dummy.scale.set(b[3],b[4],b[5]);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});
     m.computeBoundingSphere();target.add(m);return m;
@@ -149,6 +161,7 @@ export function createWorld(scene: T.Scene) {
     while(materials.length>baseMaterialCount)materials.pop()!.dispose();
     while(geometries.length>baseGeometryCount)geometries.pop()!.dispose();
     const decks:Box[]=[], slabs:Box[]=[], floors:Box[]=[], shelves:Box[]=[], trim:Box[]=[], rails:Box[]=[], lamps:Box[]=[], walls:Box[]=[], furniture:Box[]=[], linens:Box[]=[], blankets:Box[]=[], dark:Box[]=[], screens:Box[]=[];
+    const tiles:Box[]=[],ceramics:Box[]=[],bowls:Box[]=[],seats:Box[]=[],chrome:Box[]=[],mirrors:Box[]=[];
     for(let f=fy-32;f<=fy+32;f++)for(let b=bx-15;b<=bx+15;b++)for(const side of [-1,1]) {
       const x=b*BAY,y=f*HEIGHT,z=side*(INNER+1.8288), amenity=mod(b,12)===0;
       // Carpet is the top face of one solid deck, never a second coplanar mesh.
@@ -170,23 +183,62 @@ export function createWorld(scene: T.Scene) {
         // Dormitory, seven beds, fountain and an inert food kiosk.
         floors.push([x+19,y,side*(OUTER+2.5),6,.12,5]);
         slabs.push([x+19,y+HEIGHT-.18,side*(OUTER+2.5),6,.36,5]);
-        walls.push([x+19,y+1.8,side*(OUTER+5),6,3.6,.2],[x+16,y+1.8,side*(OUTER+2.5),.2,3.6,5],[x+22,y+1.8,side*(OUTER+2.5),.2,3.6,5]);
+        walls.push([x+19,y+1.8,side*(OUTER+5),6,3.6,.2],[x+16,y+1.8,side*(OUTER+2.5),.2,3.6,5],[x+22,y+1.8,side*(OUTER+.85),.2,3.6,1.7],[x+22,y+1.8,side*(OUTER+4.05),.2,3.6,1.9],[x+22,y+3.1,side*(OUTER+2.4),.2,1,1.4]);
         for(let bed=0;bed<7;bed++) {
           const back=bed<4, xx=x+16.8+(back?bed*1.4:[0,3.5,4.7][bed-4]), zz=side*(OUTER+(back?3.7:1.05));
           furniture.push([xx,y+.39,zz,1,.14,1.8]);linens.push([xx,y+.53,zz,.96,.15,1.77],[xx,y+.66,zz+side*.63,.70,.13,.35]);blankets.push([xx,y+.62,zz-side*.22,.97,.055,1.25]);
           for(const dx of [-.42,.42])for(const dz of [-.76,.76])furniture.push([xx+dx,y+.2,zz+dz,.045,.4,.045]);
         }
+        // Bathroom attached to the sleeping room; an open doorway meets its aisle.
+        tiles.push([x+25,y-.06,side*(OUTER+2.5),6,.12,5]);
+        slabs.push([x+25,y+HEIGHT-.18,side*(OUTER+2.5),6,.36,5]);
+        walls.push([x+25,y+1.8,side*(OUTER+.15),6,3.6,.3],
+          [x+25,y+1.8,side*(OUTER+5),6,3.6,.2],
+          [x+28,y+1.8,side*(OUTER+2.5),.2,3.6,5]);
+        lamps.push([x+25,y+HEIGHT-.38,side*(OUTER+2.5),2,.04,.4]);
+        // Wall-mounted basin with a dark recess, tap and soap pump.
+        ceramics.push([x+24.6,y+.78,side*(OUTER+.65),1.1,.2,.65],
+          [x+24.6,y+.42,side*(OUTER+.48),.22,.65,.25]);
+        dark.push([x+24.6,y+.887,side*(OUTER+.7),.7,.014,.36]);
+        chrome.push([x+24.6,y+1.01,side*(OUTER+.39),.045,.28,.045],
+          [x+24.6,y+1.13,side*(OUTER+.51),.045,.045,.28]);
+        ceramics.push([x+25,y+1,side*(OUTER+.48),.1,.24,.1]);
+        chrome.push([x+25,y+1.13,side*(OUTER+.51),.14,.035,.04]);
+        // Full-length mirror opposite the sink; inexpensive polished panel.
+        chrome.push([x+24.6,y+1.45,side*(OUTER+4.87),1.05,2.3,.08]);
+        mirrors.push([x+24.6,y+1.45,side*(OUTER+4.82),.95,2.2,.025]);
+        // Toilet in a screened corner, with cistern, oval bowl, seat and paper.
+        ceramics.push([x+23,y+.67,side*(OUTER+4.64),.48,.65,.23],
+          [x+23,y+.22,side*(OUTER+4.3),.28,.44,.4]);
+        bowls.push([x+23,y+.43,side*(OUTER+4.25),.29,.18,.39]);
+        dark.push([x+23,y+.57,side*(OUTER+4.23),.32,.015,.44]);
+        seats.push([x+23,y+.59,side*(OUTER+4.23),.25,.15,.35]);
+        walls.push([x+23.75,y+1.05,side*(OUTER+4.1),.10,2.1,1.7]);
+        linens.push([x+23.63,y+.85,side*(OUTER+4.3),.15,.15,.25]);
+        chrome.push([x+23.14,y+.95,side*(OUTER+4.49),.12,.035,.035]);
+        // Two open shower stalls, each with tray, drain, mixer and overhead head.
+        for(const depth of [1.25,3.75]){
+          ceramics.push([x+27,y+.025,side*(OUTER+depth),1.65,.05,1.75]);
+          dark.push([x+27,y+.056,side*(OUTER+depth),.14,.008,.14]);
+          chrome.push([x+27.78,y+1.65,side*(OUTER+depth),.035,1.55,.035],
+            [x+27.55,y+2.4,side*(OUTER+depth),.5,.035,.035],
+            [x+27.32,y+2.37,side*(OUTER+depth),.25,.055,.25],
+            [x+27.73,y+1.1,side*(OUTER+depth),.12,.08,.28]);
+        }
+        walls.push([x+27,y+1.1,side*(OUTER+2.5),2,2.2,.10]);
         dark.push([x+17.85,y+.68,side*(INNER+.72),.9,1.36,1.1]);screens.push([x+17.85,y+1.38,side*(INNER+.72),.68,.045,.67]);
         dark.push([x+20.6,y+.83,side*(OUTER-.24),.5,.22,.5],[x+20.6,y+.45,side*(OUTER-.05),.25,.8,.2]);
         if(Math.abs(f-fy)<=1&&Math.abs(b-bx)<=12) {
           sign('STAIRS\nUP →     ← DOWN',x+8,y+2.2,side*(OUTER+.38),side,2.6);
-          sign('REST AREA\n7 BEDS',x+17,y+2.2,side*(OUTER+.04),side,1.2);
+          sign('REST AREA\n7 BEDS · BATH →',x+17,y+2.2,side*(OUTER+.04),side,1.2);
+          sign('BATHROOM\nSHOWERS · WC',x+24.6,y+2.8,side*(OUTER+.32),-side,1.5);
           sign('LIBRARY\nFind the story of your life.\nYour search has no deadline.',x+21,y+2.1,side*(OUTER+.04),side,1.5);
           const clockTex=texture(256,256,c=>{c.fillStyle='#d4d4c4';c.beginPath();c.arc(128,128,124,0,Math.PI*2);c.fill();c.strokeStyle='#2c332e';c.lineWidth=7;for(let h=0;h<12;h++){const a=h*Math.PI/6;c.beginPath();c.moveTo(128+Math.sin(a)*98,128-Math.cos(a)*98);c.lineTo(128+Math.sin(a)*112,128-Math.cos(a)*112);c.stroke();}c.beginPath();c.moveTo(128,54);c.lineTo(128,128);c.lineTo(176,128);c.stroke();c.fillStyle='#343c33';c.fillRect(63,155,130,28);c.fillStyle='#c4d4b8';c.font='17px monospace';c.fillText('YEAR 1 DAY 1',68,175);});
           const m=new T.MeshBasicMaterial({map:clockTex,transparent:true});materials.push(m);const g=new T.PlaneGeometry(.9,.9);geometries.push(g);const clock=new T.Mesh(g,m);clock.position.set(x+17,y+3,side*(OUTER+.025));clock.rotation.y=side===1?Math.PI:0;group.add(clock);
         }
       }
     }
+    batch(tiles,tileMat);batch(ceramics,ceramicMat);batch(bowls,ceramicMat,group,bowlGeo);batch(seats,ceramicMat,group,seatGeo);batch(chrome,chromeMat);batch(mirrors,mirrorMat);
     const deckMaterials=[slabMat,floorMat];
     batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,floorMat);batch(shelves,shelfMat);batch(trim,woodMat);pipes(rails);batch(lamps,lightMat);batch(walls,wallMat);batch(furniture,railMat);batch(linens,linenMat);batch(blankets,blanketMat);batch(dark,darkMat);batch(screens,screenMat);
     // This periodic horizon never needs to be regenerated when walking. Moving its

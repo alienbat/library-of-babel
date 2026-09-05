@@ -26,7 +26,7 @@ To find the nearest stairs from arrival, walk left along the gallery for approxi
 
 The text describes 12-foot corridors, 4-foot brown-red pipe railings, gray carpet, a 100-foot chasm, matching floors, identical light-brown bindings with gilt page edges, and periodic rest areas with seven beds, clocks, and food kiosks. These guide the model. Reference: [story text](https://studylib.net/doc/28486607/pudge), arrival and first book examination passages.
 
-Stair layout, fixtures, precise shelf construction, and lighting are interpretations. The game fixes the time at daytime, omits bathroom interiors, and keeps walking players behind railings; flight can cross above them. The finite but unthinkably large library is represented by a moving window of repeated geometry; there is no reachable end, top, or bottom in this prototype. Distant books use a patterned facade; nearby books are individual volumes. Books and kiosks cannot be used.
+Stair layout, fixtures, precise shelf construction, and lighting are interpretations. The game fixes the time at daytime, includes bathrooms attached to the seven-bed sleeping rooms, and keeps walking players behind railings; flight can cross above them. The finite but unthinkably large library is represented by a moving window of repeated geometry; there is no reachable end, top, or bottom in this prototype. Distant books use a patterned facade; nearby books are individual volumes. Books and kiosks cannot be used.
 
 ## Project structure
 
@@ -48,3 +48,5 @@ The optional WebMCP interface exposes `read_walk_state`, `pause_walk`, and `rese
 The production build and movement tests are checked. Interactive browser/rendering QA has not been performed; performance depends on the device. Lower detail reduces rendering resolution. Procedural textures and sound are generated locally; no microphone or camera is used.
 
 Flight uses 8 m/s, or 24 m/s with Shift. Gravity uses quadratic drag approaching 120 mph (53.64 m/s), the speed recalled in the story. Landing restores walking; the open chasm has no reachable bottom. The repeating geometry is reused during vertical travel.
+
+Bathrooms include two showers, a sink and soap pump, a full-length polished mirror panel, and a screened toilet with paper. The toilet and precise layout are interpretations; fixtures are scenery and the mirror does not render a live reflection.
