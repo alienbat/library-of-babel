@@ -15,11 +15,6 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const canvas=renderer.domElement;host.appendChild(canvas);
   const scene=new T.Scene();scene.background=new T.Color('#202825');scene.fog=new T.Fog('#202825',3500,8500);
   const camera=new T.PerspectiveCamera(75,host.clientWidth/host.clientHeight,.1,16000);camera.rotation.order='YXZ';
-  scene.add(new T.HemisphereLight('#f2eedc','#5a625d',2.0));
-  const fill=new T.DirectionalLight('#f8edcc',1.0);fill.position.set(-20,40,-10);scene.add(fill);
-  const playerLight=new T.PointLight('#ffe7b4',10,15,1.7);scene.add(playerLight);
-  const localLights:T.PointLight[]=[];
-  for(let i=0;i<6;i++){const l=new T.PointLight('#fff3d0',12,13,1.7);scene.add(l);localLights.push(l);}
   let opened=new Set<string>();
   try{opened=loadOpened(localStorage);}catch{/* Session history still works without storage. */}
   const world=createWorld(scene,opened);
@@ -115,8 +110,6 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
       totalDistance+=Math.hypot(p.x-previous.x,p.y-previous.y,p.z-previous.z);
     }
     camera.position.set(p.x,p.y+EYE+(config.motion&&active&&mode==='walking'?Math.sin(bob)*.018:0),p.z);camera.rotation.set(pitch,yaw,0,'YXZ');
-    playerLight.position.set(p.x,p.y+2.5,p.z);
-    const side=p.z>=0?1:-1;localLights.forEach((l,i)=>{l.position.set(Math.floor(p.x/7.62)*7.62+(i-2)*7.62+3.81,Math.round(p.y/HEIGHT)*HEIGHT+3.5,side*(INNER+1.8));});
     world.update(p.x,p.y,camera);
     if(active&&!reading){camera.getWorldDirection(aimDirection);setTarget(pickBook(camera.position,aimDirection,Math.round(p.y/HEIGHT)));}else setTarget(null);
     renderer.render(scene,camera);

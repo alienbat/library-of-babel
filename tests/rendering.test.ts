@@ -67,7 +67,7 @@ void test('distant cache survives movement, with unchanged book detail and conse
     scene.traverse(object=>{
       if(object instanceof T.InstancedMesh&&Array.isArray(object.material)&&object.material.length===2){
         const gold=object.material[1] as T.MeshStandardMaterial;
-        if(gold.metalness===.35){
+        if(gold.name==='book-edges'){
           books+=object.count;
           assert.deepEqual(object.geometry.groups.map((g:{count:number})=>g.count),[24,12]);
           const index=object.geometry.index!,normal=object.geometry.attributes.normal;
@@ -90,19 +90,19 @@ void test('distant cache survives movement, with unchanged book detail and conse
     assert.deepEqual(scene.children[0].children,nearMeshes,'vertical flight must reuse detailed geometry');
     assert.equal(scene.children[0].position.y,3.96*59);
     assert.equal(horizon.position.y,3.96*60);
-    let optimized=0;
-    for(const mesh of cached)if(mesh instanceof T.Mesh){
-      for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material]){
-        if(material.customProgramCacheKey()==='distant-without-local-point-lights-v1'){
-          const shader={fragmentShader:'#include <lights_fragment_begin>'} as T.WebGLProgramParametersWithUniforms;
-          material.onBeforeCompile(shader,{} as T.WebGLRenderer);
-          assert.ok(shader.fragmentShader.includes('#if 0'));
-          assert.ok(shader.fragmentShader.includes('NUM_DIR_LIGHTS'));
-          optimized++;
-        }
+    let baked=0;
+    scene.traverse(object=>{if(object instanceof T.Mesh)for(const material of Array.isArray(object.material)?object.material:[object.material]){
+      assert.ok(material instanceof T.MeshBasicMaterial,'scene uses unlit materials');
+      if(material.customProgramCacheKey()==='baked-gallery-volume-v1'){
+        const shader={uniforms:{},vertexShader:T.ShaderLib.basic.vertexShader,fragmentShader:T.ShaderLib.basic.fragmentShader} as T.WebGLProgramParametersWithUniforms;
+        material.onBeforeCompile(shader,{} as T.WebGLRenderer);
+        assert.ok(shader.fragmentShader.includes('texture(bakedPositive,uvw)'));
+        assert.ok(!shader.fragmentShader.includes('lights_fragment_begin'));
+        assert.ok(shader.vertexShader.includes('vBakedNormal'));
+        baked++;
       }
-    }
-    assert.ok(optimized>0);
+    }});
+    assert.ok(baked>0);
     world.update(30,0,camera);assert.equal(coloredCount(),1,'read color returns after leaving the geometry window');
   } finally {
     world.dispose();

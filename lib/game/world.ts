@@ -1,4 +1,5 @@
 import * as T from 'three';
+import {bakeGalleryLighting} from './lighting.ts';
 import { BAY, HEIGHT, INNER, OUTER, mod } from './physics.ts';
 
 import {bookId,ROWS,BOOKS_PER_ROW,type BookLocation} from './books.ts';
@@ -51,7 +52,8 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
       c.fillStyle='#514536';c.fillRect(0,row*64+60,2048,4);
     }
   });
-  const mat=(params:T.MeshStandardMaterialParameters)=>{const m=new T.MeshStandardMaterial(params);materials.push(m);return m;};
+  const lighting=bakeGalleryLighting();
+  const mat=(params:T.MeshStandardMaterialParameters)=>{const m=lighting.material(params);materials.push(m);return m;};
   const floorMat=mat({map:carpet,roughness:1,color:'#b1b1a7'});
   const slabMat=mat({color:'#aaa99c',roughness:1});
   const wallMat=mat({color:'#a8a69a',roughness:1});
@@ -74,34 +76,26 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   // The close-up volumes sample the exact same atlas as their backing shelves.
   // A different solid colour here made the player's current level look brighter.
   const bookMat=mat({map:spines,roughness:1,emissive:'#75644c',emissiveMap:spines,emissiveIntensity:.20});
-  bookMat.onBeforeCompile=shader=>{
+  const shadeBook=bookMat.onBeforeCompile.bind(bookMat);
+  bookMat.onBeforeCompile=(shader,renderer)=>{
+    shadeBook(shader,renderer);
     shader.vertexShader=shader.vertexShader.replace('#include <uv_vertex>',`#include <uv_vertex>
       vec3 shelfPoint = (modelMatrix * instanceMatrix * vec4(position, 1.0)).xyz;
       float shelfU = shelfPoint.z > 0.0 ? -shelfPoint.x / ${BAY} : shelfPoint.x / ${BAY};
       float shelfV = (mod(shelfPoint.y, ${HEIGHT}) - 0.03) / 3.18;
       vMapUv = vec2(fract(shelfU), shelfV);
-      vEmissiveMapUv = vMapUv;
+
     `);
   };
-  bookMat.customProgramCacheKey=()=> 'book-volumes-matching-shelf-atlas-v1';
+  bookMat.customProgramCacheKey=()=> 'baked-book-volumes-matching-shelf-atlas-v2';
   const goldMat=mat({color:'#b59b59',roughness:.65,metalness:.35});
   const screenMat=mat({color:'#b3c9b3',emissive:'#7d9d80',emissiveIntensity:.6});
-  // Point lights have a 15 m maximum radius; none can reach the distant strips.
-  // Keep identical hemisphere/directional lighting and PBR materials, skip zero contributions.
-  function distantMaterial(source:T.MeshStandardMaterial) {
-    const result=source.clone();
-    result.onBeforeCompile=shader=>{
-      shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_begin>',
-        T.ShaderChunk.lights_fragment_begin.replace('#if ( NUM_POINT_LIGHTS > 0 ) && defined( RE_Direct )','#if 0'));
-    };
-    result.customProgramCacheKey=()=> 'distant-without-local-point-lights-v1';
-    materials.push(result);return result;
-  }
-  const distantSlabMat=distantMaterial(slabMat),distantFloorMat=distantMaterial(floorMat),distantRailMat=distantMaterial(railMat);
+  goldMat.name='book-edges';
+  const distantSlabMat=slabMat,distantFloorMat=floorMat,distantRailMat=railMat;
   // Lightweight distant strips extend the view without duplicating nearby furnishings.
   const farShelfMaterials=[841,405].map(repeats=>{
     const t=spines.clone();t.wrapS=T.RepeatWrapping;t.repeat.set(repeats,1);t.needsUpdate=true;textures.push(t);
-    return distantMaterial(mat({map:t,roughness:1,emissive:'#75644c',emissiveMap:t,emissiveIntensity:.20}));
+    return mat({map:t});
   });
   const farLampMaterials=[841,405].map(repeats=>{
     const t=texture(128,8,c=>{c.fillStyle='#fff0c9';c.fillRect(51,0,27,8);});
@@ -301,5 +295,5 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     frustum.setFromProjectionMatrix(clipMatrix);
     for(const {mesh,bounds} of distantBatches){worldBounds.copy(bounds).translate(distantGroup.position);mesh.visible=frustum.intersectsBox(worldBounds);}
   }
-  return { update, markOpened, dispose(){scene.remove(group,distantGroup);for(const root of [group,distantGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
+  return { update, markOpened, dispose(){lighting.dispose();scene.remove(group,distantGroup);for(const root of [group,distantGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
 }
