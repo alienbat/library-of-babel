@@ -1,14 +1,26 @@
 import * as T from 'three';
-import { BAY, HEIGHT, INNER, OUTER, mod } from './physics';
+import { BAY, HEIGHT, INNER, OUTER, mod } from './physics.ts';
 
 type Box = [number, number, number, number, number, number];
 export function createWorld(scene: T.Scene) {
-  const group = new T.Group(); scene.add(group);
+  const group = new T.Group(), distantGroup = new T.Group(); scene.add(group,distantGroup);
   const geometries: T.BufferGeometry[] = [];
   const textures: T.Texture[] = [];
   const materials: T.Material[] = [];
   const boxGeo = new T.BoxGeometry(1,1,1); geometries.push(boxGeo);
   const pipeGeo = new T.CylinderGeometry(1,1,1,6); geometries.push(pipeGeo);
+  function faces(groups:number[]) {
+    const geometry=boxGeo.clone(),indices:number[]=[];
+    for(const index of groups){const g=boxGeo.groups[index];for(let i=g.start;i<g.start+g.count;i++)indices.push(boxGeo.index!.getX(i));}
+    geometry.setIndex(indices);geometry.clearGroups();geometries.push(geometry);return geometry;
+  }
+  const distantShelfGeometry=faces([4,5]);
+  const distantRailGeometry=faces([2,3,4,5]);
+  const distantLampGeometry=faces([2,3]);
+  // Consolidate identical face materials: two draws instead of six per batch.
+  const deckGeometry=faces([0,1,3,4,5,2]);deckGeometry.addGroup(0,30,0);deckGeometry.addGroup(30,6,1);
+  const bookGeometry=faces([0,1,4,5,2,3]);bookGeometry.addGroup(0,24,0);bookGeometry.addGroup(24,12,1);
+  const baseGeometryCount=geometries.length;
   const dummy = new T.Object3D();
   let seed = 9834;
   const random = () => { seed = (Math.imul(seed,1664525)+1013904223)>>>0; return seed/4294967296; };
@@ -48,10 +60,22 @@ export function createWorld(scene: T.Scene) {
   const bookMat=mat({color:'#a48358',roughness:.78});
   const goldMat=mat({color:'#b59b59',roughness:.65,metalness:.35});
   const screenMat=mat({color:'#b3c9b3',emissive:'#7d9d80',emissiveIntensity:.6});
+  // Point lights have a 15 m maximum radius; none can reach the distant strips.
+  // Keep identical hemisphere/directional lighting and PBR materials, skip zero contributions.
+  function distantMaterial(source:T.MeshStandardMaterial) {
+    const result=source.clone();
+    result.onBeforeCompile=shader=>{
+      shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_begin>',
+        T.ShaderChunk.lights_fragment_begin.replace('#if ( NUM_POINT_LIGHTS > 0 ) && defined( RE_Direct )','#if 0'));
+    };
+    result.customProgramCacheKey=()=> 'distant-without-local-point-lights-v1';
+    materials.push(result);return result;
+  }
+  const distantSlabMat=distantMaterial(slabMat),distantFloorMat=distantMaterial(floorMat),distantRailMat=distantMaterial(railMat);
   // Lightweight distant strips extend the view without duplicating nearby furnishings.
   const farShelfMaterials=[841,405].map(repeats=>{
     const t=spines.clone();t.wrapS=T.RepeatWrapping;t.repeat.set(repeats,1);t.needsUpdate=true;textures.push(t);
-    return mat({map:t,roughness:1,emissive:'#75644c',emissiveMap:t,emissiveIntensity:.20});
+    return distantMaterial(mat({map:t,roughness:1,emissive:'#75644c',emissiveMap:t,emissiveIntensity:.20}));
   });
   const farLampMaterials=[841,405].map(repeats=>{
     const t=texture(128,8,c=>{c.fillStyle='#fff0c9';c.fillRect(51,0,27,8);});
@@ -59,10 +83,32 @@ export function createWorld(scene: T.Scene) {
     const m=new T.MeshBasicMaterial({map:t,color:'#fff0c9',transparent:true,depthWrite:false});materials.push(m);return m;
   });
   const baseTextureCount=textures.length,baseMaterialCount=materials.length;
-  function batch(boxes:Box[], material:T.Material|T.Material[], target=group) {
-    const m=new T.InstancedMesh(boxGeo,material,boxes.length);
+  function batch(boxes:Box[], material:T.Material|T.Material[], target=group,geometry=boxGeo) {
+    const m=new T.InstancedMesh(geometry,material,boxes.length);
     boxes.forEach((b,i)=>{dummy.position.set(b[0],b[1],b[2]);dummy.rotation.set(0,0,0);dummy.scale.set(b[3],b[4],b[5]);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});
     m.computeBoundingSphere();target.add(m);return m;
+  }
+  const distantBatches:{mesh:T.InstancedMesh;bounds:T.Box3}[]=[];
+  const frustum=new T.Frustum(),clipMatrix=new T.Matrix4(),worldBounds=new T.Box3();
+  function batchDistant(boxes:Box[],material:T.Material|T.Material[],geometry=boxGeo) {
+    // Coarse vertical bands retain low draw counts while allowing conservative
+    // box culling. A single sphere spanning 19 km could never reject these rows.
+    const buckets=new Map<string,Box[]>();
+    for(const box of boxes){
+      const level=box[1]/HEIGHT, magnitude=Math.abs(level);
+      const band=magnitude<33?0:magnitude<65?1:magnitude<257?2:magnitude<1025?3:4;
+      const key=`${Math.sign(level)}:${band}:${Math.sign(box[2])}`;
+      const bucket=buckets.get(key);if(bucket)bucket.push(box);else buckets.set(key,[box]);
+    }
+    for(const boxes of buckets.values()){
+      const mesh=batch(boxes,material,distantGroup,geometry),bounds=new T.Box3();
+      for(const b of boxes){
+        bounds.min.x=Math.min(bounds.min.x,b[0]-b[3]/2);bounds.max.x=Math.max(bounds.max.x,b[0]+b[3]/2);
+        bounds.min.y=Math.min(bounds.min.y,b[1]-b[4]/2);bounds.max.y=Math.max(bounds.max.y,b[1]+b[4]/2);
+        bounds.min.z=Math.min(bounds.min.z,b[2]-b[5]/2);bounds.max.z=Math.max(bounds.max.z,b[2]+b[5]/2);
+      }
+      mesh.frustumCulled=false;distantBatches.push({mesh,bounds});
+    }
   }
   function pipes(boxes:Box[]) {
     const m=new T.InstancedMesh(pipeGeo,railMat,boxes.length);
@@ -82,7 +128,7 @@ export function createWorld(scene: T.Scene) {
     // Signs have per-window assets; release before replacing them.
     while(textures.length>baseTextureCount)textures.pop()!.dispose();
     while(materials.length>baseMaterialCount)materials.pop()!.dispose();
-    while(geometries.length>2)geometries.pop()!.dispose();
+    while(geometries.length>baseGeometryCount)geometries.pop()!.dispose();
     const decks:Box[]=[], slabs:Box[]=[], floors:Box[]=[], shelves:Box[]=[], trim:Box[]=[], rails:Box[]=[], lamps:Box[]=[], walls:Box[]=[], furniture:Box[]=[], linens:Box[]=[], blankets:Box[]=[], dark:Box[]=[], screens:Box[]=[];
     for(let f=fy-32;f<=fy+32;f++)for(let b=bx-15;b<=bx+15;b++)for(const side of [-1,1]) {
       const x=b*BAY,y=f*HEIGHT,z=side*(INNER+1.8288), amenity=mod(b,12)===0;
@@ -122,15 +168,19 @@ export function createWorld(scene: T.Scene) {
         }
       }
     }
-    const deckMaterials=[slabMat,slabMat,floorMat,slabMat,slabMat,slabMat];
-    batch(decks,deckMaterials);batch(slabs,slabMat);batch(floors,floorMat);batch(shelves,shelfMat);batch(trim,woodMat);pipes(rails);batch(lamps,lightMat);batch(walls,wallMat);batch(furniture,railMat);batch(linens,linenMat);batch(blankets,blanketMat);batch(dark,darkMat);batch(screens,screenMat);
+    const deckMaterials=[slabMat,floorMat];
+    batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,floorMat);batch(shelves,shelfMat);batch(trim,woodMat);pipes(rails);batch(lamps,lightMat);batch(walls,wallMat);batch(furniture,railMat);batch(linens,linenMat);batch(blankets,blanketMat);batch(dark,darkMat);batch(screens,screenMat);
+    // This periodic horizon never needs to be regenerated when walking. Moving its
+    // origin by whole bays/floors preserves the same shelf and lamp alignment.
+    distantGroup.position.set(bx*BAY,fy*HEIGHT,0);
+    if(distantGroup.children.length===0){
     const farSlabs:Box[]=[],farRails:Box[]=[];
     const farShelves:[Box[],Box[]]=[[],[]],farLamps:[Box[],Box[]]=[[],[]];
-    for(let f=fy-2400;f<=fy+2400;f++) {
+    for(let f=-2400;f<=2400;f++) {
       // No overlap with the full-detail rectangle above.
-      const strips=Math.abs(f-fy)<=32
-        ? [{start:bx-420,count:405,material:1},{start:bx+16,count:405,material:1}]
-        : [{start:bx-420,count:841,material:0}];
+      const strips=Math.abs(f)<=32
+        ? [{start:-420,count:405,material:1},{start:16,count:405,material:1}]
+        : [{start:-420,count:841,material:0}];
       for(const strip of strips)for(const side of [-1,1]) {
         const width=strip.count*BAY,x=(strip.start+strip.count/2)*BAY,y=f*HEIGHT,z=side*(INNER+1.8288);
         farSlabs.push([x,y-.17,z,width,.34,3.6576]);
@@ -139,16 +189,27 @@ export function createWorld(scene: T.Scene) {
         farRails.push([x,y+1.2192,side*INNER,width,.07,.07],[x,y+.55,side*INNER,width,.07,.07]);
       }
     }
-    batch(farSlabs,deckMaterials);batch(farRails,railMat);
-    for(let i=0;i<2;i++){batch(farShelves[i],farShelfMaterials[i]);batch(farLamps[i],farLampMaterials[i]);}
+    batchDistant(farSlabs,[distantSlabMat,distantFloorMat],deckGeometry);batchDistant(farRails,distantRailMat,distantRailGeometry);
+    for(let i=0;i<2;i++){batchDistant(farShelves[i],farShelfMaterials[i],distantShelfGeometry);batchDistant(farLamps[i],farLampMaterials[i],distantLampGeometry);}
+    }
     // Real book volumes close to the player, patterned shelf facades in the distance.
-    const books:Box[]=[];
     seed=3451;
-    for(let b=bx-2;b<=bx+2;b++)if(mod(b,12)!==0)for(const side of [-1,1])for(let row=0;row<8;row++)for(let i=0;i<570;i++) {
+    for(let b=bx-2;b<=bx+2;b++)if(mod(b,12)!==0)for(const side of [-1,1]) {
+    // Separate book bounds let Three.js reject shelf sections outside the camera view.
+    const books:Box[]=[];
+    for(let row=0;row<8;row++)for(let i=0;i<570;i++) {
       const x=b*BAY+(i+.5)*BAY/570;
       books.push([x,fy*HEIGHT+.30+row*.39,side*(OUTER-.08),.037,.34,.3]);
     }
-    batch(books,[bookMat,bookMat,goldMat,goldMat,bookMat,bookMat]);
+    batch(books,[bookMat,goldMat],group,bookGeometry);
+    }
   }
-  return { update:rebuild, dispose(){scene.remove(group);group.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
+  function update(px:number,py:number,camera?:T.Camera){
+    rebuild(px,py);
+    if(!camera)return;
+    camera.updateMatrixWorld();clipMatrix.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);
+    frustum.setFromProjectionMatrix(clipMatrix);
+    for(const {mesh,bounds} of distantBatches){worldBounds.copy(bounds).translate(distantGroup.position);mesh.visible=frustum.intersectsBox(worldBounds);}
+  }
+  return { update, dispose(){scene.remove(group,distantGroup);for(const root of [group,distantGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
 }

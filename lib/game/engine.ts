@@ -71,7 +71,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
     camera.position.set(p.x,p.y+EYE+(config.motion&&active?Math.sin(bob)*.018:0),p.z);camera.rotation.set(pitch,yaw,0,'YXZ');
     playerLight.position.set(p.x,p.y+2.5,p.z);
     const side=Math.sign(p.z);localLights.forEach((l,i)=>{l.position.set(Math.floor(p.x/7.62)*7.62+(i-2)*7.62+3.81,Math.round(p.y/HEIGHT)*HEIGHT+3.5,side*(INNER+1.8));});
-    world.update(p.x,p.y);renderer.render(scene,camera);
+    world.update(p.x,p.y,camera);renderer.render(scene,camera);
     if(now-lastStats>300){lastStats=now;callbacks.onStats({floor:Math.round(p.y/HEIGHT),distance:Math.floor(totalDistance)});}
   }
   frame=requestAnimationFrame(animate);
