@@ -61,7 +61,7 @@ export function bakeGalleryLighting(){
         float roomX=mod(vBakedPosition.x,${PERIOD});
         bool inRoom=abs(vBakedPosition.z)>${OUTER+.4};
         if(inRoom){
-          vec3 roomUv=(vec3(clamp(roomX/${ROOM_WIDTH},0.0,1.0),cellY/${HEIGHT},clamp((abs(vBakedPosition.z)-${OUTER})/${ROOM_DEPTH},0.0,1.0))*vec3(${ROOM_GRID[0]-1}.0,${ROOM_GRID[1]-1}.0,${ROOM_GRID[2]-1}.0)+.5)/vec3(${ROOM_GRID[0]}.0,${ROOM_GRID[1]}.0,${ROOM_GRID[2]}.0);
+          vec3 roomUv=(vec3(clamp(roomX/${ROOM_WIDTH.toFixed(1)},0.0,1.0),cellY/${HEIGHT},clamp((abs(vBakedPosition.z)-${OUTER})/${ROOM_DEPTH},0.0,1.0))*vec3(${ROOM_GRID[0]-1}.0,${ROOM_GRID[1]-1}.0,${ROOM_GRID[2]-1}.0)+.5)/vec3(${ROOM_GRID[0]}.0,${ROOM_GRID[1]}.0,${ROOM_GRID[2]}.0);
           positive=texture(roomPositive,roomUv).rgb*${RANGE}.0;
           negative=texture(roomNegative,roomUv).rgb*${RANGE}.0;
         }else{
