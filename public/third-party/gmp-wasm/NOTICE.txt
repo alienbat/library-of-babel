@@ -1,0 +1,4 @@
+GMP-WASM 1.3.2 by Dani Biro, LGPL-3.0-only
+https://github.com/Daninet/gmp-wasm
+Unmodified integer-only distribution, containing GMP and its JavaScript bindings.
+The complete upstream package, including source and build scripts, is provided in source.tar.gz.

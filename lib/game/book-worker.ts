@@ -1,9 +1,21 @@
-import {bookOrdinal,ordinalDigits,permuteDigits,textPage,projectBook,type GlobalBook,type GlobalFrame} from './global-books';
+import {createPortableBookMath} from './portable-books';
+import {permuteDigits,textPage,type GlobalBook,type GlobalFrame} from './global-books';
 import {bookId,localBookId} from './books';
-let records:GlobalBook[]=[],cachedIndex:bigint|undefined,cached:Uint8Array|undefined,cachedExpression='';
+let records:GlobalBook[]=[],cached:Uint8Array|undefined,cachedExpression='';
 const knownExpressions=new Set<string>();
 let projectionFrame='',projectionDirty=true,projected:string[]=[];
+// Queue requests behind WASM initialization and preserve init/history/page order.
+const ready=createPortableBookMath();
+// Attach a rejection handler immediately; each request still receives the actual error.
+void ready.catch(()=>{});
+let queue=Promise.resolve();
 self.onmessage=(event:MessageEvent)=>{
+  queue=queue.then(async()=>{
+    try{const math=await ready;math.withContext(api=>handle(event,api));}
+    catch(error){self.postMessage({id:event.data.id,error:error instanceof Error?error.message:'Book generation failed'});}
+  });
+};
+function handle(event:MessageEvent,{bookOrdinal,digits,projectBook}:Parameters<Parameters<Awaited<ReturnType<typeof createPortableBookMath>>['withContext']>[0]>[0]){
   const {id,action,book,page,frame,history}=event.data;
   try{
     let changed=false;
@@ -17,11 +29,11 @@ self.onmessage=(event:MessageEvent)=>{
       const expression=bookId(book);
       if(expression!==cachedExpression){
         const index=bookOrdinal(book);
-        if(index!==cachedIndex){cached=permuteDigits(ordinalDigits(index));cachedIndex=index;}
+        cached=permuteDigits(digits(index));
         cachedExpression=expression;
         if(!knownExpressions.has(expression)){
           // Expressions using different anchors are compared by exact canonical ordinal.
-          if(!records.some(record=>bookOrdinal(record)===index)){records.push(book);changed=true;projectionDirty=true;}
+          if(!records.some(record=>bookOrdinal(record).isEqual(index))){records.push(book);changed=true;projectionDirty=true;}
           knownExpressions.add(expression);
         }
       }
