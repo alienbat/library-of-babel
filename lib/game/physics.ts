@@ -60,8 +60,14 @@ export type WorldLimits={minX?:number;maxX?:number;minY?:number;maxY?:number};
 export function withinLimits(p:Position,limits:WorldLimits={}){
   return p.x>=(limits.minX??-Infinity)+RADIUS&&p.x<=(limits.maxX??Infinity)-RADIUS&&p.y>=(limits.minY??-Infinity)&&p.y+EYE+.12<=(limits.maxY??Infinity);
 }
+function terminalStairWall(p:Position,limits:WorldLimits){
+  const a=Math.abs(p.z),t=mod(p.x,PERIOD);
+  if(a<OUTER+.3-RADIUS||a>OUTER+3.8+RADIUS)return false;
+  const top=limits.maxY===undefined?undefined:limits.maxY-HEIGHT+.34;
+  return [[top,4],[limits.minY,12]].some(([floor,x])=>floor!==undefined&&x!==undefined&&Math.abs(t-x)<.08+RADIUS&&p.y+EYE+.12>floor-.34&&p.y<floor+HEIGHT-.34);
+}
 function walkable(x:number,z:number,y:number,limits:WorldLimits){
-  return allowed(x,z)||(limits.minY!==undefined&&Math.abs(y-limits.minY)<.001&&Math.abs(z)<INNER-RADIUS-.04);
+  return !terminalStairWall({x,y,z},limits)&&(allowed(x,z)||(limits.minY!==undefined&&Math.abs(y-limits.minY)<.001&&Math.abs(z)<INNER-RADIUS-.04));
 }
 export function move(p: Position, dx: number, dz: number,limits:WorldLimits={}): Position {
   let { x, y, z } = p;
@@ -117,6 +123,8 @@ export function airClear(p:Position):boolean {
   const ramp=a>OUTER+.48&&t>=4&&t<=12?(t-4)/8*HEIGHT:0;
   const level=Math.floor((p.y-ramp+1e-8)/HEIGHT)*HEIGHT+ramp;
   const height=p.y-level;
+  const inDoor=(t>1&&t<4)||(t>12&&t<15);
+  if(inDoor&&a>OUTER+.4-RADIUS&&a<OUTER+.56+RADIUS&&height+BODY_HEIGHT>2.6)return false;
   // A full body must fit between the deck and the ceiling. Crossing above the
   // 4-foot rail is possible, but passing through a deck or shelving is not.
   if(height< -1e-7||height+BODY_HEIGHT>HEIGHT-.34)return false;
@@ -131,7 +139,7 @@ export function flyMove(p:Position,dx:number,dy:number,dz:number,limits:WorldLim
     for(const axis of ['y','x','z'] as const) {
       const amount=(axis==='x'?dx:axis==='y'?dy:dz)/steps;
       const candidate={...next,[axis]:next[axis]+amount};
-      if(withinLimits(candidate,limits)&&airClear(candidate))next[axis]=candidate[axis];
+      if(withinLimits(candidate,limits)&&!terminalStairWall(candidate,limits)&&airClear(candidate))next[axis]=candidate[axis];
     }
   }
   return next;

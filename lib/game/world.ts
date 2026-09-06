@@ -1,4 +1,5 @@
 import * as T from 'three';
+import {staircase} from './stairs.ts';
 import {createBoundaryLighting,BOUNDARY_SPAN} from './boundary-lighting.ts';
 import {createInfiniteHorizon,withHorizonFade} from './horizon.ts';
 import {bakeGalleryLighting} from './lighting.ts';
@@ -81,7 +82,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     for(const mesh of [frames,lenses]){mesh.count=count;mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();}
   }
   function setLimits(next:WorldLimits){
-    cornerLimits=next;fixtureX=fixtureY=Infinity;
+    cornerLimits=next;fixtureX=fixtureY=Infinity;centerX=Infinity;
     endCap.material=next.minY!==undefined?boundary.floor:boundary.ceiling;
     horizon.setLimits(next);
     endWall.visible=next.minX!==undefined||next.maxX!==undefined;
@@ -195,7 +196,8 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   let centerX=Infinity, centerY=Infinity,nearBaseY=0;
   function rebuild(px:number,py:number) {
     const bx=Math.floor(px/BAY), fy=Math.round(py/HEIGHT);
-    if(bx===centerX){
+    const nearEnd=(level:number)=>[cornerLimits.minY,cornerLimits.maxY].some(bound=>bound!==undefined&&Math.abs(level*HEIGHT-bound)<34*HEIGHT);
+    if(bx===centerX&&(fy===centerY||(!nearEnd(fy)&&!nearEnd(centerY)))){
       if(fy!==centerY){
         // Every level has the same architecture. Translate the existing detailed
         // window during flight/fall instead of rebuilding it 14 times a second.
@@ -214,6 +216,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     const tiles:Box[]=[],ceramics:Box[]=[],bowls:Box[]=[],seats:Box[]=[],chrome:Box[]=[],mirrors:Box[]=[];
     for(let f=fy-32;f<=fy+32;f++)for(let b=bx-15;b<=bx+15;b++)for(const side of [-1,1]) {
       const x=b*BAY,y=f*HEIGHT,z=side*(INNER+1.8288), amenity=mod(b,12)===0;
+      if(y<(cornerLimits.minY??-Infinity)-.001||y>(cornerLimits.maxY??Infinity)+.001)continue;
       // Carpet is the top face of one solid deck, never a second coplanar mesh.
       decks.push([x+BAY/2,y-.17,z,BAY,.34,3.6576]);
       rails.push([x+BAY/2,y+1.2192,side*INNER,BAY,0,0],[x+BAY/2,y+.55,side*INNER,BAY,0,0]);
@@ -225,11 +228,8 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         trim.push([x+BAY/2,y+3.28,side*(OUTER-.04),BAY,.10,.5],[x+BAY/2,y+.07,side*(OUTER-.04),BAY,.14,.5]);
       }else {
         walls.push([x+.5,y+1.8,side*(OUTER+.22),1,3.6,.3],[x+15.5,y+1.8,side*(OUTER+.22),1,3.6,.3],[x+17,y+1.8,side*(OUTER+.22),2,3.6,.3],[x+21.43,y+1.8,side*(OUTER+.22),2.86,3.6,.3]);
-        // Solid wall beside the straight stair prevents stepping sideways off it.
-        walls.push([x+8,y+1.8,side*(OUTER+.48),8,3.6,.16]);
-        walls.push([x+8,y+1.8,side*(OUTER+3.8),14,3.6,.2],[x+1,y+1.8,side*(OUTER+2),.2,3.6,3.6],[x+15,y+1.8,side*(OUTER+2),.2,3.6,3.6]);
-        floors.push([x+2.5,y,side*(OUTER+1.9),3,.10,3.8],[x+13.5,y,side*(OUTER+1.9),3,.10,3.8]);
-        for(let s=0;s<24;s++) slabs.push([x+4+(s+.5)/3,y+(s+1)*HEIGHT/24-.09,side*(OUTER+2.05),1/3,.18,2.9]);
+        const stairs=staircase(x,y,side,cornerLimits);
+        walls.push(...stairs.walls);floors.push(...stairs.floors);slabs.push(...stairs.steps);
         // Dormitory, seven beds, fountain and an inert food kiosk.
         // Each room deck also forms the ceiling below; never overlap two slabs.
         floors.push([x+19,y-.18,side*(OUTER+2.65),6,.36,5.3]);
@@ -278,7 +278,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         dark.push([x+17.85,y+.68,side*(INNER+.72),.9,1.36,1.1]);screens.push([x+17.85,y+1.38,side*(INNER+.72),.68,.045,.67]);
         dark.push([x+20.6,y+.83,side*(OUTER-.24),.5,.22,.5],[x+20.6,y+.45,side*(OUTER-.05),.25,.8,.2]);
         if(Math.abs(f-fy)<=1&&Math.abs(b-bx)<=12) {
-          sign('STAIRS\nUP →     ← DOWN',x+8,y+2.2,side*(OUTER+.38),side,2.6);
+          sign(stairs.label,x+8,y+2.2,side*(OUTER+.38),side,2.6);
           sign('REST AREA\n7 BEDS · BATH →',x+17,y+2.2,side*(OUTER+.04),side,1.2);
           sign('BATHROOM\nSHOWERS · WC',x+24.6,y+2.8,side*(OUTER+.515),-side,1.5);
           sign('LIBRARY\nFind the story of your life.\nYour search has no deadline.',x+21,y+2.1,side*(OUTER+.04),side,1.5);
