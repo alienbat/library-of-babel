@@ -1,13 +1,15 @@
 import * as T from 'three';
 import { createWorld } from './world';
-import { EYE, HEIGHT, INNER, move, flightVector, flyMove, fallStep, type Position, type TravelMode,type WorldLimits } from './physics';
+import { EYE, HEIGHT, INNER,BAY,PERIOD, move, flightVector, flyMove, fallStep, type Position, type TravelMode,type WorldLimits } from './physics';
 
-import {bookId,bookCenter,pickBook,loadOpened,OPENED_STORAGE_KEY,type BookLocation} from './books';
+import {bookId,localBookId,bookCenter,pickBook,loadOpened,type BookLocation} from './books';
 
+import {createBookClient} from './book-client';
+import {newFrame,shiftFrame,frameLimits,type GlobalFrame} from './global-books';
 import {destinationState,type Destination} from './destinations';
 
 type Settings={sound:boolean;motion:boolean;fov:number;sensitivity:number;quality:string};
-export type GameStats={floor:number;distance:number;mode:TravelMode;fallSpeed:number};
+export type GameStats={floor:string;distance:number;mode:TravelMode;fallSpeed:number};
 type Callbacks={onPause:()=>void;onStats:(s:GameStats)=>void;onFallback:()=>void;onError:(s:string)=>void;onTarget:(b:BookLocation|null)=>void;onBook:(b:BookLocation|null)=>void;onPage:(delta:number)=>void;onStorageWarning:()=>void;onTeleportMenu:(open:boolean)=>void;onDestination:(destination:Destination)=>void};
 export type GameHandle=ReturnType<typeof createGame>;
 export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
@@ -20,6 +22,8 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   let opened=new Set<string>();
   try{opened=loadOpened(localStorage);}catch{/* Session history still works without storage. */}
   const world=createWorld(scene,opened);
+  let globalFrame:GlobalFrame=newFrame();
+  const books=createBookClient(ids=>{opened.clear();ids.forEach(id=>opened.add(id));world.refreshBookColors();},callbacks.onStorageWarning);
   const highlightGeometry=new T.BoxGeometry(.043,.352,.31);
   const highlightEdges=new T.EdgesGeometry(highlightGeometry);
   const highlightMaterial=new T.LineBasicMaterial({color:'#fff3a8',toneMapped:false});
@@ -35,14 +39,25 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
     if(document.pointerLockElement===canvas)document.exitPointerLock();
   }
   function teleport(destination:Destination){
+    globalFrame=newFrame(destination);books.setFrame(globalFrame);
     const next=destinationState(destination);p=next.position;limits=next.limits;yaw=next.yaw;pitch=next.pitch;
+    applyLimits();totalDistance=0;mode='walking';fallSpeed=0;stepDistance=0;bob=0;
+    closeBook(false);setTarget(null);callbacks.onDestination(destination);emitStats();closeTeleport();
+  }
+  function applyLimits(){
     renderer.clippingPlanes=[];
     if(limits.minX!==undefined)renderer.clippingPlanes.push(new T.Plane(new T.Vector3(1,0,0),-limits.minX));
     if(limits.maxX!==undefined)renderer.clippingPlanes.push(new T.Plane(new T.Vector3(-1,0,0),limits.maxX));
     if(limits.minY!==undefined)renderer.clippingPlanes.push(new T.Plane(new T.Vector3(0,1,0),-limits.minY+.36));
     if(limits.maxY!==undefined)renderer.clippingPlanes.push(new T.Plane(new T.Vector3(0,-1,0),limits.maxY+.36));
-    world.setLimits(limits);totalDistance=0;mode='walking';fallSpeed=0;stepDistance=0;bob=0;
-    closeBook(false);setTarget(null);callbacks.onDestination(destination);emitStats();closeTeleport();
+    world.setLimits(limits);
+  }
+  function rebase(){
+    const sx=Math.abs(p.x)>PERIOD*16?Math.trunc(p.x/PERIOD)*12:0;
+    const sy=Math.abs(p.y)>HEIGHT*512?Math.trunc(p.y/HEIGHT):0;
+    if(!sx&&!sy)return;
+    const dx=sx*BAY,dy=sy*HEIGHT;p={...p,x:p.x-dx,y:p.y-dy};
+    globalFrame=shiftFrame(globalFrame,sx,sy);limits=frameLimits(globalFrame);books.setFrame(globalFrame);applyLimits();setTarget(null);
   }
   function setTarget(next:BookLocation|null){
     if((next?bookId(next):null)!==(target?bookId(target):null)){target=next;callbacks.onTarget(next);}
@@ -52,8 +67,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   function openBook(){
     if(!active||reading||teleportMenu||!target)return;
     reading=target;clearKeys();dragId=null;
-    opened.add(bookId(reading));world.markOpened(reading);
-    try{localStorage.setItem(OPENED_STORAGE_KEY,JSON.stringify([...opened]));}catch{callbacks.onStorageWarning();}
+    opened.add(localBookId(reading));world.markOpened(reading);
     callbacks.onBook(reading);setTarget(null);
     if(document.pointerLockElement===canvas)document.exitPointerLock();
   }
@@ -81,7 +95,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
       try{const result=canvas.requestPointerLock();if(result&&typeof result.catch==='function')void result.catch(()=>{fallback=true;callbacks.onFallback();});}catch{fallback=true;callbacks.onFallback();}
     }
   }
-  const emitStats=()=>callbacks.onStats({floor:Math.round(p.y/HEIGHT),distance:Math.floor(totalDistance),mode,fallSpeed});
+  const emitStats=()=>callbacks.onStats({floor:(BigInt(Math.round(p.y/HEIGHT))+BigInt(globalFrame.floorOffset)).toString(),distance:Math.floor(totalDistance),mode,fallSpeed});
   function toggleFlight(){if(reading||teleportMenu)return;mode=mode==='flying'?'falling':'flying';fallSpeed=0;stepDistance=0;emitStats();}
   const keydown=(e:KeyboardEvent)=>{if(!active)return;if(e.code==='KeyT'){e.preventDefault();if(!e.repeat)toggleTeleport();return;}if(teleportMenu){if(e.code==='Escape'){e.preventDefault();closeTeleport();}return;}if(reading){if(['ArrowLeft','ArrowRight','Escape','Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();if(e.code==='ArrowRight')callbacks.onPage(1);else if(e.code==='ArrowLeft')callbacks.onPage(-1);else if(e.code==='Escape')closeBook();return;}if(e.code==='Escape'){pause();return;}if(e.code==='Space'){e.preventDefault();if(!e.repeat)toggleFlight();return;}if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}};
   const keyup=(e:KeyboardEvent)=>{keys.delete(e.code);};
@@ -129,25 +143,26 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
       }
       totalDistance+=Math.hypot(p.x-previous.x,p.y-previous.y,p.z-previous.z);
     }
+    rebase();
     camera.position.set(p.x,p.y+EYE+(config.motion&&active&&mode==='walking'?Math.sin(bob)*.018:0),p.z);camera.rotation.set(pitch,yaw,0,'YXZ');
     world.update(p.x,p.y,camera);
-    if(active&&!reading){camera.getWorldDirection(aimDirection);const candidate=pickBook(camera.position,aimDirection,Math.round(p.y/HEIGHT));const x=candidate?bookCenter(candidate).x:0;setTarget(candidate&&x>=(limits.minX??-Infinity)&&x<=(limits.maxX??Infinity)?candidate:null);}else setTarget(null);
+    if(active&&!reading){camera.getWorldDirection(aimDirection);const candidate=pickBook(camera.position,aimDirection,Math.round(p.y/HEIGHT));if(candidate)candidate.frame={...globalFrame};const x=candidate?bookCenter(candidate).x:0;setTarget(candidate&&x>=(limits.minX??-Infinity)&&x<=(limits.maxX??Infinity)?candidate:null);}else setTarget(null);
     renderer.render(scene,camera);
     if(now-lastStats>300){lastStats=now;emitStats();}
   }
   frame=requestAnimationFrame(animate);
   const lifecycle=new AbortController();
   const handle = {
-    start,pause,toggleFlight,openBook,closeBook,toggleTeleport,teleport,closeTeleport,
+    start,pause,toggleFlight,openBook,closeBook,toggleTeleport,teleport,closeTeleport,readPage:(book:BookLocation,page:number)=>books.page(book,page),
     reset(){teleport('arrival');},
     touchMove(direction:string,pressed:boolean){const code=({forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'} as Record<string,string>)[direction];if(pressed)keys.add(code);else keys.delete(code);},
     configure(next:Settings){config=next;camera.fov=next.fov;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio,next.quality==='low'?1:1.7));renderer.setSize(host.clientWidth,host.clientHeight);if(master&&audio)master.gain.setTargetAtTime(next.sound&&active?.13:0,audio.currentTime,.1);},
-    dispose(){lifecycle.abort();disposed=true;cancelAnimationFrame(frame);observer.disconnect();events.forEach(([target,name,listener])=>target.removeEventListener(name,listener));if(document.pointerLockElement===canvas)document.exitPointerLock();void audio?.close();world.dispose();highlightGeometry.dispose();highlightEdges.dispose();highlightMaterial.dispose();renderer.dispose();canvas.remove();},
+    dispose(){books.dispose();lifecycle.abort();disposed=true;cancelAnimationFrame(frame);observer.disconnect();events.forEach(([target,name,listener])=>target.removeEventListener(name,listener));if(document.pointerLockElement===canvas)document.exitPointerLock();void audio?.close();world.dispose();highlightGeometry.dispose();highlightEdges.dispose();highlightMaterial.dispose();renderer.dispose();canvas.remove();},
   };
   type ModelContext={registerTool:(tool:{name:string;description:string;inputSchema:object;annotations:{readOnlyHint:boolean};execute:(input:unknown)=>unknown},options:{signal:AbortSignal})=>void|Promise<void>};
   const context=(document as Document & {modelContext?:ModelContext}).modelContext;
   if(context?.registerTool){
-    const state=()=>({floor:Math.round(p.y/HEIGHT),distance:Math.floor(totalDistance),walking:active&&mode==='walking',mode,fallSpeed});
+    const state=()=>({floor:(BigInt(Math.round(p.y/HEIGHT))+BigInt(globalFrame.floorOffset)).toString(),distance:Math.floor(totalDistance),walking:active&&mode==='walking',mode,fallSpeed});
     const tools=[
       {name:'read_walk_state',description:'Read the current relative library floor, walked distance, and pause state.',readOnly:true,action:state},
       {name:'pause_walk',description:'Pause the library walk and release mouse capture.',readOnly:false,action:()=>{pause();return state();}},

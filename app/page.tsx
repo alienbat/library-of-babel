@@ -1,8 +1,8 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { GameHandle, GameStats } from '../lib/game/engine';
 
-import {bookId,generatePage,turnPage,PAGE_COUNT,type BookLocation} from '../lib/game/books';
+import {bookId,turnPage,PAGE_COUNT,type BookLocation} from '../lib/game/books';
 
 import {DESTINATIONS,DESTINATION_LABELS,type Destination} from '../lib/game/destinations';
 
@@ -13,10 +13,18 @@ export default function Home() {
   const reader=useRef<HTMLDialogElement>(null),viewport=useRef<HTMLDivElement>(null), game=useRef<GameHandle|null>(null);
   const [ready,setReady]=useState(false),[playing,setPlaying]=useState(false),[entered,setEntered]=useState(false),[error,setError]=useState('');
   const [settings,setSettings]=useState(false),[sound,setSound]=useState(true),[motion,setMotion]=useState(false),[fov,setFov]=useState(75),[sensitivity,setSensitivity]=useState(1),[quality,setQuality]=useState('high');
-  const [stats,setStats]=useState<GameStats>({floor:0,distance:0,mode:'walking',fallSpeed:0}),[drag,setDrag]=useState(false);
+  const [stats,setStats]=useState<GameStats>({floor:'0',distance:0,mode:'walking',fallSpeed:0}),[drag,setDrag]=useState(false);
   const [target,setTarget]=useState<BookLocation|null>(null),[book,setBook]=useState<BookLocation|null>(null),[page,setPage]=useState(0),[storageWarning,setStorageWarning]=useState(false);
   useEffect(()=>{if(book)reader.current?.showModal();},[book]);
-  const pageText=useMemo(()=>book?generatePage(book,page):'',[book,page]);
+  const pageKey=book?`${bookId(book)}:${page}`:'';
+  const [pageResult,setPageResult]=useState({key:'',text:'',error:''});
+  const pageText=pageResult.key===pageKey?pageResult.text:'';
+  const pageError=pageResult.key===pageKey?pageResult.error:'';
+  useEffect(()=>{
+    let cancelled=false;
+    if(book)void game.current?.readPage(book,page).then(text=>{if(!cancelled)setPageResult({key:pageKey,text,error:''});}).catch(error=>{if(!cancelled)setPageResult({key:pageKey,text:'',error:error instanceof Error?error.message:'Could not read this book.'});});
+    return ()=>{cancelled=true;};
+  },[book,page,pageKey]);
   useEffect(()=>{
     let disposed=false;
     import('../lib/game/engine').then(({createGame})=>{
@@ -54,13 +62,13 @@ export default function Home() {
       <div className="reader-toolbar"><span>THE BABEL LIBRARY <small>410 PAGES · 40 LINES · 80 CHARACTERS</small></span><button onClick={()=>game.current?.closeBook()}>Return to shelf <kbd>RIGHT CLICK</kbd></button></div>
       <div className="book-scroll"><article className="book-page" key={`${bookId(book)}:${page}`}>
         <div className="page-running-head">THE LIBRARY</div>
-        <pre className="book-text" aria-label={`Page ${page+1} content`}>{pageText}</pre>
+        <pre className="book-text" aria-label={`Page ${page+1} content`}>{pageText||(pageError||'Preparing this book…')}</pre>
         <div className="page-folio">{page+1}</div>
         <div className="book-footnote">{bookId(book)}</div>
       </article></div>
       <nav className="reader-navigation" aria-label="Book pages"><button disabled={page===0} onClick={()=>setPage(p=>turnPage(p,-1))}>← Previous</button><span aria-live="polite">Page {page+1} of {PAGE_COUNT}</span><button disabled={page===PAGE_COUNT-1} onClick={()=>setPage(p=>turnPage(p,1))}>Next →</button></nav>
       <p className="reader-help">← / → Turn page · Right click or Esc to return · Opened books turn teal{storageWarning?' · History can only be kept for this session.': ''}</p>
     </dialog>}
-    <footer><span>{playing?(stats.mode==='flying'?'FLYING':stats.mode==='falling'?`FALLING · ${Math.round(stats.fallSpeed / 0.44704)} MPH`:'WALKING'):'AN UNOFFICIAL LITERARY EXPLORATION'}</span><div><span>{DESTINATION_LABELS[destination]}</span><span>LEVEL <b>{stats.floor===0?'0':`${stats.floor>0?'+':''}${stats.floor}`}</b></span><span><b>{stats.distance.toLocaleString()}</b> m travelled</span></div></footer>
+    <footer><span>{playing?(stats.mode==='flying'?'FLYING':stats.mode==='falling'?`FALLING · ${Math.round(stats.fallSpeed / 0.44704)} MPH`:'WALKING'):'AN UNOFFICIAL LITERARY EXPLORATION'}</span><div><span>{DESTINATION_LABELS[destination]}</span><span>LEVEL <b>{stats.floor==='0'?'0':`${stats.floor.startsWith('-')?'':'+'}${stats.floor}`}</b></span><span><b>{stats.distance.toLocaleString()}</b> m travelled</span></div></footer>
   </main>;
 }

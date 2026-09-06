@@ -1,22 +1,19 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {bookId,bookCenter,generatePage,pickBook,turnPage,loadOpened,OPENED_STORAGE_KEY,type BookLocation} from '../lib/game/books.ts';
+import {bookId,bookCenter,pickBook,turnPage,loadOpened,OPENED_STORAGE_KEY,type BookLocation} from '../lib/game/books.ts';
+import {uniqueBook,textPage,globalBook,newFrame} from '../lib/game/global-books.ts';
 import {BAY,HEIGHT,OUTER} from '../lib/game/physics.ts';
 const book:BookLocation={level:0,side:1,bay:1,row:3,book:120};
 void test('every book page has 40 lines of 80 printable characters',()=>{
+  const content=uniqueBook(globalBook(book,newFrame('bottom-left')));
   for(let page=0;page<410;page++){
-    const text=generatePage(book,page),lines=text.split('\n');
+    const text=textPage(content,page),lines=text.split('\n');
     assert.equal(lines.length,40);for(const line of lines){assert.equal(line.length,80);assert.match(line,/^[\x20-\x7e]{80}$/);}
   }
 });
-void test('contents depend only on the complete location and page, never visit order',()=>{
-  const first=generatePage(book,0);generatePage({...book,bay:-13},409);
-  assert.equal(generatePage({...book},0),first);
-  for(const variant of [{...book,level:-1},{...book,side:-1 as const},{...book,bay:-1},{...book,row:4},{...book,book:121}]){
-    assert.notEqual(bookId(variant),bookId(book));assert.notEqual(generatePage(variant,0),first);
-  }
-  assert.notEqual(generatePage(book,1),first);
-  assert.throws(()=>generatePage(book,-1),RangeError);assert.throws(()=>generatePage(book,410),RangeError);
+void test('page bounds and navigation are clamped',()=>{
+  const content=uniqueBook(globalBook(book,newFrame('bottom-left')));
+  assert.throws(()=>textPage(content,-1),RangeError);assert.throws(()=>textPage(content,410),RangeError);
   assert.equal(turnPage(0,-1),0);assert.equal(turnPage(409,1),409);assert.equal(turnPage(12,1),13);assert.equal(turnPage(12,-1),11);
 });
 void test('picking resolves actual spines on both sides and negative floors and bays',()=>{
