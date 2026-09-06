@@ -30,7 +30,7 @@ export default function Home() {
     import('../lib/game/engine').then(({createGame})=>{
       if(disposed||!viewport.current)return;
       try {game.current=createGame(viewport.current,{onPause:()=>setPlaying(false),onStats:setStats,onFallback:()=>setDrag(true),onError:setError,onTarget:setTarget,onBook:b=>{setBook(b);setPage(0);},onPage:delta=>setPage(p=>turnPage(p,delta)),onStorageWarning:()=>setStorageWarning(true),onTeleportMenu:setTeleportOpen,onDestination:setDestination});setReady(true);}
-      catch {setError('The library needs WebGL graphics. Try opening it in a current desktop browser with hardware acceleration enabled.');}
+      catch(error) {console.error('Library startup failed:',error);setError(error instanceof Error?error.message:'The library could not start. Please reload to try again.');}
     }).catch(()=>setError('The library could not load. Please refresh to try again.'));
     return ()=>{disposed=true;game.current?.dispose();game.current=null;};
   },[]);

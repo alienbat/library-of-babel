@@ -2,11 +2,13 @@ import {globalBook,newFrame,type GlobalBook,type GlobalFrame} from './global-boo
 import {loadOpened,type BookLocation} from './books.ts';
 const STORAGE='babel-global-opened-v2';
 type Reply={id:number;text?:string;opened:string[];history?:GlobalBook[];error?:string};
-export function createBookClient(onHistory:(ids:string[])=>void,onStorageWarning:()=>void){
-  const worker=new Worker(new URL('./book-worker.ts',import.meta.url),{type:'module'});
+export function createBookClient(onHistory:(ids:string[])=>void,onStorageWarning:()=>void,workerUrl:string){
   let frame=newFrame(),sequence=0,frameVersion=0,failure:Error|undefined;
   const pending=new Map<number,{resolve:(r:Reply)=>void;reject:(e:Error)=>void;version:number}>();
-  worker.onmessage=(event:MessageEvent<Reply>)=>{
+  let worker:Worker|undefined;
+  try{worker=new Worker(workerUrl,{type:'module'});}
+  catch(error){failure=new Error(`The book generator could not start: ${error instanceof Error?error.message:String(error)}`);}
+  if(worker)worker.onmessage=(event:MessageEvent<Reply>)=>{
     const reply=event.data,request=pending.get(reply.id);if(!request)return;pending.delete(reply.id);
     if(reply.error){request.reject(new Error(reply.error));return;}
     if(request.version===frameVersion)onHistory(reply.opened);
@@ -19,14 +21,14 @@ export function createBookClient(onHistory:(ids:string[])=>void,onStorageWarning
     for(const request of pending.values())request.reject(failure);
     pending.clear();
   }
-  worker.onerror=(event)=>fail(event.message
+  if(worker)worker.onerror=(event)=>fail(event.message
     ?`Book generation stopped: ${event.message}`
     :'The book generator could not load. Reload the page to retry.');
-  worker.onmessageerror=()=>fail('The book generator returned an unreadable response. Reload the page to retry.');
+  if(worker)worker.onmessageerror=()=>fail('The book generator returned an unreadable response. Reload the page to retry.');
   function request(action:string,extra:object={}){
     if(failure)return Promise.reject(failure);
     const id=++sequence;
-    return new Promise<Reply>((resolve,reject)=>{pending.set(id,{resolve,reject,version:frameVersion});try{worker.postMessage({id,action,frame,...extra});}catch(error){pending.delete(id);reject(error instanceof Error?error:new Error(String(error)));}});
+    return new Promise<Reply>((resolve,reject)=>{pending.set(id,{resolve,reject,version:frameVersion});try{worker!.postMessage({id,action,frame,...extra});}catch(error){pending.delete(id);reject(error instanceof Error?error:new Error(String(error)));}});
   }
   let history:GlobalBook[]=[];
   try{
@@ -41,6 +43,6 @@ export function createBookClient(onHistory:(ids:string[])=>void,onStorageWarning
   return {
     setFrame(next:GlobalFrame){frame={...next};frameVersion++;onHistory([]);void request('history').catch(()=>{});},
     async page(book:BookLocation,page:number){const reply=await request('page',{book:globalBook(book,book.frame??frame),page});return reply.text!;},
-    dispose(){worker.terminate();for(const request of pending.values())request.reject(new Error('Reader closed'));pending.clear();},
+    dispose(){worker?.terminate();for(const request of pending.values())request.reject(new Error('Reader closed'));pending.clear();},
   };
 }

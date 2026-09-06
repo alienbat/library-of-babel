@@ -1,4 +1,6 @@
 import * as T from 'three';
+// oxlint-disable-next-line import/default -- Vite generates the URL export for worker queries.
+import bookWorkerUrl from './book-worker?worker&url';
 import { createWorld } from './world';
 import { EYE, HEIGHT, INNER,BAY,PERIOD, move, flightVector, flyMove, fallStep, type Position, type TravelMode,type WorldLimits } from './physics';
 
@@ -13,7 +15,9 @@ export type GameStats={floor:string;distance:number;mode:TravelMode;fallSpeed:nu
 type Callbacks={onPause:()=>void;onStats:(s:GameStats)=>void;onFallback:()=>void;onError:(s:string)=>void;onTarget:(b:BookLocation|null)=>void;onBook:(b:BookLocation|null)=>void;onPage:(delta:number)=>void;onStorageWarning:()=>void;onTeleportMenu:(open:boolean)=>void;onDestination:(destination:Destination)=>void};
 export type GameHandle=ReturnType<typeof createGame>;
 export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
-  const renderer=new T.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true,powerPreference:'high-performance'});
+  let renderer:T.WebGLRenderer;
+  try{renderer=new T.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true,powerPreference:'high-performance'});}
+  catch(error){throw new Error(`WebGL initialization failed: ${error instanceof Error?error.message:String(error)}. Check that hardware acceleration is enabled.`);}
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(host.clientWidth,host.clientHeight);
   renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
   const canvas=renderer.domElement;host.appendChild(canvas);
@@ -23,7 +27,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   try{opened=loadOpened(localStorage);}catch{/* Session history still works without storage. */}
   const world=createWorld(scene,opened);
   let globalFrame:GlobalFrame=newFrame();
-  const books=createBookClient(ids=>{opened.clear();ids.forEach(id=>opened.add(id));world.refreshBookColors();},callbacks.onStorageWarning);
+  const books=createBookClient(ids=>{opened.clear();ids.forEach(id=>opened.add(id));world.refreshBookColors();},callbacks.onStorageWarning,bookWorkerUrl);
   const highlightGeometry=new T.BoxGeometry(.043,.352,.31);
   const highlightEdges=new T.EdgesGeometry(highlightGeometry);
   const highlightMaterial=new T.LineBasicMaterial({color:'#fff3a8',toneMapped:false});
