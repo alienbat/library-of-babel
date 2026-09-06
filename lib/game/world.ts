@@ -1,6 +1,8 @@
 import * as T from 'three';
+import {createWallWriting} from './wall-writing.ts';
+import {ROOM_LIGHTS} from './room-lighting.ts';
 import {staircase} from './stairs.ts';
-import {createBoundaryLighting,BOUNDARY_SPAN} from './boundary-lighting.ts';
+import {createBoundaryLighting,BOUNDARY_SPAN,BOUNDARY_LIGHT_SPACING,WALL_LIGHT_SPACING} from './boundary-lighting.ts';
 import {createInfiniteHorizon,withHorizonFade} from './horizon.ts';
 import {bakeGalleryLighting} from './lighting.ts';
 import { BAY, HEIGHT, INNER, OUTER, mod,type WorldLimits } from './physics.ts';
@@ -65,9 +67,9 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   boundaryGroup.add(endWall,endCap);endWall.visible=endCap.visible=false;
   let cornerLimits:WorldLimits={},fixtureX=Infinity,fixtureY=Infinity;
   const frameMaterial=new T.MeshBasicMaterial({color:'#353c38'}),lensMaterial=new T.MeshBasicMaterial({color:new T.Color('#fff0c9').multiplyScalar(2.2)});materials.push(frameMaterial,lensMaterial);
-  const frames=new T.InstancedMesh(boxGeo,frameMaterial,600),lenses=new T.InstancedMesh(boxGeo,lensMaterial,600);boundaryGroup.add(frames,lenses);frames.count=lenses.count=0;
+  const frames=new T.InstancedMesh(boxGeo,frameMaterial,144),lenses=new T.InstancedMesh(boxGeo,lensMaterial,144);boundaryGroup.add(frames,lenses);frames.count=lenses.count=0;
   function updateFixtures(px:number,py:number){
-    const bx=Math.floor(px/7.62),by=Math.floor(py/(HEIGHT*2));
+    const bx=Math.floor(px/BOUNDARY_LIGHT_SPACING),by=Math.floor(py/WALL_LIGHT_SPACING);
     if(bx===fixtureX&&by===fixtureY)return;fixtureX=bx;fixtureY=by;
     let count=0;
     const put=(x:number,y:number,z:number,wall:boolean)=>{
@@ -77,12 +79,12 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
       dummy.position.y+=wall?0:cornerLimits.minY!==undefined?.026:-.026;
       dummy.scale.set(wall?.025:1.6,wall?1.6:.012,.20);dummy.updateMatrix();lenses.setMatrixAt(count++,dummy.matrix);
     };
-    if(endCap.visible)for(let i=bx-32;i<=bx+32;i++)for(let k=-2;k<=1;k++)put((i+.5)*7.62,endCap.position.y+(cornerLimits.minY!==undefined?.025:-.025),(k+.5)*7.62,false);
-    if(endWall.visible)for(let i=by-20;i<=by+20;i++)for(let k=-2;k<=1;k++)put(endWall.position.x+(cornerLimits.minX!==undefined?.045:-.045),(i+.5)*HEIGHT*2,(k+.5)*7.62,true);
+    if(endCap.visible)for(let i=bx-16;i<=bx+16;i++)for(let k=-1;k<=0;k++)put((i+.5)*BOUNDARY_LIGHT_SPACING,endCap.position.y+(cornerLimits.minY!==undefined?.025:-.025),(k+.5)*BOUNDARY_LIGHT_SPACING,false);
+    if(endWall.visible)for(let i=by-10;i<=by+10;i++)for(let k=-1;k<=0;k++)put(endWall.position.x+(cornerLimits.minX!==undefined?.045:-.045),(i+.5)*WALL_LIGHT_SPACING,(k+.5)*BOUNDARY_LIGHT_SPACING,true);
     for(const mesh of [frames,lenses]){mesh.count=count;mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();}
   }
   function setLimits(next:WorldLimits){
-    cornerLimits=next;fixtureX=fixtureY=Infinity;centerX=Infinity;
+    wallWriting.setLimits(next);cornerLimits=next;fixtureX=fixtureY=Infinity;centerX=Infinity;
     endCap.material=next.minY!==undefined?boundary.floor:boundary.ceiling;
     horizon.setLimits(next);
     endWall.visible=next.minX!==undefined||next.maxX!==undefined;
@@ -96,6 +98,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const floorMat=mat({map:carpet,roughness:1,color:'#b1b1a7'});
   const slabMat=mat({color:'#aaa99c',roughness:1});
   const wallMat=mat({color:'#a8a69a',roughness:1});
+  const wallWriting=createWallWriting();wallWriting.apply(wallMat);
   const woodMat=mat({color:'#544b3d',roughness:.9});
   const railMat=mat({color:'#854a3d',roughness:.6,metalness:.25});
   const shelfMat=mat({map:spines,roughness:1,emissive:'#75644c',emissiveMap:spines,emissiveIntensity:.20});
@@ -173,10 +176,6 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     const m=new T.InstancedMesh(pipeGeo,railMat,boxes.length);
     boxes.forEach((b,i)=>{dummy.position.set(b[0],b[1],b[2]);dummy.rotation.set(0,0,b[3]>1?Math.PI/2:0);dummy.scale.set(.036,b[3]>1?b[3]:b[4],.036);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});m.computeBoundingSphere();group.add(m);
   }
-  function sign(text:string, x:number,y:number,z:number, side:number, width=1.8) {
-    const tex=texture(512,256,c=>{c.fillStyle='#dad8c7';c.fillRect(0,0,512,256);c.strokeStyle='#7b7667';c.lineWidth=5;c.strokeRect(10,10,492,236);c.fillStyle='#353b36';c.textAlign='center';c.font='22px sans-serif';text.split('\n').forEach((s,i)=>c.fillText(s,256,62+i*44));});
-    const m=new T.MeshBasicMaterial({map:tex});materials.push(m);const g=new T.PlaneGeometry(width,width/2);geometries.push(g);const mesh=new T.Mesh(g,m);mesh.position.set(x,y,z);mesh.rotation.y=side===1?Math.PI:0;group.add(mesh);
-  }
   const bookBatches:{mesh:T.InstancedMesh;bay:number;side:-1|1}[]=[];
   const unreadColor=new T.Color('#ffffff'),openedColor=new T.Color('#43c9c0');
   function refreshBookColors(){
@@ -244,7 +243,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         walls.push([x+25,y+1.8,side*(OUTER+.325),6,3.6,.35],
           [x+25,y+1.8,side*(OUTER+5),6,3.6,.2],
           [x+28,y+1.8,side*(OUTER+2.5),.2,3.6,5]);
-        lamps.push([x+25,y+HEIGHT-.38,side*(OUTER+2.5),2,.04,.4]);
+
         // Wall-mounted basin with a dark recess, tap and soap pump.
         ceramics.push([x+24.6,y+.78,side*(OUTER+.65),1.1,.2,.65],
           [x+24.6,y+.42,side*(OUTER+.48),.22,.65,.25]);
@@ -277,13 +276,9 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         walls.push([x+27,y+1.1,side*(OUTER+2.5),2,2.2,.10]);
         dark.push([x+17.85,y+.68,side*(INNER+.72),.9,1.36,1.1]);screens.push([x+17.85,y+1.38,side*(INNER+.72),.68,.045,.67]);
         dark.push([x+20.6,y+.83,side*(OUTER-.24),.5,.22,.5],[x+20.6,y+.45,side*(OUTER-.05),.25,.8,.2]);
-        if(Math.abs(f-fy)<=1&&Math.abs(b-bx)<=12) {
-          sign(stairs.label,x+8,y+2.2,side*(OUTER+.38),side,2.6);
-          sign('REST AREA\n7 BEDS · BATH →',x+17,y+2.2,side*(OUTER+.04),side,1.2);
-          sign('BATHROOM\nSHOWERS · WC',x+24.6,y+2.8,side*(OUTER+.515),-side,1.5);
-          sign('LIBRARY\nFind the story of your life.\nYour search has no deadline.',x+21,y+2.1,side*(OUTER+.04),side,1.5);
-          const clockTex=texture(256,256,c=>{c.fillStyle='#d4d4c4';c.beginPath();c.arc(128,128,124,0,Math.PI*2);c.fill();c.strokeStyle='#2c332e';c.lineWidth=7;for(let h=0;h<12;h++){const a=h*Math.PI/6;c.beginPath();c.moveTo(128+Math.sin(a)*98,128-Math.cos(a)*98);c.lineTo(128+Math.sin(a)*112,128-Math.cos(a)*112);c.stroke();}c.beginPath();c.moveTo(128,54);c.lineTo(128,128);c.lineTo(176,128);c.stroke();c.fillStyle='#343c33';c.fillRect(63,155,130,28);c.fillStyle='#c4d4b8';c.font='17px monospace';c.fillText('YEAR 1 DAY 1',68,175);});
-          const m=new T.MeshBasicMaterial({map:clockTex,transparent:true});materials.push(m);const g=new T.PlaneGeometry(.9,.9);geometries.push(g);const clock=new T.Mesh(g,m);clock.position.set(x+17,y+3,side*(OUTER+.025));clock.rotation.y=side===1?Math.PI:0;group.add(clock);
+        for(const lamp of ROOM_LIGHTS){
+          if(lamp.y>HEIGHT&&cornerLimits.maxY!==undefined&&y+lamp.y>cornerLimits.maxY)continue;
+          lamps.push([x+lamp.x,y+lamp.y,side*(OUTER+lamp.z),1.6,.035,.28]);
         }
       }
     }
@@ -334,5 +329,5 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     frustum.setFromProjectionMatrix(clipMatrix);
     for(const {mesh,bounds} of distantBatches){worldBounds.copy(bounds).translate(distantGroup.position);mesh.visible=frustum.intersectsBox(worldBounds);}
   }
-  return { update, markOpened,setLimits,refreshBookColors, dispose(){boundary.dispose();frames.dispose();lenses.dispose();scene.remove(boundaryGroup);endGeometry.dispose();capGeometry.dispose();horizon.dispose();lighting.dispose();scene.remove(group,distantGroup);for(const root of [group,distantGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
+  return { update, markOpened,setLimits,refreshBookColors, dispose(){wallWriting.dispose();boundary.dispose();frames.dispose();lenses.dispose();scene.remove(boundaryGroup);endGeometry.dispose();capGeometry.dispose();horizon.dispose();lighting.dispose();scene.remove(group,distantGroup);for(const root of [group,distantGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
 }
