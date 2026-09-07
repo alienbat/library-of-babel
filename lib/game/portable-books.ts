@@ -1,3 +1,5 @@
+import {packDigits,type SearchAddress,type NavigationAnchor} from './search.ts';
+import {BAY,HEIGHT,OUTER} from './physics.ts';
 import {init} from 'gmp-wasm/dist/mini.esm.js';
 import {BOOKS_PER_ROW,ROWS,type BookLocation} from './books.ts';
 import {CHARACTER_COUNT,ordinalDigits,type GlobalBook,type GlobalFrame} from './global-books.ts';
@@ -26,7 +28,7 @@ interface IntegerValue {
   toNumber():number;toString(radix?:number):string;
 }
 function contextMath(factory:import('gmp-wasm').CalculateType['Integer']){
-  const Integer=factory as unknown as (n:number|string)=>IntegerValue;
+  const Integer=factory as unknown as (n:number|string,radix?:number)=>IntegerValue;
   const powers=new Map<number,IntegerValue>();
   function power(n:number){let p=powers.get(n);if(!p){p=Integer(95).pow(n);powers.set(n,p);}return p;}
   let dimensions:ReturnType<typeof computeDimensions>|undefined;
@@ -78,5 +80,42 @@ function contextMath(factory:import('gmp-wasm').CalculateType['Integer']){
     if(level.abs().greaterThan(safe)||bay.abs().greaterThan(safe))return null;
     return {level:level.toNumber(),bay:bay.toNumber(),side:book.side,row:book.row,book:book.book};
   }
-  return {bookOrdinal,digits,projectBook};
+  function fromDigits(data:Uint8Array){
+    if(data.length!==CHARACTER_COUNT||data.some(d=>d>=95))throw new RangeError('Invalid book digits');
+    function pack(start:number,count:number):IntegerValue{
+      if(count<=8192)return Integer(packDigits(data,start,count).toString(16),16);
+      const low=Math.floor(count/2);
+      return pack(start,low).add(pack(start+low,count-low).mul(power(low)));
+    }
+    return pack(0,data.length);
+  }
+  function addressFromOrdinal(index:IntegerValue):SearchAddress{
+    const {floors,perFloor,partialFloor,total}=library();
+    if(index.lessThan(0)||index.greaterOrEqual(total))throw new RangeError('Invalid ordinal');
+    const storage=index.div(perFloor,2),remainder=index.sub(storage.mul(perFloor));
+    const floor=storage.isEqual(floors.sub(1))?partialFloor:storage.greaterOrEqual(partialFloor)?storage.add(1):storage;
+    const occupied=remainder.div(2*ROWS*BOOKS_PER_ROW,2),block=occupied.div(11,2);
+    const section=block.mul(12).add(occupied.sub(block.mul(11))).add(1);
+    const slot=remainder.sub(occupied.mul(2*ROWS*BOOKS_PER_ROW)).toNumber();
+    return {floorHex:floor.toString(16),sectionHex:section.toString(16),side:slot<ROWS*BOOKS_PER_ROW?1:-1,row:Math.floor(slot/BOOKS_PER_ROW)%ROWS,book:slot%BOOKS_PER_ROW};
+  }
+  function navigation(address:SearchAddress,frame:GlobalFrame):NavigationAnchor{
+    const base=origin(frame);
+    const dx=Integer(address.sectionHex,16).sub(base.section),dy=Integer(address.floorHex,16).sub(base.floor);
+    const safe=integer(1000000000);
+    const z=address.side*(OUTER-.08),offsetX=(address.book+.5)*BAY/BOOKS_PER_ROW,offsetY=.3+address.row*.39;
+    if(dx.abs().lessThan(safe)&&dy.abs().lessThan(safe)){
+      const localTarget:[number,number,number]=[dx.toNumber()*BAY+offsetX,dy.toNumber()*HEIGHT+offsetY,z];
+      return {direction:[0,0,0],logMeters:0,localTarget};
+    }
+    function magnitude(n:IntegerValue,scale:number){
+      if(n.isEqual(0))return {log:-Infinity,sign:0};
+      const hex=n.abs().toString(16),head=hex.slice(0,13);
+      return {log:Math.log10(parseInt(head,16))+(hex.length-head.length)*Math.log10(16)+Math.log10(scale),sign:n.lessThan(0)?-1:1};
+    }
+    const ax=magnitude(dx,BAY),ay=magnitude(dy,HEIGHT),largest=Math.max(ax.log,ay.log);
+    const x=ax.sign*10**(ax.log-largest),y=ay.sign*10**(ay.log-largest),length=Math.hypot(x,y);
+    return {direction:[x/length,y/length,0],logMeters:largest+Math.log10(length)};
+  }
+  return {bookOrdinal,digits,projectBook,fromDigits,addressFromOrdinal,navigation};
 }

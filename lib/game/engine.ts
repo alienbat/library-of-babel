@@ -1,3 +1,4 @@
+import {coarseNavigation,type NavigationAnchor,type NavigationHint} from './search';
 import * as T from 'three';
 // oxlint-disable-next-line import/default -- Vite generates the URL export for worker queries.
 import bookWorkerUrl from './book-worker?worker&url';
@@ -11,7 +12,7 @@ import {newFrame,shiftFrame,frameLimits,type GlobalFrame} from './global-books';
 import {destinationState,type Destination} from './destinations';
 
 type Settings={sound:boolean;motion:boolean;fov:number;sensitivity:number;quality:string};
-export type GameStats={floor:string;distance:number;mode:TravelMode;fallSpeed:number};
+export type GameStats={navigation?:NavigationHint|null;floor:string;distance:number;mode:TravelMode;fallSpeed:number};
 type Callbacks={onPause:()=>void;onStats:(s:GameStats)=>void;onFallback:()=>void;onError:(s:string)=>void;onTarget:(b:BookLocation|null)=>void;onBook:(b:BookLocation|null)=>void;onPage:(delta:number)=>void;onStorageWarning:()=>void;onTeleportMenu:(open:boolean)=>void;onDestination:(destination:Destination)=>void};
 export type GameHandle=ReturnType<typeof createGame>;
 export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
@@ -27,7 +28,8 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   try{opened=loadOpened(localStorage);}catch{/* Session history still works without storage. */}
   const world=createWorld(scene,opened);
   let globalFrame:GlobalFrame=newFrame();
-  const books=createBookClient(ids=>{opened.clear();ids.forEach(id=>opened.add(id));world.refreshBookColors();},callbacks.onStorageWarning,bookWorkerUrl);
+  let navigationAnchor:NavigationAnchor|null=null;
+  const books=createBookClient(ids=>{opened.clear();ids.forEach(id=>opened.add(id));world.refreshBookColors();},callbacks.onStorageWarning,bookWorkerUrl,anchor=>{navigationAnchor=anchor;emitStats();});
   const highlightGeometry=new T.BoxGeometry(.043,.352,.31);
   const highlightEdges=new T.EdgesGeometry(highlightGeometry);
   const highlightMaterial=new T.LineBasicMaterial({color:'#fff3a8',toneMapped:false});
@@ -99,7 +101,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
       try{const result=canvas.requestPointerLock();if(result&&typeof result.catch==='function')void result.catch(()=>{fallback=true;callbacks.onFallback();});}catch{fallback=true;callbacks.onFallback();}
     }
   }
-  const emitStats=()=>callbacks.onStats({floor:(BigInt(Math.round(p.y/HEIGHT))+BigInt(globalFrame.floorOffset)).toString(),distance:Math.floor(totalDistance),mode,fallSpeed});
+  const emitStats=()=>callbacks.onStats({navigation:navigationAnchor?coarseNavigation(navigationAnchor,p,yaw,pitch):null,floor:(BigInt(Math.round(p.y/HEIGHT))+BigInt(globalFrame.floorOffset)).toString(),distance:Math.floor(totalDistance),mode,fallSpeed});
   function toggleFlight(){if(reading||teleportMenu)return;mode=mode==='flying'?'falling':'flying';fallSpeed=0;stepDistance=0;emitStats();}
   const keydown=(e:KeyboardEvent)=>{if(!active)return;if(e.code==='KeyT'){e.preventDefault();if(!e.repeat)toggleTeleport();return;}if(teleportMenu){if(e.code==='Escape'){e.preventDefault();closeTeleport();}return;}if(reading){if(['ArrowLeft','ArrowRight','Escape','Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();if(e.code==='ArrowRight')callbacks.onPage(1);else if(e.code==='ArrowLeft')callbacks.onPage(-1);else if(e.code==='Escape')closeBook();return;}if(e.code==='Escape'){pause();return;}if(e.code==='Space'){e.preventDefault();if(!e.repeat)toggleFlight();return;}if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}};
   const keyup=(e:KeyboardEvent)=>{keys.delete(e.code);};
@@ -157,6 +159,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   frame=requestAnimationFrame(animate);
   const lifecycle=new AbortController();
   const handle = {
+    searchBooks:(prefix:string)=>books.search(prefix),clearSearch:()=>books.clearTarget(),
     start,pause,toggleFlight,openBook,closeBook,toggleTeleport,teleport,closeTeleport,readPage:(book:BookLocation,page:number)=>books.page(book,page),
     reset(){teleport('arrival');},
     touchMove(direction:string,pressed:boolean){const code=({forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'} as Record<string,string>)[direction];if(pressed)keys.add(code);else keys.delete(code);},
