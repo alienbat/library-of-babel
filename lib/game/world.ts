@@ -106,7 +106,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const wallWriting=createWallWriting();wallWriting.apply(wallMat);
   const woodMat=mat({color:'#544b3d',roughness:.9});
   const railMat=mat({color:'#854a3d',roughness:.6,metalness:.25});
-  const shelfBackMat=mat({color:'#a8a69a',roughness:1});
+  const shelfBackMat=mat({color:'#a8a69a',roughness:1});shelfBackMat.name='shelf-backing';
   const shelfMat=mat({map:spines,roughness:1,emissive:'#75644c',emissiveMap:spines,emissiveIntensity:.20});
   const lightMat=mat({color:'#fff0c9',emissive:'#fff0c9',emissiveIntensity:2.2});
   const darkMat=mat({color:'#353c38',roughness:.55,metalness:.3});
@@ -223,7 +223,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         const detailed=f===fy&&Math.abs(b-bx)<=2;
         if(detailed){
           // Books extend to OUTER + .07; keep the wall behind them with a 1 cm gap.
-          shelfBacks.push([x+BAY/2,y+1.62,side*(OUTER+.27),BAY,3.18,.38]);
+          shelfBacks.push([x+BAY/2,y+1.62,side*(OUTER+.22),BAY,3.18,.28]);
           // Every board top meets the corresponding book bottom (.30 - .34 / 2).
           for(let row=0;row<ROWS;row++)trim.push([x+BAY/2,y+.11+row*.39,side*(OUTER-.04),BAY,.04,.5]);
         }else shelves.push([x+BAY/2,y+1.62,side*(OUTER+.18),BAY,3.18,.38]);

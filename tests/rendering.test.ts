@@ -48,7 +48,7 @@ void test('distant cache survives movement, with unchanged book detail and conse
           const depth=Math.abs(position.z)-OUTER;
           if(Math.abs(position.x-25)<scale.x/2&&Math.abs(depth-2.8)<scale.z/2&&Math.abs(position.y+scale.y/2)<1e-5)floorSurfaces++;
           if(Math.abs(position.y-1.8)<.001&&Math.abs(position.x-25)<.001&&depth<1&&standard.color.getHexString()==='a8a69a')liningDepth=depth+scale.z/2;
-          if(Math.abs(position.y-1.62)<.001&&position.x-scale.x/2<28&&position.x+scale.x/2>23&&(standard.map?.image as {width?:number}|undefined)?.width===2048)shelfDepth=Math.max(shelfDepth,depth+scale.z/2);
+          if(Math.abs(position.y-1.62)<.001&&position.x-scale.x/2<28&&position.x+scale.x/2>23&&(standard.name==='shelf-backing'||(standard.map?.image as {width?:number}|undefined)?.width===2048))shelfDepth=Math.max(shelfDepth,depth+scale.z/2);
         }
       });
       assert.equal(floorSurfaces,1,'bathroom has exactly one exposed floor surface, including the ceiling below');
