@@ -44,3 +44,16 @@ void test('horizon averages energy in linear light and grazing decks occlude she
   assert.notDeepEqual(averages.ceiling,averages.floor);
   bake.dispose();
 });
+
+void test('fresh arrival has the same unbounded horizon as returning from a corner',()=>{
+  const scene=new T.Scene(),spines=new T.Texture(),volume=new T.Data3DTexture();
+  const horizon=createInfiniteHorizon(scene,spines,volume);
+  const material=(scene.children[0] as T.Mesh<T.BufferGeometry,T.ShaderMaterial>).material;
+  const initial=material.uniforms.corner.value.clone() as T.Vector4;
+  horizon.setLimits({minX:0,minY:0});
+  assert.deepEqual(material.uniforms.corner.value.toArray(),[0,0,1,1]);
+  horizon.setLimits({});
+  assert.deepEqual(initial.toArray(),material.uniforms.corner.value.toArray());
+  assert.deepEqual(initial.toArray(),[0,0,0,0]);
+  horizon.dispose();spines.dispose();volume.dispose();
+});
