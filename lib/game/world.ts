@@ -106,6 +106,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const wallWriting=createWallWriting();wallWriting.apply(wallMat);
   const woodMat=mat({color:'#544b3d',roughness:.9});
   const railMat=mat({color:'#854a3d',roughness:.6,metalness:.25});
+  const shelfBackMat=mat({color:'#a8a69a',roughness:1});
   const shelfMat=mat({map:spines,roughness:1,emissive:'#75644c',emissiveMap:spines,emissiveIntensity:.20});
   const lightMat=mat({color:'#fff0c9',emissive:'#fff0c9',emissiveIntensity:2.2});
   const darkMat=mat({color:'#353c38',roughness:.55,metalness:.3});
@@ -120,21 +121,13 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const chromeMat=mat({color:'#adb6b4',metalness:.75,roughness:.28});
   const mirrorMat=mat({color:'#8faba8',metalness:.65,roughness:.12});
   const blanketMat=mat({color:'#666d65',roughness:1});
-  // The close-up volumes sample the exact same atlas as their backing shelves.
-  // A different solid colour here made the player's current level look brighter.
-  const bookMat=mat({map:spines,roughness:1,emissive:'#75644c',emissiveMap:spines,emissiveIntensity:.20});
-  const shadeBook=bookMat.onBeforeCompile.bind(bookMat);
-  bookMat.onBeforeCompile=(shader,renderer)=>{
-    shadeBook(shader,renderer);
-    shader.vertexShader=shader.vertexShader.replace('#include <uv_vertex>',`#include <uv_vertex>
-      vec3 shelfPoint = (modelMatrix * instanceMatrix * vec4(position, 1.0)).xyz;
-      float shelfU = shelfPoint.z > 0.0 ? -shelfPoint.x / ${BAY} : shelfPoint.x / ${BAY};
-      float shelfV = (mod(shelfPoint.y, ${HEIGHT}) - 0.03) / 3.18;
-      vMapUv = vec2(fract(shelfU), shelfV);
-
-    `);
-  };
-  bookMat.customProgramCacheKey=()=> 'baked-book-volumes-matching-shelf-atlas-v2';
+  // One binding per actual book; the multi-book atlas is only a distant facade.
+  const binding=texture(32,256,c=>{
+    c.fillStyle='#987953';c.fillRect(0,0,32,256);
+    c.fillStyle='rgba(0,0,0,.25)';c.fillRect(0,0,8,256);
+    c.fillStyle='rgba(225,206,163,.23)';c.fillRect(8,52,16,4);c.fillRect(8,232,16,4);
+  });
+  const bookMat=mat({map:binding,roughness:1});
   const goldMat=mat({color:'#b59b59',roughness:.65,metalness:.35});
   const screenMat=mat({color:'#b3c9b3',emissive:'#7d9d80',emissiveIntensity:.6});
   goldMat.name='book-edges';
@@ -216,7 +209,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     while(textures.length>baseTextureCount)textures.pop()!.dispose();
     while(materials.length>baseMaterialCount)materials.pop()!.dispose();
     while(geometries.length>baseGeometryCount)geometries.pop()!.dispose();
-    const decks:Box[]=[], slabs:Box[]=[], floors:Box[]=[], shelves:Box[]=[], trim:Box[]=[], rails:Box[]=[], lamps:Box[]=[], walls:Box[]=[], furniture:Box[]=[], linens:Box[]=[], blankets:Box[]=[], dark:Box[]=[], screens:Box[]=[];
+    const decks:Box[]=[], slabs:Box[]=[], floors:Box[]=[], shelves:Box[]=[], shelfBacks:Box[]=[], trim:Box[]=[], rails:Box[]=[], lamps:Box[]=[], walls:Box[]=[], furniture:Box[]=[], linens:Box[]=[], blankets:Box[]=[], dark:Box[]=[], screens:Box[]=[];
     const tiles:Box[]=[],ceramics:Box[]=[],bowls:Box[]=[],seats:Box[]=[],chrome:Box[]=[],mirrors:Box[]=[];
     for(let f=fy-32;f<=fy+32;f++)for(let b=bx-15;b<=bx+15;b++)for(const side of [-1,1]) {
       const x=b*BAY,y=f*HEIGHT,z=side*(INNER+1.8288), amenity=mod(b,12)===0;
@@ -227,9 +220,15 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
       for(let j=0;j<6;j++)rails.push([x+j*BAY/6,y+.6,side*INNER,0,1.2,0]);
       for(let j=0;j<3;j++)lamps.push([x+3.81+j*7.62,y+HEIGHT-.38,z,1.6,.035,.28]);
       if(!amenity) {
-        shelves.push([x+BAY/2,y+1.62,side*(OUTER+.18),BAY,3.18,.38]);
+        const detailed=f===fy&&Math.abs(b-bx)<=2;
+        if(detailed){
+          // Books extend to OUTER + .07; keep the wall behind them with a 1 cm gap.
+          shelfBacks.push([x+BAY/2,y+1.62,side*(OUTER+.27),BAY,3.18,.38]);
+          // Every board top meets the corresponding book bottom (.30 - .34 / 2).
+          for(let row=0;row<ROWS;row++)trim.push([x+BAY/2,y+.11+row*.39,side*(OUTER-.04),BAY,.04,.5]);
+        }else shelves.push([x+BAY/2,y+1.62,side*(OUTER+.18),BAY,3.18,.38]);
         for(let j=0;j<8;j++)trim.push([x+j*BAY/8,y+1.63,side*(OUTER-.03),.055,3.25,.46]);
-        trim.push([x+BAY/2,y+3.28,side*(OUTER-.04),BAY,.10,.5],[x+BAY/2,y+.07,side*(OUTER-.04),BAY,.14,.5]);
+        trim.push([x+BAY/2,y+3.28,side*(OUTER-.04),BAY,.10,.5],[x+BAY/2,y+.045,side*(OUTER-.04),BAY,.09,.5]);
       }else {
         walls.push([x+.5,y+1.8,side*(OUTER+.22),1,3.6,.3],[x+15.5,y+1.8,side*(OUTER+.22),1,3.6,.3],[x+17,y+1.8,side*(OUTER+.22),2,3.6,.3],[x+21.43,y+1.8,side*(OUTER+.22),2.86,3.6,.3]);
         const stairs=staircase(x,y,side,cornerLimits);
@@ -289,7 +288,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     }
     batch(tiles,[slabMat,tileMat],group,deckGeometry);batch(ceramics,ceramicMat);batch(bowls,ceramicMat,group,bowlGeo);batch(seats,ceramicMat,group,seatGeo);batch(chrome,chromeMat);batch(mirrors,mirrorMat);
     const deckMaterials=[slabMat,floorMat];
-    batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,[slabMat,floorMat],group,deckGeometry);batch(shelves,shelfMat);batch(trim,woodMat);pipes(rails);batch(lamps,lightMat);batch(walls,wallMat);batch(furniture,railMat);batch(linens,linenMat);batch(blankets,blanketMat);batch(dark,darkMat);batch(screens,screenMat);
+    batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,[slabMat,floorMat],group,deckGeometry);batch(shelves,shelfMat);batch(shelfBacks,shelfBackMat);batch(trim,woodMat);pipes(rails);batch(lamps,lightMat);batch(walls,wallMat);batch(furniture,railMat);batch(linens,linenMat);batch(blankets,blanketMat);batch(dark,darkMat);batch(screens,screenMat);
     // This periodic horizon never needs to be regenerated when walking. Moving its
     // origin by whole bays/floors preserves the same shelf and lamp alignment.
     distantGroup.position.set(bx*BAY,fy*HEIGHT,0);
