@@ -5,7 +5,9 @@ export const BOUNDARY_GLSL=`
  uniform sampler2D boundaryCarpet,boundaryLight;
  uniform vec3 boundaryFloorColor,boundaryCeilingColor,boundaryWallColor;
  float boundaryBand(float p,float width,float footprint){
-   float w=max(footprint,.00001),a=p-w*.5,b=p+w*.5;
+   // Periodic averaging must not subtract huge, almost equal world coordinates.
+   p=fract(p);
+   float w=clamp(footprint,.00001,1.0),a=p-w*.5,b=p+w*.5;
    float coverage=((floor(b)*width+min(fract(b),width))-(floor(a)*width+min(fract(a),width)))/w;
    return mix(clamp(coverage,0.0,1.0),width,smoothstep(.4,1.0,w));
  }

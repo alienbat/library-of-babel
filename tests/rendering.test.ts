@@ -109,6 +109,15 @@ void test('distant cache survives movement, with unchanged book detail and conse
     const boundaries=scene.getObjectByName('corner-boundaries')!;
     const cap=boundaries.children[1] as T.Mesh<T.PlaneGeometry,T.MeshBasicMaterial>;
     assert.equal(cap.material.name,'boundary-floor');
+    const checkBoundaryHandoff=(material:T.MeshBasicMaterial)=>{
+      const shader={uniforms:{},vertexShader:T.ShaderLib.basic.vertexShader,fragmentShader:T.ShaderLib.basic.fragmentShader} as T.WebGLProgramParametersWithUniforms;
+      material.onBeforeCompile(shader,{} as T.WebGLRenderer);
+      assert.ok(shader.uniforms.boundaryLight,'handoff preserves the boundary light bake');
+      assert.ok(shader.fragmentShader.includes('floorPixels'),'boundary uses the same projected-size handoff as galleries');
+      assert.ok(shader.fragmentShader.includes('discard'),'opaque wall depth cannot block the analytical horizon');
+    };
+    checkBoundaryHandoff(cap.material);
+    checkBoundaryHandoff((boundaries.children[0] as T.Mesh<T.PlaneGeometry,T.MeshBasicMaterial>).material);
     assert.ok(cap.geometry.parameters.height<30.48,'cap does not overlap gallery decks');
     assert.ok(cap.position.y>0&&cap.position.y<.01);
     const fixtureFrames=boundaries.children[2] as T.InstancedMesh;
@@ -121,7 +130,7 @@ void test('distant cache survives movement, with unchanged book detail and conse
     assert.ok(writtenShader.fragmentShader.indexOf('diffuseColor.rgb=mix(diffuseColor.rgb,ink.rgb,ink.a)')<writtenShader.fragmentShader.indexOf('diffuseColor.rgb*=irradiance'),'wall ink receives the same baked lighting as its surface');
     world.setLimits({maxX:45.72,maxY:3.62});world.update(30,0,camera);
     assert.ok(Math.abs(writtenShader.uniforms.writingTop.value)<1e-8,'top-floor atlas switches to downstairs only');
-    assert.equal(cap.material.name,'boundary-ceiling');assert.ok(cap.position.y<3.62);
+    assert.equal(cap.material.name,'boundary-ceiling');assert.ok(cap.position.y<3.62);checkBoundaryHandoff(cap.material);
     world.setLimits({});world.update(30,0,camera);
     assert.equal(cap.visible,false);assert.equal(fixtureFrames.count,0);
 

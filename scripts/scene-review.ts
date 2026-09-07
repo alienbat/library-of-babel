@@ -9,6 +9,10 @@ const world=createWorld(scene),camera=new T.PerspectiveCamera(65,1100/720,.1,160
 let errors=0;
 renderer.debug.onShaderError=(gl,program,vs,fs)=>{errors++;console.error(gl.getProgramInfoLog(program),gl.getShaderInfoLog(vs),gl.getShaderInfoLog(fs));};
 const views={
+ BottomLeftUp:{p:[25,1.68,0],at:[20,100,0],limits:{minX:0,minY:0}},
+ BottomRightUp:{p:[-25,1.68,0],at:[-20,100,0],limits:{maxX:0,minY:0}},
+ TopLeftDown:{p:[25,1.68,0],at:[20,-100,0],limits:{minX:0,maxY:HEIGHT-.34}},
+ TopRightDown:{p:[-25,1.68,0],at:[-20,-100,0],limits:{maxX:0,maxY:HEIGHT-.34}},
  ChasmLeft:{p:[30,1.68,0],at:[-100,1.68,0],limits:{}},
  ChasmRight:{p:[30,1.68,0],at:[100,1.68,0],limits:{}},
  ChasmUp:{p:[30,1.68,0],at:[30,100,0],limits:{}},
@@ -26,8 +30,9 @@ for(const [name,view] of Object.entries(views)){
  const button=document.createElement('button');button.textContent=name;document.querySelector('#buttons')!.appendChild(button);
  button.onclick=()=>{
   world.setLimits(view.limits);world.update(view.p[0],0);camera.position.set(...view.p as [number,number,number]);camera.lookAt(...view.at as [number,number,number]);
-  renderer.clippingPlanes=[];const l=view.limits as {minX?:number;minY?:number;maxY?:number};
+  renderer.clippingPlanes=[];const l=view.limits as {minX?:number;maxX?:number;minY?:number;maxY?:number};
   if(l.minX!==undefined)renderer.clippingPlanes.push(new T.Plane(new T.Vector3(1,0,0),-l.minX));
+  if(l.maxX!==undefined)renderer.clippingPlanes.push(new T.Plane(new T.Vector3(-1,0,0),l.maxX));
   if(l.minY!==undefined)renderer.clippingPlanes.push(new T.Plane(new T.Vector3(0,1,0),-l.minY+.36));
   if(l.maxY!==undefined)renderer.clippingPlanes.push(new T.Plane(new T.Vector3(0,-1,0),l.maxY+.36));
   world.update(view.p[0],0,camera);renderer.render(scene,camera);

@@ -63,7 +63,11 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const horizon=createInfiniteHorizon(scene,spines,lighting.negative,boundary.uniforms,lighting.positive,carpet);
   const boundaryGroup=new T.Group();boundaryGroup.name='corner-boundaries';scene.add(boundaryGroup);
   const endGeometry=new T.PlaneGeometry(40000,40000),capGeometry=new T.PlaneGeometry(40000,BOUNDARY_SPAN);
-  const endWall=new T.Mesh(endGeometry,boundary.wall),endCap=new T.Mesh(capGeometry,boundary.floor);
+  // Boundary planes must use the same pixel handoff as gallery geometry behind/in front of them.
+  // Otherwise their opaque depth prevents the analytical horizon from closing distant corners.
+  const boundaryWallFade=withHorizonFade(boundary.wall),boundaryFloorFade=withHorizonFade(boundary.floor),boundaryCeilingFade=withHorizonFade(boundary.ceiling);
+  materials.push(boundaryWallFade,boundaryFloorFade,boundaryCeilingFade);
+  const endWall=new T.Mesh(endGeometry,boundaryWallFade),endCap=new T.Mesh(capGeometry,boundaryFloorFade);
   boundaryGroup.add(endWall,endCap);endWall.visible=endCap.visible=false;
   let cornerLimits:WorldLimits={},fixtureX=Infinity,fixtureY=Infinity;
   const frameMaterial=new T.MeshBasicMaterial({color:'#353c38'}),lensMaterial=new T.MeshBasicMaterial({color:new T.Color('#fff0c9').multiplyScalar(2.2)});materials.push(frameMaterial,lensMaterial);
@@ -85,7 +89,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   }
   function setLimits(next:WorldLimits){
     wallWriting.setLimits(next);cornerLimits=next;fixtureX=fixtureY=Infinity;centerX=Infinity;
-    endCap.material=next.minY!==undefined?boundary.floor:boundary.ceiling;
+    endCap.material=next.minY!==undefined?boundaryFloorFade:boundaryCeilingFade;
     horizon.setLimits(next);
     endWall.visible=next.minX!==undefined||next.maxX!==undefined;
     endCap.visible=next.minY!==undefined||next.maxY!==undefined;
