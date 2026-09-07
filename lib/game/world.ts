@@ -23,7 +23,8 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     geometry.setIndex(indices);geometry.clearGroups();geometries.push(geometry);return geometry;
   }
   const distantShelfGeometry=faces([4,5]);
-  const distantRailGeometry=faces([2,3,4,5]);
+  const distantRailGeometry=new T.CylinderGeometry(.036/.07,.036/.07,1,6);
+  distantRailGeometry.rotateZ(Math.PI/2);geometries.push(distantRailGeometry);
   const distantLampGeometry=faces([2,3]);
   // Consolidate identical face materials: two draws instead of six per batch.
   const deckGeometry=faces([0,1,3,4,5,2]);deckGeometry.addGroup(0,30,0);deckGeometry.addGroup(30,6,1);
@@ -156,7 +157,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   }
   const distantBatches:{mesh:T.InstancedMesh;bounds:T.Box3}[]=[];
   const frustum=new T.Frustum(),clipMatrix=new T.Matrix4(),worldBounds=new T.Box3();
-  function batchDistant(boxes:Box[],material:T.Material|T.Material[],geometry=boxGeo) {
+  function batchDistant(boxes:Box[],material:T.Material|T.Material[],geometry:T.BufferGeometry=boxGeo) {
     // Coarse vertical bands retain low draw counts while allowing conservative
     // box culling. A single sphere spanning 19 km could never reject these rows.
     const buckets=new Map<string,Box[]>();
