@@ -1,14 +1,16 @@
 import * as T from 'three';
 import {BOUNDARY_GLSL} from './boundary-lighting.ts';
-import {HEIGHT,OUTER,BAY,type WorldLimits} from './physics.ts';
+import {galleryAverages} from './horizon-average.ts';
+import {HEIGHT,INNER,OUTER,BAY,type WorldLimits} from './physics.ts';
 import {LIGHT_PERIOD} from './lighting.ts';
 export const HORIZON_BLEND_START=3500,HORIZON_BLEND_END=6500;
 /** One background triangle analytically projects infinitely repeating galleries. */
-export function createInfiniteHorizon(scene:T.Scene,spines:T.Texture,negative:T.Data3DTexture,boundaryUniforms?:Record<string,T.IUniform>){
+export function createInfiniteHorizon(scene:T.Scene,spines:T.Texture,negative:T.Data3DTexture,boundaryUniforms?:Record<string,T.IUniform>,positive?:T.Data3DTexture,carpet?:T.Texture){
+  const average=galleryAverages(spines,negative,positive,carpet);
   const geometry=new T.BufferGeometry();
   geometry.setAttribute('position',new T.Float32BufferAttribute([-1,-1,0,3,-1,0,-1,3,0],3));
   const material=new T.ShaderMaterial({depthTest:true,depthWrite:false,toneMapped:true,
-    uniforms:{boundaryCarpet:{value:spines},boundaryLight:{value:spines},boundaryFloorColor:{value:new T.Color('#b1b1a7')},boundaryCeilingColor:{value:new T.Color('#aaa99c')},boundaryWallColor:{value:new T.Color('#a8a69a')},...boundaryUniforms,corner:{value:new T.Vector4()},inverseProjection:{value:new T.Matrix4()},cameraWorld:{value:new T.Matrix4()},spines:{value:spines},bakedNegative:{value:negative},shelfMean:{value:new T.Color('#806849')},slabColor:{value:new T.Color('#aaa99c')}},
+    uniforms:{boundaryCarpet:{value:spines},boundaryLight:{value:spines},boundaryFloorColor:{value:new T.Color('#b1b1a7')},boundaryCeilingColor:{value:new T.Color('#aaa99c')},boundaryWallColor:{value:new T.Color('#a8a69a')},...boundaryUniforms,corner:{value:new T.Vector4()},inverseProjection:{value:new T.Matrix4()},cameraWorld:{value:new T.Matrix4()},spines:{value:spines},bakedNegative:{value:negative},shelfMean:{value:average.shelf},faceMean:{value:average.face},edgeMean:{value:average.edge},ceilingMean:{value:average.ceiling},floorMean:{value:average.floor},railFront:{value:average.railFront},railUp:{value:average.railUp},railDown:{value:average.railDown},slabColor:{value:new T.Color('#aaa99c')}},
     vertexShader:`varying vec2 screenPoint;void main(){screenPoint=position.xy;gl_Position=vec4(position.xy,1.0,1.0);}`,
     fragmentShader:`
       ${BOUNDARY_GLSL}
@@ -16,27 +18,48 @@ export function createInfiniteHorizon(scene:T.Scene,spines:T.Texture,negative:T.
       uniform vec4 corner;
       uniform sampler2D spines;
       uniform highp sampler3D bakedNegative;
-      uniform vec3 shelfMean,slabColor;
+      uniform vec3 shelfMean,slabColor,faceMean,edgeMean,ceilingMean,floorMean,railFront,railUp,railDown;
       varying vec2 screenPoint;
       // Pixel coverage of a repeated band, with a stable mean below pixel size.
       float band(float phase,float start,float width,float footprint){
         float p=fract(phase-start);
-        float w=max(footprint,.00001);
+        float w=clamp(footprint,.00001,1.0);
         float a=p-w*.5,b=p+w*.5;
         float integralA=floor(a)*width+min(fract(a),width);
         float integralB=floor(b)*width+min(fract(b),width);
         return mix(clamp((integralB-integralA)/w,0.0,1.0),width,smoothstep(.4,1.0,w));
+      }
+      // In the subpixel limit each deck occludes some of the shelf behind it.
+      // Horizontal faces dominate vertical views; edge-on views retain the shelf mean.
+      vec3 distantMean(vec3 r){
+        float horizontal=min(abs(r.y)*${OUTER-INNER}/(max(abs(r.z),1.e-20)*${HEIGHT}),1.0-.34/${HEIGHT});
+        vec3 openFace=(faceMean-edgeMean*(.34/${HEIGHT}))/(1.0-.34/${HEIGHT});
+        vec3 surface=faceMean+horizontal*((r.y>0.0?ceilingMean:floorMean)-openFace);
+        // Only the rail's front half projects in front of the deck lip.
+        // Integrate the union of the two repeating rail silhouettes, not their sum.
+        float slope=abs(r.y)/max(abs(r.z),1.e-20);
+        float railWidth=min(${HEIGHT},.07+.035*slope);
+        float coverage=clamp((2.0*railWidth-max(0.0,railWidth-.6692)-max(0.0,railWidth-(${HEIGHT}-.6692)))/${HEIGHT},0.0,1.0);
+        vec3 rail=mix(railFront,r.y>0.0?railUp:railDown,1.0-.07/max(.07,.07+.035*slope));
+        return mix(surface,rail,coverage);
       }
       void main(){
         vec3 view=normalize((inverseProjection*vec4(screenPoint,1.0,1.0)).xyz);
         vec3 ray=mat3(cameraWorld)*view;
         vec3 eye=cameraWorld[3].xyz;
         float side=ray.z<0.0?-1.0:1.0;
-        // Saturate only numerical coordinates; never leave a background hole at parallel rays.
-        float travel=min(1.e7,abs(side*${OUTER}-eye.z)/max(abs(ray.z),1.e-8));
+        vec3 rx=dFdx(ray),ry=dFdy(ray);
+        float angularZ=abs(rx.z)+abs(ry.z),az=abs(ray.z);
+        float wallDistance=abs(side*${OUTER}-eye.z);
+        // Quotient-rule derivatives do not cancel across the two vanishing galleries.
+        float denominator=max(az*az,1.e-20);
+        vec2 footprint=wallDistance*(abs(ray.z*rx.xy-ray.xy*rx.z)+abs(ray.z*ry.xy-ray.xy*ry.z))/denominator/vec2(${BAY},${HEIGHT});
+        float farBlend=max(smoothstep(.35,1.5,footprint.y),1.0-smoothstep(.25,.75,az/max(angularZ,1.e-20)));
+        // Bound only the unused detailed sample by its angular pixel footprint.
+        // There is no finite-distance end plane or distance-based darkening.
+        float travel=wallDistance/max(az,max(angularZ*.25,1.e-8));
         vec3 hit=eye+ray*travel;
         vec2 phase=vec2(hit.x/${BAY},hit.y/${HEIGHT});
-        vec2 footprint=fwidth(phase);
         float unresolved=smoothstep(.2,1.0,max(footprint.x*8.0,footprint.y));
         float shelf=band(phase.y,.03/${HEIGHT},3.18/${HEIGHT},footprint.y);
         float deck=band(phase.y,1.0-.34/${HEIGHT},.34/${HEIGHT},footprint.y);
@@ -53,10 +76,15 @@ export function createInfiniteHorizon(scene:T.Scene,spines:T.Texture,negative:T.
         float lamp=band(phase.y,(${HEIGHT}-.40)/${HEIGHT},.04/${HEIGHT},footprint.y)
           *band(hit.x/${LIGHT_PERIOD},(3.81-.8)/${LIGHT_PERIOD},1.6/${LIGHT_PERIOD},fwidth(hit.x/${LIGHT_PERIOD}));
         color=mix(color,vec3(2.0,1.8,1.35),lamp);
+        // Four cheap quadrature samples integrate the pixel straddling ray.z == 0.
+        // The exactly empty parallel ray has zero area, so it creates no black stripe.
+        vec3 pixelMean=(distantMean(ray+.288675*(rx+ry))+distantMean(ray+.288675*(rx-ry))
+          +distantMean(ray+.288675*(-rx+ry))+distantMean(ray-.288675*(rx+ry)))*.25;
+        color=mix(color,pixelMean,farBlend);
         float capDistance=1.e20,capKind=2.0;
         if(corner.z!=0.0&&abs(ray.x)>1.e-8){float t=(corner.x-eye.x)/ray.x;if(t>0.0)capDistance=min(capDistance,t);}
         if(corner.w!=0.0&&abs(ray.y)>1.e-8){float t=(corner.y-eye.y)/ray.y;if(t>0.0&&t<capDistance){capDistance=t;capKind=corner.w>0.0?0.0:1.0;}}
-        if(capDistance<travel)color=boundaryShade(eye+ray*capDistance,capKind);
+        if(capDistance<1.e20&&capDistance*az<wallDistance)color=boundaryShade(eye+ray*capDistance,capKind);
         gl_FragColor=vec4(color,1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -79,7 +107,14 @@ export function withHorizonFade(source:T.MeshBasicMaterial){
     `);
     shader.fragmentShader='varying vec3 horizonWorld;\n'+shader.fragmentShader;
     shader.fragmentShader=shader.fragmentShader.replace('#include <clipping_planes_fragment>',`#include <clipping_planes_fragment>
-      float horizonFade=smoothstep(${HORIZON_BLEND_START}.0,${HORIZON_BLEND_END}.0,length(horizonWorld-cameraPosition));
+      vec3 delta=horizonWorld-cameraPosition;
+      float distanceToEye=length(delta);
+      vec3 sight=delta/max(distanceToEye,.0001);
+      vec3 dx=dFdx(sight),dy=dFdy(sight);
+      float wallDistance=abs((sight.z<0.0?-${OUTER}:${OUTER})-cameraPosition.z);
+      float cellFootprint=wallDistance*(abs(sight.z*dx.y-sight.y*dx.z)+abs(sight.z*dy.y-sight.y*dy.z))/max(sight.z*sight.z,1.e-20)/${HEIGHT};
+      float floorPixels=1.0/max(cellFootprint,1.e-8);
+      float horizonFade=max(smoothstep(${HORIZON_BLEND_START}.0,${HORIZON_BLEND_END}.0,distanceToEye),1.0-smoothstep(.5,2.0,floorPixels));
       vec2 pixel=mod(floor(gl_FragCoord.xy),4.0);
       float low=mod(pixel.x,2.0)*2.0+mod(pixel.x+pixel.y,2.0);
       float high=floor(pixel.x/2.0)*2.0+mod(floor(pixel.x/2.0)+floor(pixel.y/2.0),2.0);

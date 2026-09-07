@@ -12,8 +12,8 @@ void test('infinite background is one camera-aligned triangle, fills only uncove
   const camera=new T.PerspectiveCamera(90,2,.1,16000);camera.position.set(-800,2000,0);camera.rotation.x=Math.PI/2;camera.updateMatrixWorld();horizon.update(camera);
   assert.deepEqual(mesh.material.uniforms.cameraWorld.value,camera.matrixWorld);
   assert.deepEqual(mesh.material.uniforms.inverseProjection.value,camera.projectionMatrixInverse);
-  assert.ok(mesh.material.fragmentShader.includes('fwidth(phase)'));
-  assert.ok(mesh.material.fragmentShader.includes('max(abs(ray.z),1.e-8)'));
+  assert.ok(mesh.material.fragmentShader.includes('dFdx(ray)'));
+  assert.ok(!mesh.material.fragmentShader.includes('min(1.e7'));
   assert.ok(!mesh.material.fragmentShader.includes('discard'));
   horizon.dispose();assert.equal(scene.children.length,0);spines.dispose();volume.dispose();
 });
@@ -23,9 +23,24 @@ void test('distant handoff preserves source shading and reaches background befor
   const shader={uniforms:{},vertexShader:T.ShaderLib.basic.vertexShader,fragmentShader:T.ShaderLib.basic.fragmentShader} as T.WebGLProgramParametersWithUniforms;
   fade.onBeforeCompile(shader,{} as T.WebGLRenderer);
   assert.equal(shader.uniforms.original.value,1);
-  assert.ok(shader.fragmentShader.includes('length(horizonWorld-cameraPosition)'));
+  assert.ok(shader.fragmentShader.includes('length(delta)'));
   assert.ok(shader.fragmentShader.includes('discard'));
   assert.ok(HORIZON_BLEND_START>400&&HORIZON_BLEND_END<9000);
   assert.ok(!source.customProgramCacheKey().includes('infinite-handoff'));
   fade.dispose();source.dispose();
+});
+
+void test('horizon averages energy in linear light and grazing decks occlude shelves',async()=>{
+  const {linearPixelMean,horizontalCoverage,galleryAverages}=await import('../lib/game/horizon-average.ts');
+  const {bakeGalleryLighting}=await import('../lib/game/lighting.ts');
+  const {HEIGHT}=await import('../lib/game/physics.ts');
+  const mean=linearPixelMean([0,0,0,255,255,255,255,255]);
+  assert.equal(mean.r,.5);assert.equal(mean.g,.5);assert.equal(mean.b,.5);
+  assert.equal(horizontalCoverage(0,1),0);
+  assert.equal(horizontalCoverage(1,0),1-.34/HEIGHT);
+  assert.equal(horizontalCoverage(-1,0),horizontalCoverage(1,0));
+  const bake=bakeGalleryLighting(),averages=galleryAverages(new T.Texture(),bake.negative,bake.positive);
+  for(const value of Object.values(averages))assert.ok([value.r,value.g,value.b].every(v=>Number.isFinite(v)&&v>0));
+  assert.notDeepEqual(averages.ceiling,averages.floor);
+  bake.dispose();
 });

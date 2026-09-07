@@ -9,6 +9,11 @@ const world=createWorld(scene),camera=new T.PerspectiveCamera(65,1100/720,.1,160
 let errors=0;
 renderer.debug.onShaderError=(gl,program,vs,fs)=>{errors++;console.error(gl.getProgramInfoLog(program),gl.getShaderInfoLog(vs),gl.getShaderInfoLog(fs));};
 const views={
+ ChasmLeft:{p:[30,1.68,0],at:[-100,1.68,0],limits:{}},
+ ChasmRight:{p:[30,1.68,0],at:[100,1.68,0],limits:{}},
+ ChasmUp:{p:[30,1.68,0],at:[30,100,0],limits:{}},
+ ChasmDown:{p:[30,1.68,0],at:[30,-100,0],limits:{}},
+ ChasmOblique:{p:[30,1.68,0],at:[100,65,.015],limits:{}},
  Gallery:{p:[30,1.68,16.94],at:[40,1.6,0],limits:{}},
  Writing:{p:[17,1.7,OUTER-2.5],at:[17,2.7,OUTER+.1],limits:{}},
  Stairs:{p:[2.5,1.68,OUTER+2.1],at:[10,3.4,OUTER+2.1],limits:{}},

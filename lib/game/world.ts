@@ -60,7 +60,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const lighting=bakeGalleryLighting();
   spines.wrapS=T.RepeatWrapping;
   const boundary=createBoundaryLighting(carpet);
-  const horizon=createInfiniteHorizon(scene,spines,lighting.negative,boundary.uniforms);
+  const horizon=createInfiniteHorizon(scene,spines,lighting.negative,boundary.uniforms,lighting.positive,carpet);
   const boundaryGroup=new T.Group();boundaryGroup.name='corner-boundaries';scene.add(boundaryGroup);
   const endGeometry=new T.PlaneGeometry(40000,40000),capGeometry=new T.PlaneGeometry(40000,BOUNDARY_SPAN);
   const endWall=new T.Mesh(endGeometry,boundary.wall),endCap=new T.Mesh(capGeometry,boundary.floor);
