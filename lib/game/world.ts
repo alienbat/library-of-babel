@@ -45,18 +45,27 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     c.fillStyle='#6b6c66';c.fillRect(0,0,256,256);
     for(let i=0;i<25000;i++){ const v=65+random()*70;c.fillStyle=`rgba(${v},${v},${v},.35)`;c.fillRect(random()*256,random()*256,1,2); }
   }); carpet.wrapS=carpet.wrapT=T.RepeatWrapping; carpet.repeat.set(12,2);
-  const spines=texture(2048,512,c=>{
-    c.fillStyle='#302a21';c.fillRect(0,0,2048,512);
-    for(let row=0;row<8;row++) {
-      for(let x=0;x<2048;) {
-        const w=4, y=row*64;
-        const colors=['#987953'];
-        c.fillStyle=colors[Math.floor(random()*colors.length)];c.fillRect(x+1,y+7,w-1,53);
-        c.fillStyle='rgba(225,206,163,.23)';c.fillRect(x+2,y+18,w-3,1);c.fillRect(x+2,y+56,w-3,1);
-        c.fillStyle='rgba(0,0,0,.25)';c.fillRect(x+1,y+7,1,53); x+=w;
+  // Orthographic shelf-face bake in metres: exactly the same books and boards
+  // as the near model. Fractional pixel coverage preserves thin board widths.
+  const spines=texture(4096,1024,c=>{
+    const sx=4096/BAY,sy=1024/3.18;
+    const rect=(x:number,y:number,w:number,h:number,color:string)=>{
+      c.fillStyle=color;c.fillRect(x*sx,(3.21-y-h)*sy,w*sx,h*sy);
+    };
+    rect(0,.03,BAY,3.18,'#a8a69a');
+    for(let row=0;row<ROWS;row++){
+      const bottom=.13+row*.39;
+      for(let book=0;book<BOOKS_PER_ROW;book++){
+        const x=(book+.5)*BAY/BOOKS_PER_ROW-.037/2;
+        rect(x,bottom,.037,.34,'#987953');
+        rect(x,bottom,.037/4,.34,'rgba(0,0,0,.25)');
+        rect(x+.037/4,bottom+.34*(1-56/256),.037/2,.34*4/256,'rgba(225,206,163,.23)');
+        rect(x+.037/4,bottom+.34*(1-236/256),.037/2,.34*4/256,'rgba(225,206,163,.23)');
       }
-      c.fillStyle='#514536';c.fillRect(0,row*64+60,2048,4);
+      rect(0,bottom-.04,BAY,.04,'#544b3d');
     }
+    for(let j=0;j<=8;j++)rect(j*BAY/8-.055/2,.03,.055,3.18,'#544b3d');
+    rect(0,.03,BAY,.06,'#544b3d');
   });
   const lighting=bakeGalleryLighting();
   spines.wrapS=T.RepeatWrapping;
@@ -107,7 +116,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const woodMat=mat({color:'#544b3d',roughness:.9});
   const railMat=mat({color:'#854a3d',roughness:.6,metalness:.25});
   const shelfBackMat=mat({color:'#a8a69a',roughness:1});shelfBackMat.name='shelf-backing';
-  const shelfMat=mat({map:spines,roughness:1,emissive:'#75644c',emissiveMap:spines,emissiveIntensity:.20});
+  const shelfMat=mat({map:spines,roughness:1});shelfMat.name='shelf-facade';
   const lightMat=mat({color:'#fff0c9',emissive:'#fff0c9',emissiveIntensity:2.2});
   const darkMat=mat({color:'#353c38',roughness:.55,metalness:.3});
   const linenMat=mat({color:'#b7b5a8',roughness:1});
@@ -226,8 +235,8 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
           shelfBacks.push([x+BAY/2,y+1.62,side*(OUTER+.22),BAY,3.18,.28]);
           // Every board top meets the corresponding book bottom (.30 - .34 / 2).
           for(let row=0;row<ROWS;row++)trim.push([x+BAY/2,y+.11+row*.39,side*(OUTER-.04),BAY,.04,.5]);
-        }else shelves.push([x+BAY/2,y+1.62,side*(OUTER+.18),BAY,3.18,.38]);
-        for(let j=0;j<8;j++)trim.push([x+j*BAY/8,y+1.63,side*(OUTER-.03),.055,3.25,.46]);
+          for(let j=0;j<8;j++)trim.push([x+j*BAY/8,y+1.63,side*(OUTER-.03),.055,3.25,.46]);
+        }else shelves.push([x+BAY/2,y+1.62,side*(OUTER+.07),BAY,3.18,.60]);
         trim.push([x+BAY/2,y+3.28,side*(OUTER-.04),BAY,.10,.5],[x+BAY/2,y+.045,side*(OUTER-.04),BAY,.09,.5]);
       }else {
         walls.push([x+.5,y+1.8,side*(OUTER+.22),1,3.6,.3],[x+15.5,y+1.8,side*(OUTER+.22),1,3.6,.3],[x+17,y+1.8,side*(OUTER+.22),2,3.6,.3],[x+21.43,y+1.8,side*(OUTER+.22),2.86,3.6,.3]);
@@ -303,7 +312,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
       for(const strip of strips)for(const side of [-1,1]) {
         const width=strip.count*BAY,x=(strip.start+strip.count/2)*BAY,y=f*HEIGHT,z=side*(INNER+1.8288);
         farSlabs.push([x,y-.17,z,width,.34,3.6576]);
-        farShelves[strip.material].push([x,y+1.62,side*(OUTER+.18),width,3.18,.38]);
+        farShelves[strip.material].push([x,y+1.62,side*(OUTER+.07),width,3.18,.60]);
         farLamps[strip.material].push([x,y+HEIGHT-.38,z,width,.035,.28]);
         farRails.push([x,y+1.2192,side*INNER,width,.07,.07],[x,y+.55,side*INNER,width,.07,.07]);
       }

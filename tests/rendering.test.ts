@@ -48,12 +48,27 @@ void test('distant cache survives movement, with unchanged book detail and conse
           const depth=Math.abs(position.z)-OUTER;
           if(Math.abs(position.x-25)<scale.x/2&&Math.abs(depth-2.8)<scale.z/2&&Math.abs(position.y+scale.y/2)<1e-5)floorSurfaces++;
           if(Math.abs(position.y-1.8)<.001&&Math.abs(position.x-25)<.001&&depth<1&&standard.color.getHexString()==='a8a69a')liningDepth=depth+scale.z/2;
-          if(Math.abs(position.y-1.62)<.001&&position.x-scale.x/2<28&&position.x+scale.x/2>23&&(standard.name==='shelf-backing'||(standard.map?.image as {width?:number}|undefined)?.width===2048))shelfDepth=Math.max(shelfDepth,depth+scale.z/2);
+          if(Math.abs(position.y-1.62)<.001&&position.x-scale.x/2<28&&position.x+scale.x/2>23&&(standard.name==='shelf-backing'||standard.name==='shelf-facade'))shelfDepth=Math.max(shelfDepth,depth+scale.z/2);
         }
       });
       assert.equal(floorSurfaces,1,'bathroom has exactly one exposed floor surface, including the ceiling below');
       assert.ok(shelfDepth>0&&liningDepth>shelfDepth+.05,'solid inner wall conceals the gallery shelf backs');
     }
+    let uprights=0,facades=0;
+    scene.children[0].traverse(object=>{
+      if(!(object instanceof T.InstancedMesh)||Array.isArray(object.material))return;
+      const material=object.material as T.MeshStandardMaterial;
+      for(let i=0;i<object.count;i++){
+        object.getMatrixAt(i,matrix);matrix.decompose(position,rotation,scale);
+        if(Math.abs(scale.x-.055)<1e-5&&Math.abs(scale.y-3.25)<1e-5)uprights++;
+        if(material.name==='shelf-facade'){
+          facades++;
+          assert.ok(Math.abs(Math.abs(position.z)-scale.z/2-(OUTER-.23))<1e-5,'LOD face aligns with real book spines');
+        }
+      }
+    });
+    assert.equal(uprights,64,'only the eight detailed shelf bays retain solid uprights');
+    assert.ok(facades>3000,'other shelves use the shared board-and-book facade');
     const readLocation={level:0,side:1 as const,bay:1,row:3,book:120};
     const coloredCount=()=>{
       let count=0;const color=new T.Color();
