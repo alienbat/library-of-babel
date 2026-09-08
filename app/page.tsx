@@ -8,12 +8,12 @@ import {bookId,turnPage,PAGE_COUNT,type BookLocation} from '../lib/game/books';
 import {DESTINATIONS,DESTINATION_LABELS,type Destination} from '../lib/game/destinations';
 
 export default function Home() {
-  const searchDialog=useRef<HTMLDialogElement>(null),searchResume=useRef(false);
+  const searchDialog=useRef<HTMLDialogElement>(null);
   const [searchOpen,setSearchOpen]=useState(false),[prefix,setPrefix]=useState(''),[searchBusy,setSearchBusy]=useState(false),[searchError,setSearchError]=useState(''),[foundPrefix,setFoundPrefix]=useState('');
   useEffect(()=>{if(searchOpen)searchDialog.current?.showModal();},[searchOpen]);
-  const teleporter=useRef<HTMLDialogElement>(null);
-  const [teleportOpen,setTeleportOpen]=useState(false),[destination,setDestination]=useState<Destination>('arrival');
-  useEffect(()=>{if(teleportOpen)teleporter.current?.showModal();},[teleportOpen]);
+  const menuDialog=useRef<HTMLDialogElement>(null);
+  const [menuOpen,setMenuOpen]=useState(false),[destination,setDestination]=useState<Destination>('arrival');
+  useEffect(()=>{if(menuOpen&&!searchOpen)menuDialog.current?.showModal();},[menuOpen,searchOpen]);
   const reader=useRef<HTMLDialogElement>(null),viewport=useRef<HTMLDivElement>(null), game=useRef<GameHandle|null>(null);
   const [ready,setReady]=useState(false),[playing,setPlaying]=useState(false),[entered,setEntered]=useState(false),[error,setError]=useState('');
   const [settings,setSettings]=useState(false),[sound,setSound]=useState(true),[motion,setMotion]=useState(false),[fov,setFov]=useState(75),[sensitivity,setSensitivity]=useState(1),[quality,setQuality]=useState('high');
@@ -33,7 +33,7 @@ export default function Home() {
     let disposed=false;
     import('../lib/game/engine').then(({createGame})=>{
       if(disposed||!viewport.current)return;
-      try {game.current=createGame(viewport.current,{onPause:()=>setPlaying(false),onStats:setStats,onFallback:()=>setDrag(true),onError:setError,onTarget:setTarget,onBook:b=>{setBook(b);setPage(0);},onPage:delta=>setPage(p=>turnPage(p,delta)),onStorageWarning:()=>setStorageWarning(true),onTeleportMenu:setTeleportOpen,onDestination:setDestination});setReady(true);}
+      try {game.current=createGame(viewport.current,{onPause:()=>setPlaying(false),onStats:setStats,onFallback:()=>setDrag(true),onError:setError,onTarget:setTarget,onBook:b=>{setBook(b);setPage(0);},onPage:delta=>setPage(p=>turnPage(p,delta)),onStorageWarning:()=>setStorageWarning(true),onGameMenu:open=>{setMenuOpen(open);if(!open)setSearchOpen(false);},onDestination:setDestination});setReady(true);}
       catch(error) {console.error('Library startup failed:',error);setError(error instanceof Error?error.message:'The library could not start. Please reload to try again.');}
     }).catch(()=>setError('The library could not load. Please refresh to try again.'));
     return ()=>{disposed=true;game.current?.dispose();game.current=null;};
@@ -41,8 +41,8 @@ export default function Home() {
   useEffect(()=>{game.current?.configure({sound,motion,fov,sensitivity,quality});},[ready,sound,motion,fov,sensitivity,quality]);
   const enter=()=>{game.current?.start();setEntered(true);setPlaying(true);setSettings(false);};
   const pause=()=>{game.current?.pause();setPlaying(false);};
-  const openSearch=()=>{searchResume.current=playing;pause();setSearchOpen(true);};
-  const closeSearch=()=>{setSearchOpen(false);if(searchResume.current)enter();};
+  const openSearch=()=>setSearchOpen(true);
+  const closeSearch=()=>setSearchOpen(false);
   const search=async()=>{
     if(!game.current||searchBusy)return;
     setSearchBusy(true);setSearchError('');
@@ -53,7 +53,7 @@ export default function Home() {
   return <main className={playing?'game playing':'game'}>
     <div ref={viewport} className="viewport" aria-label="First-person view of the Library of Babel" />
     <div className="vignette" aria-hidden="true" />
-    <header className="masthead"><div className="identity"><span className="library-mark" aria-hidden="true">Ⅲ</span><span>THE BABEL LIBRARY<small>AFTER STEVEN L. PECK</small></span></div><div className="header-actions">{ready&&!book&&!teleportOpen&&<button onClick={openSearch}>Search library</button>}<button onClick={()=>{setSound(!sound);}} aria-label={sound?'Mute audio':'Enable audio'}>{sound?'Sound on':'Sound off'}</button><button onClick={()=>{if(document.fullscreenElement)void document.exitFullscreen();else void document.documentElement.requestFullscreen?.().catch(()=>{});}} aria-label="Toggle fullscreen">⛶</button>{playing&&!book&&<button onClick={()=>game.current?.toggleTeleport()}>Teleport <kbd>T</kbd></button>}{playing&&!book&&<button onClick={()=>game.current?.toggleFlight()}>{stats.mode==='flying'?'Stop flying':'Fly'} <kbd>Space</kbd></button>}{playing&&<button onClick={pause}>Pause <kbd>Esc</kbd></button>}</div></header>
+    <header className="masthead"><div className="identity"><span className="library-mark" aria-hidden="true">Ⅲ</span><span>THE BABEL LIBRARY<small>AFTER STEVEN L. PECK</small></span></div><div className="header-actions"><button onClick={()=>{setSound(!sound);}} aria-label={sound?'Mute audio':'Enable audio'}>{sound?'Sound on':'Sound off'}</button><button onClick={()=>{if(document.fullscreenElement)void document.exitFullscreen();else void document.documentElement.requestFullscreen?.().catch(()=>{});}} aria-label="Toggle fullscreen">⛶</button>{playing&&!book&&<button onClick={()=>game.current?.toggleMenu()}>Menu <kbd>T</kbd></button>}{playing&&!book&&<button onClick={()=>game.current?.toggleFlight()}>{stats.mode==='flying'?'Stop flying':'Fly'} <kbd>Space</kbd></button>}{playing&&<button onClick={pause}>Pause <kbd>Esc</kbd></button>}</div></header>
     {!playing&&<section className="menu" aria-label={entered?'Paused':'Enter the library'}>
       <p className="eyebrow">{entered?'YOUR SEARCH CAN WAIT':'A SHORT STAY IN HELL'}</p>
       <h1>{entered?'A moment\nof stillness.':'The Library\nof Babel.'}</h1>
@@ -61,15 +61,15 @@ export default function Home() {
       <div className="menu-actions"><button className="enter" onClick={enter} disabled={!ready||!!error}>{error?'Unable to enter':!ready?'Preparing the library…':entered?'Continue walking':'Enter the library'} <span>→</span></button><button className="settings-button" onClick={()=>setSettings(!settings)} aria-expanded={settings}>Settings</button></div>
       {error&&<p className="error" role="alert">{error}</p>}
       {settings&&<div className="settings"><label>Field of view <span>{fov}°</span><input type="range" min="55" max="100" value={fov} onChange={e=>setFov(+e.target.value)}/></label><label>Mouse sensitivity <span>{sensitivity.toFixed(1)}</span><input type="range" min="0.3" max="2.5" step="0.1" value={sensitivity} onChange={e=>setSensitivity(+e.target.value)}/></label><label className="inline-label">Gentle walking motion<input type="checkbox" checked={motion} onChange={e=>setMotion(e.target.checked)}/></label><label className="inline-label">Detail<select value={quality} onChange={e=>setQuality(e.target.value)}><option value="high">High</option><option value="low">Low</option></select></label><button className="reset" onClick={()=>{game.current?.reset();}}>Return to starting point</button></div>}
-      <div className="instructions"><span><kbd>W A S D</kbd> Move</span><span><kbd>MOUSE</kbd> Look</span><span><kbd>SHIFT</kbd> Move faster</span><span><kbd>SPACE</kbd> Toggle flight</span><span><kbd>LEFT CLICK</kbd> Read a book</span><span><kbd>T</kbd> Teleport</span><span><kbd>ESC</kbd> Pause</span></div>
+      <div className="instructions"><span><kbd>W A S D</kbd> Move</span><span><kbd>MOUSE</kbd> Look</span><span><kbd>SHIFT</kbd> Move faster</span><span><kbd>SPACE</kbd> Toggle flight</span><span><kbd>LEFT CLICK</kbd> Read a book</span><span><kbd>T</kbd> Menu</span><span><kbd>ESC</kbd> Pause</span></div>
       <p className="mobile-instructions">Use the left pad to move. Drag on the right to look. Tap Fly to take off.</p>
     </section>}
-    {playing&&!book&&!teleportOpen&&<><span className={target?"crosshair targeting":"crosshair"} aria-hidden="true"/><div className="walking-hint">{target?`Left click to open · ${bookId(target)}`:stats.mode==='flying'?'WASD follows your view · Look up/down to climb or descend · Space to fall':stats.mode==='falling'?'Falling · Space to fly again':drag?'Drag to look · WASD to walk · Space to fly':'WASD to walk · Mouse to look · Space to fly'}</div>{target&&<button className="read-target" onClick={()=>game.current?.openBook()}>Open book</button>}<div className="touch-pad" aria-label="Movement controls">{(['forward','left','back','right'] as const).map((direction,i)=><button key={direction} className={direction} aria-label={`Walk ${direction}`} onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);game.current?.touchMove(direction,true);}} onPointerUp={()=>game.current?.touchMove(direction,false)} onPointerCancel={()=>game.current?.touchMove(direction,false)}>{['↑','←','↓','→'][i]}</button>)}</div></>}
+    {playing&&!book&&!menuOpen&&<><span className={target?"crosshair targeting":"crosshair"} aria-hidden="true"/><div className="walking-hint">{target?`Left click to open · ${bookId(target)}`:stats.mode==='flying'?'WASD follows your view · Look up/down to climb or descend · Space to fall':stats.mode==='falling'?'Falling · Space to fly again':drag?'Drag to look · WASD to walk · Space to fly':'WASD to walk · Mouse to look · Space to fly'}</div>{target&&<button className="read-target" onClick={()=>game.current?.openBook()}>Open book</button>}<div className="touch-pad" aria-label="Movement controls">{(['forward','left','back','right'] as const).map((direction,i)=><button key={direction} className={direction} aria-label={`Walk ${direction}`} onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);game.current?.touchMove(direction,true);}} onPointerUp={()=>game.current?.touchMove(direction,false)} onPointerCancel={()=>game.current?.touchMove(direction,false)}>{['↑','←','↓','→'][i]}</button>)}</div></>}
     {playing&&!book&&!searchOpen&&stats.navigation&&<aside className="navigation-target" aria-label="Direction to target book">
       <span className="navigation-arrow" style={{transform:`rotate(${stats.navigation.angle}deg)`}} aria-hidden="true">↑</span>
       <div><strong>{stats.navigation.direction}</strong><p>You are roughly {stats.navigation.distance} away from the target book.</p><small>Coarse bearing · straight-line distance</small></div>
     </aside>}
-    {searchOpen&&<dialog ref={searchDialog} className="search-dialog" aria-label="Search library" onCancel={e=>{e.preventDefault();closeSearch();}}>
+    {searchOpen&&<dialog ref={searchDialog} className="search-dialog" aria-label="Search library" onKeyDown={e=>{e.stopPropagation();if(e.code==='KeyT'&&!(e.target instanceof HTMLTextAreaElement)){e.preventDefault();game.current?.closeMenu();}}} onCancel={e=>{e.preventDefault();closeSearch();}}>
       <h2>Find a book by its beginning</h2>
       <p>Find one book that starts with your exact text. Matching is case-sensitive; the result is not necessarily the nearest book.</p>
       <form onSubmit={e=>{e.preventDefault();void search();}}>
@@ -80,13 +80,15 @@ export default function Home() {
       </form>
       {searchError&&<p role="alert" className="error">{searchError}</p>}
       {foundPrefix&&<output className="search-result"><strong>Matching book found. Navigation target set.</strong><blockquote>{foundPrefix.slice(0,160)}{foundPrefix.length>160?'…':''}</blockquote><p>{stats.navigation?`You are roughly ${stats.navigation.distance} away from the target book.`:'Updating direction…'}</p><small>The target stays set across teleports during this session. At this scale, walking may not visibly change the distance.</small></output>}
-      <div className="search-actions"><button onClick={closeSearch}>Return to library</button>{foundPrefix&&<button disabled={searchBusy} onClick={()=>{game.current?.clearSearch();setFoundPrefix('');}}>Clear target</button>}</div>
+      <div className="search-actions"><button onClick={closeSearch}>Back to menu</button><button onClick={()=>game.current?.closeMenu()}>Return to library</button>{foundPrefix&&<button disabled={searchBusy} onClick={()=>{game.current?.clearSearch();setFoundPrefix('');}}>Clear target</button>}</div>
     </dialog>}
-    {teleportOpen&&<dialog ref={teleporter} className="teleport-dialog" aria-label="Teleport" onCancel={e=>{e.preventDefault();game.current?.closeTeleport();}}>
-      <p className="eyebrow">THE EXTREMITIES OF THE LIBRARY</p><h2>Teleport</h2>
+    {menuOpen&&!searchOpen&&<dialog ref={menuDialog} className="teleport-dialog" aria-label="In-game menu" onCancel={e=>{e.preventDefault();game.current?.closeMenu();}}>
+      <p className="eyebrow">THE BABEL LIBRARY</p><h2>Menu</h2>
+      <button className="menu-search" onClick={openSearch}>Search library <span aria-hidden="true">→</span></button>
+      <h3>Teleport</h3>
       <p>Choose a destination. Your level and travelled distance will start again at zero.</p>
       <div className="teleport-grid">{DESTINATIONS.map(place=><button key={place} onClick={()=>game.current?.teleport(place)}>{DESTINATION_LABELS[place]}<small>{place==='arrival'?'Return to where you first entered':place.startsWith('bottom')?'End wall and bottom floor':'End wall and top ceiling'}</small></button>)}</div>
-      <button className="teleport-cancel" onClick={()=>game.current?.closeTeleport()}>Cancel <kbd>T</kbd></button>
+      <button className="teleport-cancel" onClick={()=>game.current?.closeMenu()}>Return to library <kbd>T</kbd></button>
     </dialog>}
     {book&&<dialog ref={reader} className="book-reader" onCancel={e=>{e.preventDefault();game.current?.closeBook();}} aria-modal="true" aria-label="Open library book">
       <div className="reader-toolbar"><span>THE BABEL LIBRARY <small>410 PAGES · 40 LINES · 80 CHARACTERS</small></span><button onClick={()=>game.current?.closeBook()}>Return to shelf <kbd>RIGHT CLICK</kbd></button></div>

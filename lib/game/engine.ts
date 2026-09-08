@@ -13,7 +13,7 @@ import {destinationState,type Destination} from './destinations';
 
 type Settings={sound:boolean;motion:boolean;fov:number;sensitivity:number;quality:string};
 export type GameStats={navigation?:NavigationHint|null;floor:string;distance:number;mode:TravelMode;fallSpeed:number};
-type Callbacks={onPause:()=>void;onStats:(s:GameStats)=>void;onFallback:()=>void;onError:(s:string)=>void;onTarget:(b:BookLocation|null)=>void;onBook:(b:BookLocation|null)=>void;onPage:(delta:number)=>void;onStorageWarning:()=>void;onTeleportMenu:(open:boolean)=>void;onDestination:(destination:Destination)=>void};
+type Callbacks={onPause:()=>void;onStats:(s:GameStats)=>void;onFallback:()=>void;onError:(s:string)=>void;onTarget:(b:BookLocation|null)=>void;onBook:(b:BookLocation|null)=>void;onPage:(delta:number)=>void;onStorageWarning:()=>void;onGameMenu:(open:boolean)=>void;onDestination:(destination:Destination)=>void};
 export type GameHandle=ReturnType<typeof createGame>;
 export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   let renderer:T.WebGLRenderer;
@@ -36,19 +36,19 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const highlight=new T.LineSegments(highlightEdges,highlightMaterial);highlight.visible=false;scene.add(highlight);
   const aimDirection=new T.Vector3();
   let target:BookLocation|null=null,reading:BookLocation|null=null;
-  let teleportMenu=false,limits:WorldLimits={};
-  function closeTeleport(resume=true){teleportMenu=false;clearKeys();callbacks.onTeleportMenu(false);if(resume&&active)start();}
-  function toggleTeleport(){
+  let gameMenu=false,limits:WorldLimits={};
+  function closeMenu(resume=true){gameMenu=false;clearKeys();callbacks.onGameMenu(false);if(resume&&active)start();}
+  function toggleMenu(){
     if(!active)return;
-    if(teleportMenu){closeTeleport();return;}
-    closeBook(false);teleportMenu=true;clearKeys();dragId=null;setTarget(null);callbacks.onTeleportMenu(true);
+    if(gameMenu){closeMenu();return;}
+    closeBook(false);gameMenu=true;clearKeys();dragId=null;setTarget(null);callbacks.onGameMenu(true);
     if(document.pointerLockElement===canvas)document.exitPointerLock();
   }
   function teleport(destination:Destination){
     globalFrame=newFrame(destination);books.setFrame(globalFrame);
     const next=destinationState(destination);p=next.position;limits=next.limits;yaw=next.yaw;pitch=next.pitch;
     applyLimits();totalDistance=0;mode='walking';fallSpeed=0;stepDistance=0;bob=0;
-    closeBook(false);setTarget(null);callbacks.onDestination(destination);emitStats();closeTeleport();
+    closeBook(false);setTarget(null);callbacks.onDestination(destination);emitStats();closeMenu();
   }
   function applyLimits(){
     renderer.clippingPlanes=[];
@@ -71,7 +71,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
     if(next){const c=bookCenter(next);highlight.position.set(c.x,c.y,c.z);}
   }
   function openBook(){
-    if(!active||reading||teleportMenu||!target)return;
+    if(!active||reading||gameMenu||!target)return;
     reading=target;clearKeys();dragId=null;
     opened.add(localBookId(reading));world.markOpened(reading);
     callbacks.onBook(reading);setTarget(null);
@@ -94,7 +94,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   }
   function footstep(){if(!audio||!master||!config.sound)return;const size=audio.sampleRate*.13;const b=audio.createBuffer(1,size,audio.sampleRate),a=b.getChannelData(0);for(let i=0;i<size;i++)a[i]=(Math.random()*2-1)*Math.exp(-i/(size*.2));const src=audio.createBufferSource();src.buffer=b;const filter=audio.createBiquadFilter();filter.type='lowpass';filter.frequency.value=420;const gain=audio.createGain();gain.gain.value=.25;src.connect(filter);filter.connect(gain);gain.connect(master);src.start();src.onended=()=>{src.disconnect();filter.disconnect();gain.disconnect();};}
   const clearKeys=()=>keys.clear();
-  function pause(){active=false;closeTeleport(false);closeBook(false);clearKeys();if(document.pointerLockElement===canvas)document.exitPointerLock();if(master&&audio)master.gain.setTargetAtTime(0,audio.currentTime,.1);callbacks.onPause();}
+  function pause(){active=false;closeMenu(false);closeBook(false);clearKeys();if(document.pointerLockElement===canvas)document.exitPointerLock();if(master&&audio)master.gain.setTargetAtTime(0,audio.currentTime,.1);callbacks.onPause();}
   function start(){active=true;clearKeys();soundStart();if(master&&audio)master.gain.setTargetAtTime(config.sound?.13:0,audio.currentTime,.1);
     if(!matchMedia('(pointer: coarse)').matches){
       if(!canvas.requestPointerLock){fallback=true;callbacks.onFallback();return;}
@@ -102,18 +102,18 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
     }
   }
   const emitStats=()=>callbacks.onStats({navigation:navigationAnchor?coarseNavigation(navigationAnchor,p,yaw,pitch):null,floor:(BigInt(Math.round(p.y/HEIGHT))+BigInt(globalFrame.floorOffset)).toString(),distance:Math.floor(totalDistance),mode,fallSpeed});
-  function toggleFlight(){if(reading||teleportMenu)return;mode=mode==='flying'?'falling':'flying';fallSpeed=0;stepDistance=0;emitStats();}
-  const keydown=(e:KeyboardEvent)=>{if(!active)return;if(e.code==='KeyT'){e.preventDefault();if(!e.repeat)toggleTeleport();return;}if(teleportMenu){if(e.code==='Escape'){e.preventDefault();closeTeleport();}return;}if(reading){if(['ArrowLeft','ArrowRight','Escape','Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();if(e.code==='ArrowRight')callbacks.onPage(1);else if(e.code==='ArrowLeft')callbacks.onPage(-1);else if(e.code==='Escape')closeBook();return;}if(e.code==='Escape'){pause();return;}if(e.code==='Space'){e.preventDefault();if(!e.repeat)toggleFlight();return;}if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}};
+  function toggleFlight(){if(reading||gameMenu)return;mode=mode==='flying'?'falling':'flying';fallSpeed=0;stepDistance=0;emitStats();}
+  const keydown=(e:KeyboardEvent)=>{if(!active)return;if(e.code==='KeyT'){e.preventDefault();if(!e.repeat)toggleMenu();return;}if(gameMenu){if(e.code==='Escape'){e.preventDefault();closeMenu();}return;}if(reading){if(['ArrowLeft','ArrowRight','Escape','Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();if(e.code==='ArrowRight')callbacks.onPage(1);else if(e.code==='ArrowLeft')callbacks.onPage(-1);else if(e.code==='Escape')closeBook();return;}if(e.code==='Escape'){pause();return;}if(e.code==='Space'){e.preventDefault();if(!e.repeat)toggleFlight();return;}if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}};
   const keyup=(e:KeyboardEvent)=>{keys.delete(e.code);};
   function look(dx:number,dy:number){yaw-=dx*.0018*config.sensitivity;pitch=T.MathUtils.clamp(pitch-dy*.0018*config.sensitivity,-1.48,1.48);}
-  const mousemove=(e:MouseEvent)=>{if(active&&!reading&&!teleportMenu&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);};
+  const mousemove=(e:MouseEvent)=>{if(active&&!reading&&!gameMenu&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);};
   let dragId:number|null=null,dragX=0,dragY=0,dragDistance=0;
-  const pointerdown=(e:PointerEvent)=>{if(!active||reading||teleportMenu||e.button!==0)return;if(document.pointerLockElement===canvas){openBook();return;}if(!fallback&&e.pointerType==='mouse')return;dragDistance=0;dragId=e.pointerId;dragX=e.clientX;dragY=e.clientY;canvas.setPointerCapture(e.pointerId);};
-  const pointermove=(e:PointerEvent)=>{if(active&&!reading&&!teleportMenu&&dragId===e.pointerId){dragDistance+=Math.hypot(e.clientX-dragX,e.clientY-dragY);look(e.clientX-dragX,e.clientY-dragY);dragX=e.clientX;dragY=e.clientY;}};
+  const pointerdown=(e:PointerEvent)=>{if(!active||reading||gameMenu||e.button!==0)return;if(document.pointerLockElement===canvas){openBook();return;}if(!fallback&&e.pointerType==='mouse')return;dragDistance=0;dragId=e.pointerId;dragX=e.clientX;dragY=e.clientY;canvas.setPointerCapture(e.pointerId);};
+  const pointermove=(e:PointerEvent)=>{if(active&&!reading&&!gameMenu&&dragId===e.pointerId){dragDistance+=Math.hypot(e.clientX-dragX,e.clientY-dragY);look(e.clientX-dragX,e.clientY-dragY);dragX=e.clientX;dragY=e.clientY;}};
   const pointerup=(e:PointerEvent)=>{const tap=dragId===e.pointerId&&dragDistance<5;dragId=null;if(e.type==='pointerup'&&tap)openBook();};
   const rightClick=(e:MouseEvent)=>{if(active&&reading&&e.button===2){e.preventDefault();closeBook();}};
   const contextmenu=(e:Event)=>{if(active)e.preventDefault();};
-  const lockchange=()=>{if(!document.pointerLockElement&&!fallback&&active&&!reading&&!teleportMenu)pause();};
+  const lockchange=()=>{if(!document.pointerLockElement&&!fallback&&active&&!reading&&!gameMenu)pause();};
   const lockerror=()=>{fallback=true;callbacks.onFallback();};
   const visibility=()=>{if(document.hidden)pause();};
   const lost=(e:Event)=>{e.preventDefault();pause();callbacks.onError('Graphics were interrupted. Refresh the page to return to the library.');};
@@ -127,7 +127,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const observer=new ResizeObserver(resize);observer.observe(host);
   function animate(now:number){
     if(disposed)return;frame=requestAnimationFrame(animate);const dt=Math.min((now-lastTime)/1000,.05);lastTime=now;
-    if(reading||teleportMenu)return; // The reader freezes the world; no hidden scene renders are needed.
+    if(reading||gameMenu)return; // The reader freezes the world; no hidden scene renders are needed.
     if(active&&!reading){
       if(keys.has('ArrowLeft'))yaw+=dt*1.4;if(keys.has('ArrowRight'))yaw-=dt*1.4;if(keys.has('ArrowUp'))pitch=Math.min(1.48,pitch+dt);if(keys.has('ArrowDown'))pitch=Math.max(-1.48,pitch-dt);
       let forward=Number(keys.has('KeyW'))-Number(keys.has('KeyS')),right=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
@@ -160,7 +160,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const lifecycle=new AbortController();
   const handle = {
     searchBooks:(prefix:string)=>books.search(prefix),clearSearch:()=>books.clearTarget(),
-    start,pause,toggleFlight,openBook,closeBook,toggleTeleport,teleport,closeTeleport,readPage:(book:BookLocation,page:number)=>books.page(book,page),
+    start,pause,toggleFlight,openBook,closeBook,toggleMenu,teleport,closeMenu,readPage:(book:BookLocation,page:number)=>books.page(book,page),
     reset(){teleport('arrival');},
     touchMove(direction:string,pressed:boolean){const code=({forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'} as Record<string,string>)[direction];if(pressed)keys.add(code);else keys.delete(code);},
     configure(next:Settings){config=next;camera.fov=next.fov;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio,next.quality==='low'?1:1.7));renderer.setSize(host.clientWidth,host.clientHeight);if(master&&audio)master.gain.setTargetAtTime(next.sound&&active?.13:0,audio.currentTime,.1);},
