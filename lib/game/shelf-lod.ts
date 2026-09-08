@@ -1,0 +1,58 @@
+import * as T from 'three';
+import {BAY,HEIGHT,OUTER,mod,type WorldLimits} from './physics.ts';
+export const BOOK_DETAIL_RADIUS=12,SHELF_RELIEF_RADIUS=500;
+export type ShelfCell={bay:number;level:number;side:-1|1};
+export function shelfDistanceSquared(eye:T.Vector3,cell:ShelfCell){
+  const x=cell.bay*BAY,y=cell.level*HEIGHT,z=cell.side*(OUTER+.035);
+  const dx=Math.max(x-eye.x,0,eye.x-x-BAY),dy=Math.max(y-eye.y,0,eye.y-y-3.33),dz=Math.max(Math.abs(eye.z-z)-.325,0);
+  return dx*dx+dy*dy+dz*dz;
+}
+export function detailCells(eye:T.Vector3,limits:WorldLimits){
+  const cells:ShelfCell[]=[];
+  for(let level=Math.floor((eye.y-BOOK_DETAIL_RADIUS-3.33)/HEIGHT);level<=Math.ceil((eye.y+BOOK_DETAIL_RADIUS)/HEIGHT);level++){
+    if(level*HEIGHT<(limits.minY??-Infinity)-.001||level*HEIGHT>(limits.maxY??Infinity)+.001)continue;
+    for(let bay=Math.floor((eye.x-BOOK_DETAIL_RADIUS)/BAY);bay<=Math.floor((eye.x+BOOK_DETAIL_RADIUS)/BAY);bay++){
+      if(mod(bay,12)===0||(bay+1)*BAY<=(limits.minX??-Infinity)||bay*BAY>=(limits.maxX??Infinity))continue;
+      for(const side of [-1,1] as const){const cell={bay,level,side};if(shelfDistanceSquared(eye,cell)<=BOOK_DETAIL_RADIUS**2)cells.push(cell);}
+    }
+  }
+  return cells;
+}
+/** Shared shader LOD: near bays yield to real books; medium faces get cheap relief. */
+export function shelfLod(material:T.MeshBasicMaterial,eye:T.IUniform<T.Vector3>){
+  const shade=material.onBeforeCompile.bind(material),key=material.customProgramCacheKey();
+  material.onBeforeCompile=(shader,renderer)=>{
+    shade(shader,renderer);shader.uniforms.shelfDetailEye=eye;
+    shader.fragmentShader='uniform vec3 shelfDetailEye;\n'+shader.fragmentShader;
+    shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
+      float shelfBay=floor(vBakedPosition.x/${BAY});
+      float shelfLevel=floor((vBakedPosition.y+.001)/${HEIGHT});
+      vec3 cellMin=vec3(shelfBay*${BAY},shelfLevel*${HEIGHT},sign(vBakedPosition.z)*${OUTER+.035});
+      vec3 shelfDelta=max(abs(shelfDetailEye-(cellMin+vec3(${BAY/2},1.665,0.0)))-vec3(${BAY/2},1.665,.325),vec3(0.0));
+      if(dot(shelfDelta,shelfDelta)<=${BOOK_DETAIL_RADIUS**2}.0)discard;
+      // A 6 cm relief layer: boards in front, book spines behind. Check the
+      // swept ray against periodic board strips rather than marching geometry.
+      float relief=1.0-smoothstep(450.0,${SHELF_RELIEF_RADIUS}.0,length(vBakedPosition-cameraPosition));
+      // Let the mip-filtered face take over once individual board edges become
+      // subpixel; hard analytical edges would shimmer at grazing angles.
+      float boardFootprint=max(fwidth(vBakedPosition.x)/.055,fwidth(vBakedPosition.y)/.04);
+      relief*=1.0-smoothstep(.5,2.0,boardFootprint);
+      if(relief>0.0&&abs(vBakedNormal.z)>.5){
+        vec3 ray=vBakedPosition-cameraPosition;
+        vec2 shift=ray.xy/max(abs(ray.z),.0001)*.06;
+        vec2 p=vec2(vBakedPosition.x,vBakedPosition.y-shelfLevel*${HEIGHT});
+        vec2 q=p+shift;
+        vec2 period=vec2(${BAY/8},.39),width=vec2(.055,.04);
+        vec2 start=vec2(-.0275,.09);
+        vec2 lo=min(p,q)-start,hi=max(p,q)-start;
+        vec2 next=floor(lo/period)*period;
+        vec2 hit=step(lo,next+width)+step(next+period,hi);
+        bool wood=hit.x>0.0||(hit.y>0.0&&min(p.y,q.y)<2.86)||min(p.y,q.y)<.09;
+        vec2 uv=vec2(fract((vBakedPosition.z>0.0?-q.x:q.x)/${BAY}),(q.y-.03)/3.18);
+        vec3 reliefColor=wood?vec3(${new T.Color('#544b3d').toArray().join(',')}):texture2D(map,uv).rgb;
+        diffuseColor.rgb=mix(diffuseColor.rgb,reliefColor,relief);
+      }
+    `);
+  };
+  material.customProgramCacheKey=()=>key+'-shelf-distance-relief-v1';return material;
+}

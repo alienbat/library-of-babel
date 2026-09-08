@@ -1,3 +1,4 @@
+import {detailCells,shelfLod,type ShelfCell} from './shelf-lod.ts';
 import * as T from 'three';
 import {createWallWriting} from './wall-writing.ts';
 import {ROOM_LIGHTS} from './room-lighting.ts';
@@ -98,7 +99,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     for(const mesh of [frames,lenses]){mesh.count=count;mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();}
   }
   function setLimits(next:WorldLimits){
-    wallWriting.setLimits(next);cornerLimits=next;fixtureX=fixtureY=Infinity;centerX=Infinity;
+    wallWriting.setLimits(next);cornerLimits=next;detailKey='';fixtureX=fixtureY=Infinity;centerX=Infinity;
     endCap.material=next.minY!==undefined?boundaryFloorFade:boundaryCeilingFade;
     horizon.setLimits(next);
     endWall.visible=next.minX!==undefined||next.maxX!==undefined;
@@ -116,7 +117,8 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const woodMat=mat({color:'#544b3d',roughness:.9});
   const railMat=mat({color:'#854a3d',roughness:.6,metalness:.25});
   const shelfBackMat=mat({color:'#a8a69a',roughness:1});shelfBackMat.name='shelf-backing';
-  const shelfMat=mat({map:spines,roughness:1});shelfMat.name='shelf-facade';
+  const detailEye={value:new T.Vector3(1e10,1e10,1e10)};
+  const shelfMat=shelfLod(mat({map:spines,roughness:1}),detailEye);shelfMat.name='shelf-facade';
   const lightMat=mat({color:'#fff0c9',emissive:'#fff0c9',emissiveIntensity:2.2});
   const darkMat=mat({color:'#353c38',roughness:.55,metalness:.3});
   const linenMat=mat({color:'#b7b5a8',roughness:1});
@@ -144,7 +146,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   // Lightweight distant strips extend the view without duplicating nearby furnishings.
   const farShelfMaterials=[841,405].map(repeats=>{
     const t=spines.clone();t.wrapS=T.RepeatWrapping;t.repeat.set(repeats,1);t.needsUpdate=true;textures.push(t);
-    return fade(mat({map:t}));
+    return fade(shelfLod(mat({map:t}),detailEye));
   });
   const farLampMaterials=[841,405].map(repeats=>{
     const t=texture(128,8,c=>{c.fillStyle='#fff0c9';c.fillRect(51,0,27,8);});
@@ -183,20 +185,40 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     const m=new T.InstancedMesh(pipeGeo,railMat,boxes.length);
     boxes.forEach((b,i)=>{dummy.position.set(b[0],b[1],b[2]);dummy.rotation.set(0,0,b[3]>1?Math.PI/2:0);dummy.scale.set(.036,b[3]>1?b[3]:b[4],.036);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});m.computeBoundingSphere();group.add(m);
   }
-  const bookBatches:{mesh:T.InstancedMesh;bay:number;side:-1|1}[]=[];
+  const detailGroup=new T.Group();detailGroup.name='nearby-shelf-details';scene.add(detailGroup);
+  const bookBatches:({mesh:T.InstancedMesh;parts:T.InstancedMesh[]}&ShelfCell)[]=[];
   const unreadColor=new T.Color('#ffffff'),openedColor=new T.Color('#43c9c0');
   function refreshBookColors(){
-    for(const {mesh,bay,side} of bookBatches){
-      for(let row=0;row<ROWS;row++)for(let book=0;book<BOOKS_PER_ROW;book++){
-        mesh.setColorAt(row*BOOKS_PER_ROW+book,opened.has(bookId({level:centerY,bay,side,row,book}))?openedColor:unreadColor);
-      }
+    for(const {mesh,bay,side,level} of bookBatches){
+      for(let row=0;row<ROWS;row++)for(let book=0;book<BOOKS_PER_ROW;book++)mesh.setColorAt(row*BOOKS_PER_ROW+book,opened.has(bookId({level,bay,side,row,book}))?openedColor:unreadColor);
       if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
     }
   }
   function markOpened(location:BookLocation){
-    if(location.level!==centerY)return;
-    const batch=bookBatches.find(b=>b.bay===location.bay&&b.side===location.side);
-    if(batch){batch.mesh.setColorAt(location.row*BOOKS_PER_ROW+location.book,openedColor);batch.mesh.instanceColor!.needsUpdate=true;}
+    const found=bookBatches.find(b=>b.level===location.level&&b.bay===location.bay&&b.side===location.side);
+    if(found){found.mesh.setColorAt(location.row*BOOKS_PER_ROW+location.book,openedColor);found.mesh.instanceColor!.needsUpdate=true;}
+  }
+  let detailKey='';
+  function updateDetails(eye:T.Vector3){
+    const snapped=new T.Vector3(Math.round(eye.x),Math.round(eye.y),Math.round(eye.z));
+    const key=snapped.toArray().join(':');if(key===detailKey)return;detailKey=key;detailEye.value.copy(snapped);
+    const cells=detailCells(snapped,cornerLimits),id=(c:ShelfCell)=>`${c.bay}:${c.level}:${c.side}`;
+    const wanted=new Set(cells.map(id));
+    for(let i=bookBatches.length-1;i>=0;i--)if(!wanted.has(id(bookBatches[i]))){for(const part of bookBatches[i].parts){detailGroup.remove(part);part.dispose();}bookBatches.splice(i,1);}
+    const existing=new Set(bookBatches.map(id));
+    for(const cell of cells)if(!existing.has(id(cell))){
+      const {bay,level,side}=cell,x=bay*BAY,y=level*HEIGHT;
+      const boards:Box[]=[],books:Box[]=[];
+      for(let row=0;row<ROWS;row++){
+        boards.push([x+BAY/2,y+.11+row*.39,side*(OUTER-.04),BAY,.04,.5]);
+        for(let i=0;i<BOOKS_PER_ROW;i++)books.push([x+(i+.5)*BAY/BOOKS_PER_ROW,y+.30+row*.39,side*(OUTER-.08),.037,.34,.3]);
+      }
+      for(let j=0;j<8;j++)boards.push([x+j*BAY/8,y+1.63,side*(OUTER-.03),.055,3.25,.46]);
+      const mesh=batch(books,[bookMat,goldMat],detailGroup,bookGeometry);
+      const backing=batch([[x+BAY/2,y+1.62,side*(OUTER+.22),BAY,3.18,.28]],shelfBackMat,detailGroup);
+      bookBatches.push({...cell,mesh,parts:[mesh,backing,batch(boards,woodMat,detailGroup)]});
+    }
+    refreshBookColors();
   }
   // Bounded window of repeated geometry; shifted around the walker, never an end wall.
   let centerX=Infinity, centerY=Infinity,nearBaseY=0;
@@ -207,18 +229,17 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
       if(fy!==centerY){
         // Every level has the same architecture. Translate the existing detailed
         // window during flight/fall instead of rebuilding it 14 times a second.
-        group.position.y=(fy-nearBaseY)*HEIGHT;distantGroup.position.y=fy*HEIGHT;centerY=fy;refreshBookColors();
+        group.position.y=(fy-nearBaseY)*HEIGHT;distantGroup.position.y=fy*HEIGHT;centerY=fy;
       }
       return;
     }
-    bookBatches.length=0;
     centerX=bx;centerY=fy;nearBaseY=fy;group.position.y=0;
     while(group.children.length) {const child=group.children[0];group.remove(child);if(child instanceof T.InstancedMesh)child.dispose();}
     // Signs have per-window assets; release before replacing them.
     while(textures.length>baseTextureCount)textures.pop()!.dispose();
     while(materials.length>baseMaterialCount)materials.pop()!.dispose();
     while(geometries.length>baseGeometryCount)geometries.pop()!.dispose();
-    const decks:Box[]=[], slabs:Box[]=[], floors:Box[]=[], shelves:Box[]=[], shelfBacks:Box[]=[], trim:Box[]=[], rails:Box[]=[], lamps:Box[]=[], walls:Box[]=[], furniture:Box[]=[], linens:Box[]=[], blankets:Box[]=[], dark:Box[]=[], screens:Box[]=[];
+    const decks:Box[]=[], slabs:Box[]=[], floors:Box[]=[], shelves:Box[]=[], trim:Box[]=[], rails:Box[]=[], lamps:Box[]=[], walls:Box[]=[], furniture:Box[]=[], linens:Box[]=[], blankets:Box[]=[], dark:Box[]=[], screens:Box[]=[];
     const tiles:Box[]=[],ceramics:Box[]=[],bowls:Box[]=[],seats:Box[]=[],chrome:Box[]=[],mirrors:Box[]=[];
     for(let f=fy-32;f<=fy+32;f++)for(let b=bx-15;b<=bx+15;b++)for(const side of [-1,1]) {
       const x=b*BAY,y=f*HEIGHT,z=side*(INNER+1.8288), amenity=mod(b,12)===0;
@@ -229,14 +250,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
       for(let j=0;j<6;j++)rails.push([x+j*BAY/6,y+.6,side*INNER,0,1.2,0]);
       for(let j=0;j<3;j++)lamps.push([x+3.81+j*7.62,y+HEIGHT-.38,z,1.6,.035,.28]);
       if(!amenity) {
-        const detailed=f===fy&&Math.abs(b-bx)<=2;
-        if(detailed){
-          // Books extend to OUTER + .07; keep the wall behind them with a 1 cm gap.
-          shelfBacks.push([x+BAY/2,y+1.62,side*(OUTER+.22),BAY,3.18,.28]);
-          // Every board top meets the corresponding book bottom (.30 - .34 / 2).
-          for(let row=0;row<ROWS;row++)trim.push([x+BAY/2,y+.11+row*.39,side*(OUTER-.04),BAY,.04,.5]);
-          for(let j=0;j<8;j++)trim.push([x+j*BAY/8,y+1.63,side*(OUTER-.03),.055,3.25,.46]);
-        }else shelves.push([x+BAY/2,y+1.62,side*(OUTER+.07),BAY,3.18,.60]);
+        shelves.push([x+BAY/2,y+1.62,side*(OUTER+.035),BAY,3.18,.65]);
         trim.push([x+BAY/2,y+3.28,side*(OUTER-.04),BAY,.10,.5],[x+BAY/2,y+.045,side*(OUTER-.04),BAY,.09,.5]);
       }else {
         walls.push([x+.5,y+1.8,side*(OUTER+.22),1,3.6,.3],[x+15.5,y+1.8,side*(OUTER+.22),1,3.6,.3],[x+17,y+1.8,side*(OUTER+.22),2,3.6,.3],[x+21.43,y+1.8,side*(OUTER+.22),2.86,3.6,.3]);
@@ -297,7 +311,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     }
     batch(tiles,[slabMat,tileMat],group,deckGeometry);batch(ceramics,ceramicMat);batch(bowls,ceramicMat,group,bowlGeo);batch(seats,ceramicMat,group,seatGeo);batch(chrome,chromeMat);batch(mirrors,mirrorMat);
     const deckMaterials=[slabMat,floorMat];
-    batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,[slabMat,floorMat],group,deckGeometry);batch(shelves,shelfMat);batch(shelfBacks,shelfBackMat);batch(trim,woodMat);pipes(rails);batch(lamps,lightMat);batch(walls,wallMat);batch(furniture,railMat);batch(linens,linenMat);batch(blankets,blanketMat);batch(dark,darkMat);batch(screens,screenMat);
+    batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,[slabMat,floorMat],group,deckGeometry);batch(shelves,shelfMat);batch(trim,woodMat);pipes(rails);batch(lamps,lightMat);batch(walls,wallMat);batch(furniture,railMat);batch(linens,linenMat);batch(blankets,blanketMat);batch(dark,darkMat);batch(screens,screenMat);
     // This periodic horizon never needs to be regenerated when walking. Moving its
     // origin by whole bays/floors preserves the same shelf and lamp alignment.
     distantGroup.position.set(bx*BAY,fy*HEIGHT,0);
@@ -312,7 +326,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
       for(const strip of strips)for(const side of [-1,1]) {
         const width=strip.count*BAY,x=(strip.start+strip.count/2)*BAY,y=f*HEIGHT,z=side*(INNER+1.8288);
         farSlabs.push([x,y-.17,z,width,.34,3.6576]);
-        farShelves[strip.material].push([x,y+1.62,side*(OUTER+.07),width,3.18,.60]);
+        farShelves[strip.material].push([x,y+1.62,side*(OUTER+.035),width,3.18,.65]);
         farLamps[strip.material].push([x,y+HEIGHT-.38,z,width,.035,.28]);
         farRails.push([x,y+1.2192,side*INNER,width,.07,.07],[x,y+.55,side*INNER,width,.07,.07]);
       }
@@ -320,27 +334,15 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     batchDistant(farSlabs,[distantSlabMat,distantFloorMat],deckGeometry);batchDistant(farRails,distantRailMat,distantRailGeometry);
     for(let i=0;i<2;i++){batchDistant(farShelves[i],farShelfMaterials[i],distantShelfGeometry);batchDistant(farLamps[i],farLampMaterials[i],distantLampGeometry);}
     }
-    // Real book volumes close to the player, patterned shelf facades in the distance.
-    seed=3451;
-    for(let b=bx-2;b<=bx+2;b++)if(mod(b,12)!==0)for(const side of [-1,1]) {
-    // Separate book bounds let Three.js reject shelf sections outside the camera view.
-    const books:Box[]=[];
-    for(let row=0;row<8;row++)for(let i=0;i<570;i++) {
-      const x=b*BAY+(i+.5)*BAY/570;
-      books.push([x,fy*HEIGHT+.30+row*.39,side*(OUTER-.08),.037,.34,.3]);
-    }
-    const mesh=batch(books,[bookMat,goldMat],group,bookGeometry);
-    bookBatches.push({mesh,bay:b,side:side as -1|1});
-    }
-    refreshBookColors();
   }
   function update(px:number,py:number,camera?:T.Camera){
     rebuild(px,py);
+    updateDetails(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7));
     endWall.position.y=py;endCap.position.x=px;updateFixtures(px,py);
     if(!camera)return;
     camera.updateMatrixWorld();horizon.update(camera);clipMatrix.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);
     frustum.setFromProjectionMatrix(clipMatrix);
     for(const {mesh,bounds} of distantBatches){worldBounds.copy(bounds).translate(distantGroup.position);mesh.visible=frustum.intersectsBox(worldBounds);}
   }
-  return { update, markOpened,setLimits,refreshBookColors, dispose(){wallWriting.dispose();boundary.dispose();frames.dispose();lenses.dispose();scene.remove(boundaryGroup);endGeometry.dispose();capGeometry.dispose();horizon.dispose();lighting.dispose();scene.remove(group,distantGroup);for(const root of [group,distantGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
+  return { update, markOpened,setLimits,refreshBookColors, dispose(){wallWriting.dispose();boundary.dispose();frames.dispose();lenses.dispose();scene.remove(boundaryGroup);endGeometry.dispose();capGeometry.dispose();horizon.dispose();lighting.dispose();scene.remove(group,distantGroup,detailGroup);for(const root of [group,distantGroup,detailGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
 }

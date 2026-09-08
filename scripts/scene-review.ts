@@ -9,6 +9,7 @@ const world=createWorld(scene),camera=new T.PerspectiveCamera(65,1100/720,.1,160
 let errors=0;
 renderer.debug.onShaderError=(gl,program,vs,fs)=>{errors++;console.error(gl.getProgramInfoLog(program),gl.getShaderInfoLog(vs),gl.getShaderInfoLog(fs));};
 const views={
+ FloatingNearFloor:{p:[35,4.1,OUTER-1.5],at:[38,5.4,OUTER],limits:{}},
  ShelfTransition:{p:[84,1.68,OUTER-1.6],at:[100,1.68,OUTER-.23],limits:{}},
  ShelfDetail:{p:[31,1.68,OUTER-1.4],at:[30,1.5,OUTER],limits:{}},
  FreshArrival:{p:[30,5.64,0],at:[130,5.64,0],limits:{}},
