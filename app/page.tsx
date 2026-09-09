@@ -1,6 +1,8 @@
 'use client';
+import {BookmarkEditor} from '../components/game/bookmark-editor';
+import type {Bookmark} from '../lib/game/bookmarks';
 import {MAX_PREFIX} from '../lib/game/search';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GameHandle, GameStats } from '../lib/game/engine';
 
 import {bookId,turnPage,PAGE_COUNT,type BookLocation} from '../lib/game/books';
@@ -9,6 +11,7 @@ import {DESTINATIONS,DESTINATION_LABELS,type Destination} from '../lib/game/dest
 
 export default function Home() {
   const [prefix,setPrefix]=useState(''),[searchBusy,setSearchBusy]=useState(false),[searchError,setSearchError]=useState(''),[foundPrefix,setFoundPrefix]=useState('');
+  const [bookmarks,setBookmarks]=useState<Bookmark[]>([]),[trackedId,setTrackedId]=useState('');
   const menuDialog=useRef<HTMLDialogElement>(null);
   const [menuOpen,setMenuOpen]=useState(false),[destination,setDestination]=useState<Destination>('arrival');
   useEffect(()=>{if(menuOpen){menuDialog.current?.showModal();menuDialog.current?.focus();}},[menuOpen]);
@@ -31,21 +34,28 @@ export default function Home() {
     let disposed=false;
     import('../lib/game/engine').then(({createGame})=>{
       if(disposed||!viewport.current)return;
-      try {game.current=createGame(viewport.current,{onPause:()=>setPlaying(false),onStats:setStats,onFallback:()=>setDrag(true),onError:setError,onTarget:setTarget,onBook:b=>{setBook(b);setPage(0);},onPage:delta=>setPage(p=>turnPage(p,delta)),onStorageWarning:()=>setStorageWarning(true),onGameMenu:setMenuOpen,onDestination:setDestination});setReady(true);}
+      try {game.current=createGame(viewport.current,{onBookmarks:setBookmarks,onPause:()=>setPlaying(false),onStats:setStats,onFallback:()=>setDrag(true),onError:setError,onTarget:setTarget,onBook:b=>{setBook(b);setPage(0);},onPage:delta=>setPage(p=>turnPage(p,delta)),onStorageWarning:()=>setStorageWarning(true),onGameMenu:setMenuOpen,onDestination:setDestination});setReady(true);}
       catch(error) {console.error('Library startup failed:',error);setError(error instanceof Error?error.message:'The library could not start. Please reload to try again.');}
     }).catch(()=>setError('The library could not load. Please refresh to try again.'));
     return ()=>{disposed=true;game.current?.dispose();game.current=null;};
   },[]);
   useEffect(()=>{game.current?.configure({sound,motion,fov,sensitivity,quality});},[ready,sound,motion,fov,sensitivity,quality]);
+  const restoreBookmarkPage=useCallback((savedPage:number)=>setPage(current=>current===0?savedPage:current),[]);
   const enter=()=>{game.current?.start();setEntered(true);setPlaying(true);setSettings(false);};
   const pause=()=>{game.current?.pause();setPlaying(false);};
   const search=async()=>{
     if(!game.current||searchBusy)return;
     setSearchBusy(true);setSearchError('');
-    try{setFoundPrefix(await game.current.searchBooks(prefix));}
+    try{setFoundPrefix(await game.current.searchBooks(prefix));setTrackedId('');}
     catch(error){setSearchError(error instanceof Error?error.message:'Could not search. Please try again.');}
     finally{setSearchBusy(false);}
   };
+  const trackBookmark=async(saved:Bookmark)=>{
+    if(!game.current||searchBusy)return;setSearchBusy(true);setSearchError('');
+    try{await game.current.trackBookmark(saved.id);setTrackedId(saved.id);setFoundPrefix('');}
+    catch(e){setSearchError(e instanceof Error?e.message:'Could not track bookmark.');}finally{setSearchBusy(false);}
+  };
+  const trackedBookmark=bookmarks.find(saved=>saved.id===trackedId);
   return <main className={playing?'game playing':'game'}>
     <div ref={viewport} className="viewport" aria-label="First-person view of the Library of Babel" />
     <div className="vignette" aria-hidden="true" />
@@ -63,7 +73,7 @@ export default function Home() {
     {playing&&!book&&!menuOpen&&<><span className={target?"crosshair targeting":"crosshair"} aria-hidden="true"/><div className="walking-hint">{target?`Left click to open · ${bookId(target)}`:stats.mode==='flying'?'WASD follows your view · Look up/down to climb or descend · Space to fall':stats.mode==='falling'?'Falling · Space to fly again':drag?'Drag to look · WASD to walk · Space to fly':'WASD to walk · Mouse to look · Space to fly'}</div>{target&&<button className="read-target" onClick={()=>game.current?.openBook()}>Open book</button>}<div className="touch-pad" aria-label="Movement controls">{(['forward','left','back','right'] as const).map((direction,i)=><button key={direction} className={direction} aria-label={`Walk ${direction}`} onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);game.current?.touchMove(direction,true);}} onPointerUp={()=>game.current?.touchMove(direction,false)} onPointerCancel={()=>game.current?.touchMove(direction,false)}>{['↑','←','↓','→'][i]}</button>)}</div></>}
     {playing&&!book&&!menuOpen&&stats.navigation&&<aside className="navigation-target" aria-label="Direction to target book">
       <span className="navigation-arrow" style={{transform:`rotate(${stats.navigation.angle}deg)`}} aria-hidden="true">↑</span>
-      <div><strong>{stats.navigation.direction}</strong><p>You are roughly {stats.navigation.distance} away from the target book.</p><small>Coarse bearing · straight-line distance</small></div>
+      <div>{trackedBookmark&&<strong className="tracked-book-name">{trackedBookmark.name}</strong>}<strong>{stats.navigation.direction}</strong><p>You are roughly {stats.navigation.distance} away from the target book.</p><small>Coarse bearing · straight-line distance</small></div>
     </aside>}
     {menuOpen&&<dialog ref={menuDialog} className="teleport-dialog game-menu-dialog" tabIndex={-1} aria-label="In-game menu" onCancel={e=>{e.preventDefault();game.current?.closeMenu();}}>
       <p className="eyebrow">THE BABEL LIBRARY</p><h2>Menu</h2>
@@ -79,7 +89,13 @@ export default function Home() {
       </form>
       {searchError&&<p role="alert" className="error">{searchError}</p>}
       {foundPrefix&&<output className="search-result"><strong>Matching book found. Navigation target set.</strong><blockquote>{foundPrefix.slice(0,160)}{foundPrefix.length>160?'…':''}</blockquote><p>{stats.navigation?`You are roughly ${stats.navigation.distance} away from the target book.`:'Updating direction…'}</p><small>The target stays set across teleports during this session. At this scale, walking may not visibly change the distance.</small></output>}
-      {foundPrefix&&<button disabled={searchBusy} onClick={()=>{game.current?.clearSearch();setFoundPrefix('');}}>Clear target</button>}
+      {stats.navigation&&<button disabled={searchBusy} onClick={()=>{game.current?.clearSearch();setFoundPrefix('');setTrackedId('');}}>Clear target</button>}
+      <section className="bookmark-list" aria-label="Saved books"><h3>Saved books</h3>
+        <p className="bookmark-storage-note">Saved in this browser.</p>
+        {bookmarks.length===0?<p>No bookmarks yet. Name and save a book while reading it.</p>:<ul>{bookmarks.map(saved=><li key={saved.id}><span><strong>{saved.name}</strong><small>Page {saved.page+1}</small></span><button disabled={searchBusy} onClick={()=>void trackBookmark(saved)}>Track<span className="sr-only"> {saved.name}</span></button></li>)}</ul>}
+        {trackedBookmark&&<output>Tracking “{trackedBookmark.name}”. {stats.navigation?`Roughly ${stats.navigation.distance} away.`:''}</output>}
+        {storageWarning&&<p role="alert">Browser storage is unavailable or full. Changes may only last for this session.</p>}
+      </section>
       </section>
       <section aria-label="Teleport">
       <h3>Teleport</h3>
@@ -97,7 +113,8 @@ export default function Home() {
         <div className="book-footnote">{bookId(book)}</div>
       </article></div>
       <nav className="reader-navigation" aria-label="Book pages"><button disabled={page===0} onClick={()=>setPage(p=>turnPage(p,-1))}>← Previous</button><span aria-live="polite">Page {page+1} of {PAGE_COUNT}</span><button disabled={page===PAGE_COUNT-1} onClick={()=>setPage(p=>turnPage(p,1))}>Next →</button></nav>
-      <p className="reader-help">← / → Turn page · Right click or Esc to return · Opened books turn teal{storageWarning?' · History can only be kept for this session.': ''}</p>
+      <BookmarkEditor key={bookId(book)} game={game} book={book} page={page} onRestore={restoreBookmarkPage}/>
+      <p className="reader-help">← / → Turn page · Right click or Esc to return · Opened books turn teal{storageWarning?' · Saved data may only last for this session.': ''}</p>
     </dialog>}
     <footer><span>{playing?(stats.mode==='flying'?'FLYING':stats.mode==='falling'?`FALLING · ${Math.round(stats.fallSpeed / 0.44704)} MPH`:'WALKING'):'AN UNOFFICIAL LITERARY EXPLORATION'}</span><div><span>{DESTINATION_LABELS[destination]}</span><span>LEVEL <b>{stats.floor==='0'?'0':`${stats.floor.startsWith('-')?'':'+'}${stats.floor}`}</b></span><span><b>{stats.distance.toLocaleString()}</b> m travelled</span></div></footer>
   </main>;

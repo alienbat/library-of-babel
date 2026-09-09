@@ -1,3 +1,4 @@
+import type {Bookmark} from './bookmarks';
 import {coarseNavigation,type NavigationAnchor,type NavigationHint} from './search';
 import * as T from 'three';
 // oxlint-disable-next-line import/default -- Vite generates the URL export for worker queries.
@@ -13,7 +14,7 @@ import {destinationState,type Destination} from './destinations';
 
 type Settings={sound:boolean;motion:boolean;fov:number;sensitivity:number;quality:string};
 export type GameStats={navigation?:NavigationHint|null;floor:string;distance:number;mode:TravelMode;fallSpeed:number};
-type Callbacks={onPause:()=>void;onStats:(s:GameStats)=>void;onFallback:()=>void;onError:(s:string)=>void;onTarget:(b:BookLocation|null)=>void;onBook:(b:BookLocation|null)=>void;onPage:(delta:number)=>void;onStorageWarning:()=>void;onGameMenu:(open:boolean)=>void;onDestination:(destination:Destination)=>void};
+type Callbacks={onBookmarks:(records:Bookmark[])=>void;onPause:()=>void;onStats:(s:GameStats)=>void;onFallback:()=>void;onError:(s:string)=>void;onTarget:(b:BookLocation|null)=>void;onBook:(b:BookLocation|null)=>void;onPage:(delta:number)=>void;onStorageWarning:()=>void;onGameMenu:(open:boolean)=>void;onDestination:(destination:Destination)=>void};
 export type GameHandle=ReturnType<typeof createGame>;
 export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   let renderer:T.WebGLRenderer;
@@ -29,7 +30,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const world=createWorld(scene,opened);
   let globalFrame:GlobalFrame=newFrame();
   let navigationAnchor:NavigationAnchor|null=null;
-  const books=createBookClient(ids=>{opened.clear();ids.forEach(id=>opened.add(id));world.refreshBookColors();},callbacks.onStorageWarning,bookWorkerUrl,anchor=>{navigationAnchor=anchor;emitStats();});
+  const books=createBookClient(ids=>{opened.clear();ids.forEach(id=>opened.add(id));world.refreshBookColors();},callbacks.onStorageWarning,bookWorkerUrl,anchor=>{navigationAnchor=anchor;emitStats();},callbacks.onBookmarks);
   const highlightGeometry=new T.BoxGeometry(.043,.352,.31);
   const highlightEdges=new T.EdgesGeometry(highlightGeometry);
   const highlightMaterial=new T.LineBasicMaterial({color:'#fff3a8',toneMapped:false});
@@ -159,6 +160,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   frame=requestAnimationFrame(animate);
   const lifecycle=new AbortController();
   const handle = {
+    getBookmark:(book:BookLocation)=>books.getBookmark(book),saveBookmark:(book:BookLocation,name:string,page:number)=>books.saveBookmark(book,name,page),deleteBookmark:(book:BookLocation)=>books.deleteBookmark(book),trackBookmark:(id:string)=>books.trackBookmark(id),
     searchBooks:(prefix:string)=>books.search(prefix),clearSearch:()=>books.clearTarget(),
     start,pause,toggleFlight,openBook,closeBook,toggleMenu,teleport,closeMenu,readPage:(book:BookLocation,page:number)=>books.page(book,page),
     reset(){teleport('arrival');},

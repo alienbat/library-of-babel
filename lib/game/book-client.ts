@@ -1,9 +1,10 @@
+import {BOOKMARK_STORAGE,type Bookmark} from './bookmarks.ts';
 import type {NavigationAnchor} from './search.ts';
 import {globalBook,newFrame,type GlobalBook,type GlobalFrame} from './global-books.ts';
 import {loadOpened,type BookLocation} from './books.ts';
 const STORAGE='babel-global-opened-v2';
-type Reply={id:number;navigation?:NavigationAnchor|null;foundPrefix?:string;text?:string;opened:string[];history?:GlobalBook[];error?:string};
-export function createBookClient(onHistory:(ids:string[])=>void,onStorageWarning:()=>void,workerUrl:string,onNavigation:(anchor:NavigationAnchor|null)=>void=()=>{}){
+type Reply={id:number;bookmarks?:Bookmark[];bookmark?:Bookmark|null;navigation?:NavigationAnchor|null;foundPrefix?:string;text?:string;opened:string[];history?:GlobalBook[];error?:string};
+export function createBookClient(onHistory:(ids:string[])=>void,onStorageWarning:()=>void,workerUrl:string,onNavigation:(anchor:NavigationAnchor|null)=>void=()=>{},onBookmarks:(records:Bookmark[])=>void=()=>{}){
   let frame=newFrame(),sequence=0,frameVersion=0,failure:Error|undefined;
   const pending=new Map<number,{resolve:(r:Reply)=>void;reject:(e:Error)=>void;version:number}>();
   let worker:Worker|undefined;
@@ -14,6 +15,7 @@ export function createBookClient(onHistory:(ids:string[])=>void,onStorageWarning
     if(reply.error){request.reject(new Error(reply.error));return;}
     if(request.version===frameVersion){onHistory(reply.opened);if(reply.navigation!==undefined)onNavigation(reply.navigation);}
     try{if(reply.history)localStorage.setItem(STORAGE,JSON.stringify(reply.history));}catch{onStorageWarning();}
+    if(reply.bookmarks){try{localStorage.setItem(BOOKMARK_STORAGE,JSON.stringify(reply.bookmarks));}catch{onStorageWarning();}onBookmarks(reply.bookmarks);}
     request.resolve(reply);
   };
   function fail(message:string){
@@ -40,7 +42,9 @@ export function createBookClient(onHistory:(ids:string[])=>void,onStorageWarning
       const shelf=Number(match[3]);history.push({frame:newFrame(),level:Number(match[1]),side:match[2]==='N'?1:-1,bay:Math.floor(shelf/8),row:((shelf%8)+8)%8,book:Number(match[4])-1});
     }
   }catch{onStorageWarning();}
-  void request('init',{history}).catch(()=>{});
+  let bookmarks:Bookmark[]=[];
+  try{const parsed:unknown=JSON.parse(localStorage.getItem(BOOKMARK_STORAGE)||'[]');if(Array.isArray(parsed))bookmarks=parsed;}catch{onStorageWarning();}
+  void request('init',{history,bookmarks}).catch(()=>{});
   return {
     setFrame(next:GlobalFrame){frame={...next};frameVersion++;onHistory([]);onNavigation(null);void request('history').catch(()=>{});},
     async search(prefix:string){
@@ -48,6 +52,10 @@ export function createBookClient(onHistory:(ids:string[])=>void,onStorageWarning
       if(version!==frameVersion)await request('history');
       return reply.foundPrefix!;
     },
+    async getBookmark(book:BookLocation){return (await request('bookmark-get',{book:globalBook(book,book.frame??frame)})).bookmark??null;},
+    async saveBookmark(book:BookLocation,name:string,page:number){return (await request('bookmark-save',{book:globalBook(book,book.frame??frame),name,page})).bookmark!;},
+    async deleteBookmark(book:BookLocation){await request('bookmark-delete',{book:globalBook(book,book.frame??frame)});},
+    async trackBookmark(bookmarkId:string){const version=frameVersion;await request('bookmark-track',{bookmarkId});if(version!==frameVersion)await request('history');},
     clearTarget(){onNavigation(null);void request('clear-target').catch(()=>{});},
     async page(book:BookLocation,page:number){const reply=await request('page',{book:globalBook(book,book.frame??frame),page});return reply.text!;},
     dispose(){worker?.terminate();for(const request of pending.values())request.reject(new Error('Reader closed'));pending.clear();},

@@ -1,8 +1,10 @@
+import {bookmarkName,bookmarkPage,upsertBookmark,type Bookmark} from './bookmarks.ts';
 import {matchingOrdinalDigits,MAX_PREFIX,type SearchAddress} from './search.ts';
 import {createPortableBookMath} from './portable-books';
 import {permuteDigits,textPage,type GlobalBook,type GlobalFrame} from './global-books';
 import {bookId,localBookId} from './books';
 let targetAddress:SearchAddress|null=null;
+let bookmarks:Bookmark[]=[];
 let records:GlobalBook[]=[],cached:Uint8Array|undefined,cachedExpression='';
 const knownExpressions=new Set<string>();
 let projectionFrame='',projectionDirty=true,projected:string[]=[];
@@ -20,7 +22,8 @@ self.onmessage=(event:MessageEvent)=>{
 function handle(event:MessageEvent,{bookOrdinal,digits,projectBook,fromDigits,addressFromOrdinal,navigation}:Parameters<Parameters<Awaited<ReturnType<typeof createPortableBookMath>>['withContext']>[0]>[0]){
   const {id,action,book,page,frame,history}=event.data;
   try{
-    let changed=false;
+    let changed=false,bookmarksChanged=false;
+    let bookmark:Bookmark|null|undefined;
     let foundPrefix:string|undefined;
     if(action==='search'){
       const prefix=event.data.prefix;
@@ -28,8 +31,32 @@ function handle(event:MessageEvent,{bookOrdinal,digits,projectBook,fromDigits,ad
       const index=fromDigits(matchingOrdinalDigits(prefix));
       targetAddress=addressFromOrdinal(index);foundPrefix=prefix;
     }
+    if(action==='bookmark-get'||action==='bookmark-save'||action==='bookmark-delete'){
+      const index=bookOrdinal(book);
+      bookmark=bookmarks.find(b=>bookOrdinal(b.book).isEqual(index))??null;
+      if(action==='bookmark-save'){
+        bookmark=upsertBookmark(bookmarks,book,event.data.name,page,(a,b)=>bookOrdinal(a).isEqual(bookOrdinal(b)),bookId(book));bookmarksChanged=true;
+      }
+      if(action==='bookmark-delete'){
+        if(bookmark)bookmarks=bookmarks.filter(b=>b.id!==bookmark!.id);
+        bookmark=null;bookmarksChanged=true;
+      }
+    }
+    if(action==='bookmark-track'){
+      const saved=bookmarks.find(b=>b.id===event.data.bookmarkId);
+      if(!saved)throw new RangeError('This bookmark no longer exists.');
+      targetAddress=addressFromOrdinal(bookOrdinal(saved.book));
+    }
     if(action==='clear-target')targetAddress=null;
     if(action==='init'){
+      bookmarks=[];
+      for(const saved of Array.isArray(event.data.bookmarks)?event.data.bookmarks:[]){
+        try{
+          bookOrdinal(saved.book);bookmarkName(saved.name);bookmarkPage(saved.page);
+          upsertBookmark(bookmarks,saved.book,saved.name,saved.page,(a,b)=>bookOrdinal(a).isEqual(bookOrdinal(b)),bookId(saved.book));
+        }catch{/* Ignore malformed saved entries. */}
+      }
+      bookmarksChanged=true;
       knownExpressions.clear();cachedExpression='';
       records=(history as GlobalBook[]).filter(record=>{try{bookOrdinal(record);return true;}catch{return false;}});
       records.forEach(record=>knownExpressions.add(bookId(record)));projectionDirty=true;changed=true;
@@ -54,6 +81,6 @@ function handle(event:MessageEvent,{bookOrdinal,digits,projectBook,fromDigits,ad
       projected=records.map(record=>projectBook(record,frame as GlobalFrame)).filter(b=>b!==null).map(localBookId);
       projectionFrame=frameKey;projectionDirty=false;
     }
-    self.postMessage({id,text,foundPrefix,...(['search','history','clear-target'].includes(action)?{navigation:targetAddress?navigation(targetAddress,frame):null}:{}),opened:projected,...(changed?{history:records}:{})});
+    self.postMessage({id,text,foundPrefix,...(bookmark!==undefined?{bookmark}:{}),...(bookmarksChanged?{bookmarks}:{}),...(['search','history','clear-target','bookmark-track'].includes(action)?{navigation:targetAddress?navigation(targetAddress,frame):null}:{}),opened:projected,...(changed?{history:records}:{})});
   }catch(error){self.postMessage({id,error:error instanceof Error?error.message:'Book generation failed'});}
 };
