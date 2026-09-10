@@ -21,6 +21,7 @@ export default function Home() {
   useEffect(()=>{if(menuOpen){menuDialog.current?.showModal();menuDialog.current?.focus();}},[menuOpen]);
   const reader=useRef<HTMLDialogElement>(null),viewport=useRef<HTMLDivElement>(null), game=useRef<GameHandle|null>(null);
   const [ready,setReady]=useState(false),[playing,setPlaying]=useState(false),[entered,setEntered]=useState(false),[error,setError]=useState('');
+  const [teleportBusy,setTeleportBusy]=useState(false),[teleportError,setTeleportError]=useState('');
   const [confirmReset,setConfirmReset]=useState(false),[resetError,setResetError]=useState('');
   const resetDialog=useRef<HTMLDialogElement>(null);
   useEffect(()=>{if(confirmReset)resetDialog.current?.showModal();},[confirmReset]);
@@ -81,6 +82,12 @@ export default function Home() {
     }catch(e){setSearchError(e instanceof Error?e.message:'Could not delete bookmark.');}
     finally{setSearchBusy(false);}
   };
+  const teleportTarget=async()=>{
+    if(!game.current||teleportBusy)return;setTeleportBusy(true);setTeleportError('');
+    try{await game.current.teleportToTarget();}
+    catch(e){setTeleportError(e instanceof Error?e.message:'Could not teleport to the target book.');}
+    finally{setTeleportBusy(false);}
+  };
   const trackedBookmark=bookmarks.find(saved=>saved.id===trackedId);
   return <main className={playing?'game playing':'game'}>
     <div ref={viewport} className="viewport" aria-label="First-person view of the Library of Babel" />
@@ -137,8 +144,9 @@ export default function Home() {
       <button className="teleport-cancel" onClick={()=>game.current?.closeMenu()}>Return to library <kbd>T</kbd></button>
     </dialog>}
     {debugOpen&&<dialog ref={debugDialog} tabIndex={-1} className="teleport-dialog" aria-label="Debug teleport menu" onCancel={e=>{e.preventDefault();game.current?.closeMenu();}}>
-      <p className="eyebrow">DEBUG / TELEPORT</p><h2>Teleport</h2><p>Jump to a library boundary or your original starting point. Journey distance and elapsed time are preserved.</p>
-      <div className="teleport-grid">{DESTINATIONS.map(place=><button key={place} onClick={()=>game.current?.teleport(place)}>{DESTINATION_LABELS[place]}</button>)}</div>
+      <p className="eyebrow">DEBUG / TELEPORT</p><h2>Teleport</h2><p>Jump to a library boundary, your original starting point, or the tracked book. Journey distance and elapsed time are preserved.</p>
+      <div className="teleport-grid">{DESTINATIONS.map(place=><button key={place} disabled={teleportBusy} onClick={()=>game.current?.teleport(place)}>{DESTINATION_LABELS[place]}</button>)}<button disabled={teleportBusy||!stats.navigation} onClick={()=>void teleportTarget()}>{teleportBusy?'Finding target…':'Target Book'}</button></div>
+      {teleportError&&<p className="error" role="alert">{teleportError}</p>}
       <button className="teleport-cancel" onClick={()=>game.current?.closeMenu()}>Close <kbd>`</kbd></button>
     </dialog>}
     {book&&<dialog ref={reader} className="book-reader" onCancel={e=>{e.preventDefault();game.current?.closeBook();}} aria-modal="true" aria-label="Open library book">

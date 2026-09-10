@@ -126,6 +126,20 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
       return result;
     }finally{walkBusy=false;}
   }
+  async function teleportToTarget(){
+    if(walkBusy)throw new Error('A journey action is already in progress.');
+    if(!navigationAnchor)throw new Error('Track a book first.');
+    walkBusy=true;clearKeys();
+    try{
+      const result=await books.targetLanding();if(disposed)throw new Error('Game closed.');
+      globalFrame=result.frame;p=result.position;limits=result.limits;
+      yaw=result.side===1?Math.PI:0;pitch=Math.atan2(.30+result.row*.39-EYE,1.12);
+      mode='walking';fallSpeed=0;stepDistance=0;bob=0;setTarget(null);
+      books.setFrame(globalFrame);applyLimits();emitStats();
+      try{saveProgress();}catch{callbacks.onStorageWarning();}
+    }finally{walkBusy=false;}
+    closeMenu();
+  }
   function toggleFlight(){if(reading||gameMenu)return;mode=mode==='flying'?'falling':'flying';fallSpeed=0;stepDistance=0;emitStats();}
   const keydown=(e:KeyboardEvent)=>{if(!active)return;if(e.code==='Backquote'){e.preventDefault();if(!e.repeat)toggleMenu('debug');return;}if(e.code==='KeyT'){e.preventDefault();if(!e.repeat)toggleMenu();return;}if(gameMenu){if(e.code==='Escape'){e.preventDefault();closeMenu();}return;}if(reading){if(['ArrowLeft','ArrowRight','Escape','Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();if(e.code==='ArrowRight')callbacks.onPage(1);else if(e.code==='ArrowLeft')callbacks.onPage(-1);else if(e.code==='Escape')closeBook();return;}if(e.code==='Escape'){pause();return;}if(e.code==='Space'){e.preventDefault();if(!e.repeat)toggleFlight();return;}if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}};
   const keyup=(e:KeyboardEvent)=>{keys.delete(e.code);};
@@ -187,7 +201,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   window.addEventListener('pagehide',autoSave);
   frame=requestAnimationFrame(animate);
   const lifecycle=new AbortController();
-  const handle = {saveProgress,timedWalk,
+  const handle = {saveProgress,timedWalk,teleportToTarget,
     getBookmark:(book:BookLocation)=>books.getBookmark(book),saveBookmark:(book:BookLocation,name:string,page:number)=>books.saveBookmark(book,name,page),deleteBookmark:(book:BookLocation)=>books.deleteBookmark(book),trackBookmark:(id:string)=>books.trackBookmark(id),
     searchBooks:(prefix:string)=>books.search(prefix),clearSearch:()=>books.clearTarget(),
     start,pause,toggleFlight,openBook,closeBook,toggleMenu,teleport,closeMenu,readPage:(book:BookLocation,page:number)=>books.page(book,page),

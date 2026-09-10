@@ -68,3 +68,41 @@ void test('navigation distance uses metres, kilometres, then light years at thei
   assert.equal(distance(9460730472580800*1.1),'1.1 light years');
   assert.equal(distance(9460730472580800*100),'1.0 × 10^2 light years');
 });
+
+void test('target teleport lands at the exact searched book and survives a saved frame',async()=>{
+  const {readJourney}=await import('../lib/game/journey.ts');
+  const {bookId}=await import('../lib/game/books.ts');
+  const prefix='My name is Soren',portable=await createPortableBookMath();
+  let savedFrame:ReturnType<typeof newFrame>;
+  let address:SearchAddress;
+  portable.withContext(math=>{
+    const index=math.fromDigits(matchingOrdinalDigits(prefix));address=math.addressFromOrdinal(index);
+    const landing=math.targetLanding(address,{...newFrame(),originSearch:prefix});savedFrame=landing.frame;
+    assert.ok(JSON.stringify(savedFrame).length<200,'search anchors persist without million-digit coordinates');
+    const nearby=math.navigation(address,landing.frame).localTarget!;
+    assert.equal(nearby[0],landing.position.x);assert.ok(Math.abs(nearby[2]-landing.position.z)<1.2);
+    const book={frame:landing.frame,level:0,bay:Math.floor(landing.position.x/BAY),side:address.side,row:address.row,book:address.book};
+    assert.equal(math.bookOrdinal(book).toString(16),index.toString(16));
+    assert.equal(bookOrdinal(book).toString(16),index.toString(16),'native reference agrees with the search frame');
+    assert.notEqual(bookId(book),bookId({...book,frame:newFrame()}));
+    assert.equal(landing.position.y,0);
+    const bookmarkLanding=math.targetLanding(address,landing.frame);
+    assert.deepEqual(bookmarkLanding,landing,'bookmark and search teleport to the same shelf');
+  });
+  const saved={version:1,frame:savedFrame!,position:{x:30,y:0,z:16.94},yaw:0,pitch:0,mode:'walking',fallSpeed:0,distanceMm:'1234',artificialMs:'0',startedAt:1700000000000,savedAt:1700000000001};
+  const restored=readJourney({getItem:()=>JSON.stringify(saved)})!;
+  const reloaded=await createPortableBookMath();
+  reloaded.withContext(math=>assert.ok(math.navigation(address!,restored.frame).localTarget,'search origin regenerates after reload'));
+});
+void test('target teleport retains corner boundary clipping on both galleries',async()=>{
+  const portable=await createPortableBookMath();
+  portable.withContext(math=>{
+    for(const destination of ['bottom-left','top-right'] as const)for(const side of [-1,1] as const){
+      const frame=newFrame(destination),book={frame,level:0,bay:1,side,row:7,book:569};
+      const address=math.addressFromOrdinal(math.bookOrdinal(book)),landing=math.targetLanding(address,frame);
+      assert.ok(destination==='bottom-left'?landing.limits.minY===0:landing.limits.maxY===HEIGHT-.34);
+      assert.equal(Math.sign(landing.position.z),side);
+      assert.ok(math.navigation(address,landing.frame).localTarget);
+    }
+  });
+});

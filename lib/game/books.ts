@@ -5,7 +5,7 @@ export type BookLocation={frame?:GlobalFrame;level:number;side:-1|1;bay:number;r
 export function localBookId(b:BookLocation){return `v1/L${b.level}/${b.side===1?'N':'S'}/S${b.bay*ROWS+b.row}/B${b.book+1}`;}
 export function bookId(b:BookLocation){
   if(!b.frame)return localBookId(b);
-  return `v2/${b.frame.destination}${b.frame.originSeed?`~${b.frame.originSeed}`:''}/F${BigInt(b.frame.floorOffset)+BigInt(b.level)}/S${BigInt(b.frame.sectionOffset)+BigInt(b.bay)}/${b.side===1?'N':'S'}/R${b.row+1}/B${b.book+1}`;
+  return `v2/${b.frame.destination}${b.frame.originSearch!==undefined?`!${encodeURIComponent(b.frame.originSearch)}`:b.frame.originSeed?`~${b.frame.originSeed}`:''}/F${BigInt(b.frame.floorOffset)+BigInt(b.level)}/S${BigInt(b.frame.sectionOffset)+BigInt(b.bay)}/${b.side===1?'N':'S'}/R${b.row+1}/B${b.book+1}`;
 }
 export function bookCenter(b:BookLocation):Position{return {x:b.bay*BAY+(b.book+.5)*BAY/BOOKS_PER_ROW,y:b.level*HEIGHT+.30+b.row*.39,z:b.side*(OUTER-.08)};}
 export function turnPage(page:number,delta:number){return Math.max(0,Math.min(PAGE_COUNT-1,page+delta));}

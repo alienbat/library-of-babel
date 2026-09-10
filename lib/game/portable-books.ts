@@ -1,5 +1,5 @@
 import {WALK_YEARS,WALK_DIRECTIONS,YEAR_WALK_CM,YEAR_MS,type WalkDirection,type WalkResult} from './journey.ts';
-import {packDigits,type SearchAddress,type NavigationAnchor} from './search.ts';
+import {matchingOrdinalDigits,packDigits,type SearchAddress,type NavigationAnchor} from './search.ts';
 import {BAY,HEIGHT,OUTER,INNER,type Position} from './physics.ts';
 import {init} from 'gmp-wasm/dist/mini.esm.js';
 import {BOOKS_PER_ROW,ROWS,type BookLocation} from './books.ts';
@@ -10,11 +10,11 @@ import {CHARACTER_COUNT,ordinalDigits,type GlobalBook,type GlobalFrame} from './
  * Every request owns a context so temporary integers are freed, including on errors.
  */
 export async function createPortableBookMath(){
-  const gmp=await init();
+  const gmp=await init(),searchOrigins=new Map<string,SearchAddress>();
   return {
     withContext<T>(run:(math:ReturnType<typeof contextMath>)=>T):T{
       const ctx=gmp.getContext();
-      try{return run(contextMath(ctx.Integer));}finally{ctx.destroy();}
+      try{return run(contextMath(ctx.Integer,searchOrigins));}finally{ctx.destroy();}
     },
   };
 }
@@ -28,7 +28,7 @@ interface IntegerValue {
   greaterThan(n:IntegerValue|number):boolean;greaterOrEqual(n:IntegerValue|number):boolean;
   toNumber():number;toString(radix?:number):string;
 }
-function contextMath(factory:import('gmp-wasm').CalculateType['Integer']){
+function contextMath(factory:import('gmp-wasm').CalculateType['Integer'],searchOrigins:Map<string,SearchAddress>){
   const Integer=factory as unknown as (n:number|string,radix?:number)=>IntegerValue;
   const powers=new Map<number,IntegerValue>();
   function power(n:number){let p=powers.get(n);if(!p){p=Integer(95).pow(n);powers.set(n,p);}return p;}
@@ -46,6 +46,11 @@ function contextMath(factory:import('gmp-wasm').CalculateType['Integer']){
     const name=frame.destination;
     const {floors,sections}=library();
     if(!['arrival','bottom-left','bottom-right','top-left','top-right'].includes(name))throw new RangeError('Invalid frame');
+    if(frame.originSearch!==undefined){
+      let address=searchOrigins.get(frame.originSearch);
+      if(!address){address=addressFromOrdinal(fromDigits(matchingOrdinalDigits(frame.originSearch)));if(searchOrigins.size>=8)searchOrigins.delete(searchOrigins.keys().next().value!);searchOrigins.set(frame.originSearch,address);}
+      return {floor:Integer(address.floorHex,16).add(integer(frame.floorOffset)),section:Integer(address.sectionHex,16).div(12,2).mul(12).add(integer(frame.sectionOffset))};
+    }
     if(frame.originSeed){
       const seed=frame.originSeed;if(!/^[a-f0-9]{64}$/.test(seed))throw new RangeError('Invalid origin seed');
       const divisor=Integer(2).pow(128);
@@ -94,6 +99,18 @@ function contextMath(factory:import('gmp-wasm').CalculateType['Integer']){
     const elapsed=stopped?actual.mul(240).div(17,2):integer(years).mul(integer(YEAR_MS.toString()));
     return {frame:{...frame,sectionOffset:block.mul(12).sub(initial.section).toString(),floorOffset:floor.sub(initial.floor).toString()},
       position:{x:nextX.sub(block.mul(27432)).toNumber()/100,y:0,z:(p.z<0?-1:1)*(INNER+1.7)},distanceCm:actual.toString(),elapsedMs:elapsed.toString(),stoppedAtEdge:stopped,limits};
+  }
+  function targetLanding(address:SearchAddress,source:GlobalFrame){
+    const floor=Integer(address.floorHex,16),section=Integer(address.sectionHex,16),block=section.div(12,2).mul(12),d=library();
+    const initial=origin({...source,floorOffset:'0',sectionOffset:'0'});
+    const frame:GlobalFrame={...source,floorOffset:floor.sub(initial.floor).toString(),sectionOffset:block.sub(initial.section).toString()};
+    const limits:import('./physics.ts').WorldLimits={};
+    const left=block.mul(2286),right=d.sections.sub(block).mul(2286),bottom=floor.mul(396),top=d.floors.sub(1).sub(floor).mul(396);
+    if(left.lessThan(100000000))limits.minX=left.isEqual(0)?0:-left.toNumber()/100;
+    if(right.lessThan(100000000))limits.maxX=right.toNumber()/100;
+    if(bottom.lessThan(100000000))limits.minY=bottom.isEqual(0)?0:-bottom.toNumber()/100;
+    if(top.lessThan(100000000))limits.maxY=top.toNumber()/100+HEIGHT-.34;
+    return {frame,limits,position:{x:section.sub(block).toNumber()*BAY+(address.book+.5)*BAY/BOOKS_PER_ROW,y:0,z:address.side*(OUTER-1.2)},side:address.side,row:address.row};
   }
   function digits(index:IntegerValue){
     const result=new Uint8Array(CHARACTER_COUNT);
@@ -149,5 +166,5 @@ function contextMath(factory:import('gmp-wasm').CalculateType['Integer']){
     const x=ax.sign*10**(ax.log-largest),y=ay.sign*10**(ay.log-largest),length=Math.hypot(x,y);
     return {direction:[x/length,y/length,0],logMeters:largest+Math.log10(length)};
   }
-  return {walk,bookOrdinal,digits,projectBook,fromDigits,addressFromOrdinal,navigation};
+  return {targetLanding,walk,bookOrdinal,digits,projectBook,fromDigits,addressFromOrdinal,navigation};
 }

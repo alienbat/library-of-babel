@@ -3,7 +3,7 @@ import {matchingOrdinalDigits,MAX_PREFIX,type SearchAddress} from './search.ts';
 import {createPortableBookMath} from './portable-books';
 import {permuteDigits,textPage,type GlobalBook,type GlobalFrame} from './global-books';
 import {bookId,localBookId} from './books';
-let targetAddress:SearchAddress|null=null;
+let targetAddress:SearchAddress|null=null,targetFrame:GlobalFrame|null=null;
 let bookmarks:Bookmark[]=[];
 let records:GlobalBook[]=[],cached:Uint8Array|undefined,cachedExpression='';
 const knownExpressions=new Set<string>();
@@ -19,7 +19,7 @@ self.onmessage=(event:MessageEvent)=>{
     catch(error){self.postMessage({id:event.data.id,error:error instanceof Error?error.message:'Book generation failed'});}
   });
 };
-function handle(event:MessageEvent,{walk,bookOrdinal,digits,projectBook,fromDigits,addressFromOrdinal,navigation}:Parameters<Parameters<Awaited<ReturnType<typeof createPortableBookMath>>['withContext']>[0]>[0]){
+function handle(event:MessageEvent,{targetLanding,walk,bookOrdinal,digits,projectBook,fromDigits,addressFromOrdinal,navigation}:Parameters<Parameters<Awaited<ReturnType<typeof createPortableBookMath>>['withContext']>[0]>[0]){
   const {id,action,book,page,frame,history}=event.data;
   try{
     const journeyWalk=action==='journey-walk'?walk(frame,event.data.position,event.data.direction,event.data.years):undefined;
@@ -30,7 +30,7 @@ function handle(event:MessageEvent,{walk,bookOrdinal,digits,projectBook,fromDigi
       const prefix=event.data.prefix;
       if(typeof prefix!=='string'||prefix.length>MAX_PREFIX)throw new RangeError('Invalid search text');
       const index=fromDigits(matchingOrdinalDigits(prefix));
-      targetAddress=addressFromOrdinal(index);foundPrefix=prefix;
+      targetAddress=addressFromOrdinal(index);targetFrame={destination:'arrival',floorOffset:'0',sectionOffset:'0',originSearch:prefix};foundPrefix=prefix;
     }
     if(action==='bookmark-get'||action==='bookmark-save'||action==='bookmark-delete'){
       const index=bookOrdinal(book);
@@ -46,9 +46,11 @@ function handle(event:MessageEvent,{walk,bookOrdinal,digits,projectBook,fromDigi
     if(action==='bookmark-track'){
       const saved=bookmarks.find(b=>b.id===event.data.bookmarkId);
       if(!saved)throw new RangeError('This bookmark no longer exists.');
-      targetAddress=addressFromOrdinal(bookOrdinal(saved.book));
+      targetAddress=addressFromOrdinal(bookOrdinal(saved.book));targetFrame=saved.book.frame;
     }
-    if(action==='clear-target')targetAddress=null;
+    if(action==='clear-target'){targetAddress=null;targetFrame=null;}
+    let landing;
+    if(action==='target-teleport'){if(!targetAddress||!targetFrame)throw new RangeError('Track a book first.');landing=targetLanding(targetAddress,targetFrame);}
     if(action==='init'){
       bookmarks=[];
       for(const saved of Array.isArray(event.data.bookmarks)?event.data.bookmarks:[]){
@@ -82,6 +84,6 @@ function handle(event:MessageEvent,{walk,bookOrdinal,digits,projectBook,fromDigi
       projected=records.map(record=>projectBook(record,frame as GlobalFrame)).filter(b=>b!==null).map(localBookId);
       projectionFrame=frameKey;projectionDirty=false;
     }
-    self.postMessage({id,text,foundPrefix,...(journeyWalk?{journeyWalk}:{}),...(bookmark!==undefined?{bookmark}:{}),...(bookmarksChanged?{bookmarks}:{}),...(['search','history','clear-target','bookmark-track'].includes(action)?{navigation:targetAddress?navigation(targetAddress,frame):null}:{}),opened:projected,...(changed?{history:records}:{})});
+    self.postMessage({id,text,foundPrefix,...(landing?{landing}:{}),...(journeyWalk?{journeyWalk}:{}),...(bookmark!==undefined?{bookmark}:{}),...(bookmarksChanged?{bookmarks}:{}),...(['search','history','clear-target','bookmark-track'].includes(action)?{navigation:targetAddress?navigation(targetAddress,frame):null}:{}),opened:projected,...(changed?{history:records}:{})});
   }catch(error){self.postMessage({id,error:error instanceof Error?error.message:'Book generation failed'});}
 };
