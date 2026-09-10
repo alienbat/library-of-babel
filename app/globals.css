@@ -35,3 +35,12 @@
 .walking-panel label{display:block;margin:16px 0;font-size:16px}.walking-panel select{display:block;width:100%;padding:10px;margin-top:8px;background:#111a15;color:#eeeadd;border:1px solid #7c8978;font-size:16px}.walking-panel button{padding:12px 16px;margin:8px 8px 0 0;background:#dddcc7;color:#202b24;border:0;font-size:16px}.walking-panel button:disabled{opacity:.5}.walking-panel output{display:block;margin-top:16px}.walk-confirm{border-top:1px solid #7c897866;margin-top:20px;padding-top:8px}.journey-time{border-bottom:1px solid #7c897866;padding-bottom:16px;font-variant-numeric:tabular-nums}.save-notice{display:block;margin-top:12px;font-size:14px}.library-clock{font-variant-numeric:tabular-nums}footer>div{flex-wrap:wrap;justify-content:flex-end}.game.playing footer{gap:12px}@media(max-width:900px){.library-clock{max-width:240px;text-align:right}}
 
 .bookmark-actions{display:flex;gap:8px;flex-shrink:0}.bookmark-list li>span{flex:1}
+
+.menu-actions{flex-direction:column;align-items:stretch;gap:10px;width:min(320px,100%)}
+.menu-actions>button{box-sizing:border-box;width:100%;min-width:0;min-height:54px;padding:15px 22px;border:1px solid #a5ae8e60;background:#1b2822e6;color:#e4e1cf;text-align:left;font-size:16px;transition:background .15s,border-color .15s}
+.menu-actions>button.enter{background:#ded8bf;color:#222b25;border-color:#e2dcc6}
+.menu-actions>button:hover{background:#354339;border-color:#d4d0b7}.menu-actions>button.enter:hover{background:#f0ead4}
+.menu-actions>button:focus-visible,.danger-button:focus-visible,.reset-actions>button:focus-visible{outline:2px solid #f0ead4;outline-offset:3px}
+.menu{max-height:calc(83dvh - 110px);overflow-y:auto;scrollbar-width:thin;padding:4px 8px 4px 4px}
+.danger-button{background:#862e32;color:#fff1e9;border:1px solid #c96b68;padding:14px 20px;font-size:16px;text-align:center}.danger-button:hover{background:#a0393d}
+.reset-dialog{width:min(440px,calc(100vw - 64px));background:#19231f;color:#e4e1cf;border:1px solid #a5ae8e60;padding:28px}.reset-dialog::backdrop{background:#080d0bd9}.reset-dialog h2{font-family:Georgia,serif;font-size:30px;font-weight:400;margin:0 0 18px}.reset-dialog p{font-size:16px;line-height:1.6;color:#c9cebf}.reset-actions{display:flex;gap:12px;margin-top:24px}.reset-actions>button{flex:1;min-height:48px;border:1px solid #a5ae8e60;font-size:16px}.reset-actions>button:not(.danger-button){background:#344238;color:#eeeadd}

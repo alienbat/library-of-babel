@@ -21,6 +21,9 @@ export default function Home() {
   useEffect(()=>{if(menuOpen){menuDialog.current?.showModal();menuDialog.current?.focus();}},[menuOpen]);
   const reader=useRef<HTMLDialogElement>(null),viewport=useRef<HTMLDivElement>(null), game=useRef<GameHandle|null>(null);
   const [ready,setReady]=useState(false),[playing,setPlaying]=useState(false),[entered,setEntered]=useState(false),[error,setError]=useState('');
+  const [confirmReset,setConfirmReset]=useState(false),[resetError,setResetError]=useState('');
+  const resetDialog=useRef<HTMLDialogElement>(null);
+  useEffect(()=>{if(confirmReset)resetDialog.current?.showModal();},[confirmReset]);
   const [settings,setSettings]=useState(false),[sound,setSound]=useState(true),[motion,setMotion]=useState(false),[fov,setFov]=useState(75),[sensitivity,setSensitivity]=useState(1),[quality,setQuality]=useState('high');
   const [stats,setStats]=useState<GameStats>({floor:'0',distance:'0',mode:'walking',fallSpeed:0}),[drag,setDrag]=useState(false);
   const [target,setTarget]=useState<BookLocation|null>(null),[book,setBook]=useState<BookLocation|null>(null),[page,setPage]=useState(0),[storageWarning,setStorageWarning]=useState(false);
@@ -47,7 +50,7 @@ export default function Home() {
   const restoreBookmarkPage=useCallback((savedPage:number)=>setPage(current=>current===0?savedPage:current),[]);
   const enter=()=>{game.current?.start();setEntered(true);setPlaying(true);setSettings(false);};
   useEffect(()=>{
-    if(playing||!entered||!ready||error)return;
+    if(playing||!entered||!ready||error||confirmReset)return;
     const resume=(event:KeyboardEvent)=>{
       if(event.code!=='Escape'||event.repeat)return;
       event.preventDefault();event.stopImmediatePropagation();
@@ -55,7 +58,7 @@ export default function Home() {
     };
     window.addEventListener('keydown',resume,true);
     return ()=>window.removeEventListener('keydown',resume,true);
-  },[playing,entered,ready,error]);
+  },[playing,entered,ready,error,confirmReset]);
   const saveProgress=()=>{try{const when=game.current?.saveProgress();setSaveNotice(when?`Progress saved at ${new Date(when).toLocaleTimeString()}.`:'Enter the library first.');}catch{setSaveNotice('Could not save progress. Browser storage may be unavailable or full.');}};
   const pause=()=>{game.current?.pause();setPlaying(false);};
   const search=async()=>{
@@ -87,15 +90,21 @@ export default function Home() {
       <p className="eyebrow">{entered?'YOUR SEARCH CAN WAIT':'A SHORT STAY IN HELL'}</p>
       <h1>{entered?'A moment\nof stillness.':'The Library\nof Babel.'}</h1>
       <p className="intro">{entered?'The shelves will still be here.':'A hundred feet across. No end in sight.\nSomewhere in these books is your story.'}</p>
-      <div className="menu-actions"><button className="enter" onClick={enter} disabled={!ready||!!error}>{error?'Unable to enter':!ready?'Preparing the library…':entered?'Continue walking':'Enter the library'} <span>→</span></button>{entered&&<button className="settings-button" onClick={saveProgress}>Save progress</button>}<button className="settings-button" onClick={()=>setSettings(!settings)} aria-expanded={settings}>Settings</button></div>
+      <div className="menu-actions"><button className="enter" onClick={enter} disabled={!ready||!!error}>{error?'Unable to enter':!ready?'Preparing the library…':entered?'Continue walking':'Enter the library'} <span>→</span></button>{entered&&<button className="settings-button" onClick={saveProgress}>Save Progress</button>}<button className="settings-button" onClick={()=>setSettings(!settings)} aria-expanded={settings}>Settings</button></div>
       {!!stats.savedAt&&<small className="save-notice">Last saved: {new Date(stats.savedAt).toLocaleString()}</small>}
       {storageWarning&&<p className="error" role="alert">Browser storage is unavailable or full. Progress and bookmarks may only last for this session.</p>}
       {saveNotice&&<output className="save-notice">{saveNotice}</output>}
       {error&&<p className="error" role="alert">{error}</p>}
-      {settings&&<div className="settings"><label>Field of view <span>{fov}°</span><input type="range" min="55" max="100" value={fov} onChange={e=>setFov(+e.target.value)}/></label><label>Mouse sensitivity <span>{sensitivity.toFixed(1)}</span><input type="range" min="0.3" max="2.5" step="0.1" value={sensitivity} onChange={e=>setSensitivity(+e.target.value)}/></label><label className="inline-label">Gentle walking motion<input type="checkbox" checked={motion} onChange={e=>setMotion(e.target.checked)}/></label><label className="inline-label">Detail<select value={quality} onChange={e=>setQuality(e.target.value)}><option value="high">High</option><option value="low">Low</option></select></label></div>}
+      {settings&&<div className="settings"><label>Field of view <span>{fov}°</span><input type="range" min="55" max="100" value={fov} onChange={e=>setFov(+e.target.value)}/></label><label>Mouse sensitivity <span>{sensitivity.toFixed(1)}</span><input type="range" min="0.3" max="2.5" step="0.1" value={sensitivity} onChange={e=>setSensitivity(+e.target.value)}/></label><label className="inline-label">Gentle walking motion<input type="checkbox" checked={motion} onChange={e=>setMotion(e.target.checked)}/></label><label className="inline-label">Detail<select value={quality} onChange={e=>setQuality(e.target.value)}><option value="high">High</option><option value="low">Low</option></select></label><button className="danger-button" onClick={()=>{setResetError('');setConfirmReset(true);}}>Start Over</button></div>}
       <div className="instructions"><span><kbd>W A S D</kbd> Move</span><span><kbd>MOUSE</kbd> Look</span><span><kbd>SHIFT</kbd> Move faster</span><span><kbd>SPACE</kbd> Toggle flight</span><span><kbd>LEFT CLICK</kbd> Read a book</span><span><kbd>T</kbd> Menu</span><span><kbd>ESC</kbd> Pause</span></div>
       <p className="mobile-instructions">Use the left pad to move. Drag on the right to look. Tap Fly to take off.</p>
     </section>}
+    {confirmReset&&<dialog ref={resetDialog} className="reset-dialog" aria-labelledby="reset-title" aria-describedby="reset-description" onCancel={event=>{event.preventDefault();setConfirmReset(false);}}>
+      <h2 id="reset-title">Start over?</h2>
+      <p id="reset-description">This deletes your saved location, journey distance, time in the library, bookmarks, and opened-book history in this browser. A new journey starts at zero. This cannot be undone.</p>
+      {resetError&&<p className="error" role="alert">{resetError}</p>}
+      <div className="reset-actions"><button autoFocus onClick={()=>setConfirmReset(false)}>No</button><button className="danger-button" onClick={()=>{try{game.current?.startOver();}catch{setResetError('Could not clear progress. Check browser storage permissions and try again.');}}}>Yes</button></div>
+    </dialog>}
     {playing&&!book&&!menuOpen&&!debugOpen&&<><span className={target?"crosshair targeting":"crosshair"} aria-hidden="true"/><div className="walking-hint">{target?`Left click to open · ${bookId(target)}`:stats.mode==='flying'?'WASD follows your view · Look up/down to climb or descend · Space to fall':stats.mode==='falling'?'Falling · Space to fly again':drag?'Drag to look · WASD to walk · Space to fly':'WASD to walk · Mouse to look · Space to fly'}</div>{target&&<button className="read-target" onClick={()=>game.current?.openBook()}>Open book</button>}<div className="touch-pad" aria-label="Movement controls">{(['forward','left','back','right'] as const).map((direction,i)=><button key={direction} className={direction} aria-label={`Walk ${direction}`} onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);game.current?.touchMove(direction,true);}} onPointerUp={()=>game.current?.touchMove(direction,false)} onPointerCancel={()=>game.current?.touchMove(direction,false)}>{['↑','←','↓','→'][i]}</button>)}</div></>}
     {playing&&!book&&!menuOpen&&!debugOpen&&stats.navigation&&<aside className="navigation-target" aria-label="Direction to target book">
       <span className="navigation-arrow" style={{transform:`rotate(${stats.navigation.angle}deg)`}} aria-hidden="true">↑</span>
