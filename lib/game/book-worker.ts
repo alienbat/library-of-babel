@@ -19,9 +19,10 @@ self.onmessage=(event:MessageEvent)=>{
     catch(error){self.postMessage({id:event.data.id,error:error instanceof Error?error.message:'Book generation failed'});}
   });
 };
-function handle(event:MessageEvent,{bookOrdinal,digits,projectBook,fromDigits,addressFromOrdinal,navigation}:Parameters<Parameters<Awaited<ReturnType<typeof createPortableBookMath>>['withContext']>[0]>[0]){
+function handle(event:MessageEvent,{walk,bookOrdinal,digits,projectBook,fromDigits,addressFromOrdinal,navigation}:Parameters<Parameters<Awaited<ReturnType<typeof createPortableBookMath>>['withContext']>[0]>[0]){
   const {id,action,book,page,frame,history}=event.data;
   try{
+    const journeyWalk=action==='journey-walk'?walk(frame,event.data.position,event.data.direction,event.data.years):undefined;
     let changed=false,bookmarksChanged=false;
     let bookmark:Bookmark|null|undefined;
     let foundPrefix:string|undefined;
@@ -81,6 +82,6 @@ function handle(event:MessageEvent,{bookOrdinal,digits,projectBook,fromDigits,ad
       projected=records.map(record=>projectBook(record,frame as GlobalFrame)).filter(b=>b!==null).map(localBookId);
       projectionFrame=frameKey;projectionDirty=false;
     }
-    self.postMessage({id,text,foundPrefix,...(bookmark!==undefined?{bookmark}:{}),...(bookmarksChanged?{bookmarks}:{}),...(['search','history','clear-target','bookmark-track'].includes(action)?{navigation:targetAddress?navigation(targetAddress,frame):null}:{}),opened:projected,...(changed?{history:records}:{})});
+    self.postMessage({id,text,foundPrefix,...(journeyWalk?{journeyWalk}:{}),...(bookmark!==undefined?{bookmark}:{}),...(bookmarksChanged?{bookmarks}:{}),...(['search','history','clear-target','bookmark-track'].includes(action)?{navigation:targetAddress?navigation(targetAddress,frame):null}:{}),opened:projected,...(changed?{history:records}:{})});
   }catch(error){self.postMessage({id,error:error instanceof Error?error.message:'Book generation failed'});}
 };

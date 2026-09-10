@@ -2,7 +2,7 @@ import {BOOKS_PER_ROW,ROWS,PAGE_COUNT,LINES_PER_PAGE,CHARS_PER_LINE,type BookLoc
 import {destinationState,type Destination} from './destinations.ts';
 import {BAY,HEIGHT} from './physics.ts';
 export const CHARACTER_COUNT=PAGE_COUNT*LINES_PER_PAGE*CHARS_PER_LINE;
-export type GlobalFrame={destination:Destination;floorOffset:string;sectionOffset:string};
+export type GlobalFrame={originSeed?:string;destination:Destination;floorOffset:string;sectionOffset:string};
 export type GlobalBook={frame:GlobalFrame;level:number;bay:number;side:-1|1;row:number;book:number};
 export const newFrame=(destination:Destination='arrival'):GlobalFrame=>({destination,floorOffset:'0',sectionOffset:'0'});
 let dimensions:ReturnType<typeof computeDimensions>|undefined;
@@ -19,6 +19,7 @@ export function shiftFrame(frame:GlobalFrame,sections:number,floors:number):Glob
   return {...frame,sectionOffset:(BigInt(frame.sectionOffset)+BigInt(sections)).toString(),floorOffset:(BigInt(frame.floorOffset)+BigInt(floors)).toString()};
 }
 export function frameLimits(frame:GlobalFrame){
+  if(frame.originSeed)return {};
   const limits={...destinationState(frame.destination).limits};
   const sections=BigInt(frame.sectionOffset),floors=BigInt(frame.floorOffset),near=1000000n;
   if(sections>near||sections< -near){delete limits.minX;delete limits.maxX;}
@@ -30,6 +31,12 @@ export function frameLimits(frame:GlobalFrame){
 export function frameOrigin(frame:GlobalFrame){
   if(!['arrival','bottom-left','bottom-right','top-left','top-right'].includes(frame.destination))throw new RangeError('Invalid frame');
   const d=libraryDimensions(),name=frame.destination;
+  if(frame.originSeed){
+    const seed=frame.originSeed;if(!/^[a-f0-9]{64}$/.test(seed))throw new RangeError('Invalid origin seed');
+    let floor=BigInt('0x'+seed.slice(0,32))*d.floors/(1n<<128n);
+    if(floor===d.partialFloor)floor++;
+    return {floor:floor+BigInt(frame.floorOffset),section:BigInt('0x'+seed.slice(32))*(d.sections/12n)/(1n<<128n)*12n+BigInt(frame.sectionOffset)};
+  }
   return {floor:(name==='arrival'?d.floors/2n:name.startsWith('top')?d.floors-1n:0n)+BigInt(frame.floorOffset),
     section:(name==='arrival'?(d.sections/24n)*12n:name.endsWith('right')?d.sections-12n:0n)+BigInt(frame.sectionOffset)};
 }

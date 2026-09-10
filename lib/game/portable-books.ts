@@ -1,5 +1,6 @@
+import {WALK_YEARS,WALK_DIRECTIONS,YEAR_WALK_CM,YEAR_MS,type WalkDirection,type WalkResult} from './journey.ts';
 import {packDigits,type SearchAddress,type NavigationAnchor} from './search.ts';
-import {BAY,HEIGHT,OUTER} from './physics.ts';
+import {BAY,HEIGHT,OUTER,INNER,type Position} from './physics.ts';
 import {init} from 'gmp-wasm/dist/mini.esm.js';
 import {BOOKS_PER_ROW,ROWS,type BookLocation} from './books.ts';
 import {CHARACTER_COUNT,ordinalDigits,type GlobalBook,type GlobalFrame} from './global-books.ts';
@@ -45,6 +46,13 @@ function contextMath(factory:import('gmp-wasm').CalculateType['Integer']){
     const name=frame.destination;
     const {floors,sections}=library();
     if(!['arrival','bottom-left','bottom-right','top-left','top-right'].includes(name))throw new RangeError('Invalid frame');
+    if(frame.originSeed){
+      const seed=frame.originSeed;if(!/^[a-f0-9]{64}$/.test(seed))throw new RangeError('Invalid origin seed');
+      const divisor=Integer(2).pow(128);
+      let floor=Integer(seed.slice(0,32),16).mul(floors).div(divisor,2);
+      if(floor.isEqual(library().partialFloor))floor=floor.add(1);
+      return {floor:floor.add(integer(frame.floorOffset)),section:Integer(seed.slice(32),16).mul(sections.div(12,2)).div(divisor,2).mul(12).add(integer(frame.sectionOffset))};
+    }
     return {
       floor:(name==='arrival'?floors.div(2,2):name.startsWith('top')?floors.sub(1):Integer(0)).add(integer(frame.floorOffset)),
       section:(name==='arrival'?sections.div(24,2).mul(12):name.endsWith('right')?sections.sub(12):Integer(0)).add(integer(frame.sectionOffset)),
@@ -62,6 +70,30 @@ function contextMath(factory:import('gmp-wasm').CalculateType['Integer']){
     const index=storageFloor.mul(perFloor).add(occupiedSection.mul(2*ROWS*BOOKS_PER_ROW)).add(slot);
     if(index.greaterOrEqual(total))throw new RangeError('This slot is empty on the partial floor');
     return index;
+  }
+  function walk(frame:GlobalFrame,p:Position,direction:WalkDirection,years:string):WalkResult{
+    if(!WALK_DIRECTIONS.includes(direction)||!WALK_YEARS.includes(years as typeof WALK_YEARS[number]))throw new RangeError('Invalid walk selection');
+    const base=origin(frame),d=library(),vertical=direction==='Up'||direction==='Down',sign=direction==='Up'||direction==='East'?1:-1;
+    const budget=integer(years).mul(integer(YEAR_WALK_CM.toString()));
+    const x=base.section.mul(2286).add(integer(Math.round(p.x*100))),y=base.floor.mul(396).add(integer(Math.round(p.y*100)));
+    const current=vertical?y:x,maximum=vertical?d.floors.sub(1).mul(396):d.sections.mul(2286).sub(30),minimum=integer(vertical?0:30);
+    let target=current.add(budget.mul(sign));
+    if(target.lessThan(minimum))target=minimum;if(target.greaterThan(maximum))target=maximum;
+    const travelled=target.sub(current).abs();
+    const actual=travelled.greaterThan(budget)?integer(0):travelled;
+    const stopped=actual.lessThan(budget);
+    const nextX=vertical?x:target,nextY=vertical?target:y;
+    const block=nextX.div(27432,2),floor=nextY.div(396,2);
+    const initial=origin({...frame,floorOffset:'0',sectionOffset:'0'});
+    const limits:import('./physics.ts').WorldLimits={};
+    const left=block.mul(27432),right=d.sections.mul(2286).sub(left),bottom=floor.mul(396),top=d.floors.sub(1).sub(floor).mul(396);
+    if(left.lessThan(100000000))limits.minX=left.isEqual(0)?0:-left.toNumber()/100;
+    if(right.lessThan(100000000))limits.maxX=right.toNumber()/100;
+    if(bottom.lessThan(100000000))limits.minY=bottom.isEqual(0)?0:-bottom.toNumber()/100;
+    if(top.lessThan(100000000))limits.maxY=top.toNumber()/100+HEIGHT-.34;
+    const elapsed=stopped?actual.mul(240).div(17,2):integer(years).mul(integer(YEAR_MS.toString()));
+    return {frame:{...frame,sectionOffset:block.mul(12).sub(initial.section).toString(),floorOffset:floor.sub(initial.floor).toString()},
+      position:{x:nextX.sub(block.mul(27432)).toNumber()/100,y:0,z:(p.z<0?-1:1)*(INNER+1.7)},distanceCm:actual.toString(),elapsedMs:elapsed.toString(),stoppedAtEdge:stopped,limits};
   }
   function digits(index:IntegerValue){
     const result=new Uint8Array(CHARACTER_COUNT);
@@ -117,5 +149,5 @@ function contextMath(factory:import('gmp-wasm').CalculateType['Integer']){
     const x=ax.sign*10**(ax.log-largest),y=ay.sign*10**(ay.log-largest),length=Math.hypot(x,y);
     return {direction:[x/length,y/length,0],logMeters:largest+Math.log10(length)};
   }
-  return {bookOrdinal,digits,projectBook,fromDigits,addressFromOrdinal,navigation};
+  return {walk,bookOrdinal,digits,projectBook,fromDigits,addressFromOrdinal,navigation};
 }

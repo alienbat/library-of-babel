@@ -23,6 +23,7 @@ const views={
  ChasmDown:{p:[30,1.68,0],at:[30,-100,0],limits:{}},
  ChasmOblique:{p:[30,1.68,0],at:[100,65,.015],limits:{}},
  Gallery:{p:[30,1.68,16.94],at:[40,1.6,0],limits:{}},
+ CompassOpposite:{p:[17,2.5,-OUTER+2.5],at:[17,3,-OUTER-.1],limits:{}},
  Writing:{p:[17,1.7,OUTER-2.5],at:[17,2.7,OUTER+.1],limits:{}},
  Stairs:{p:[2.5,1.68,OUTER+2.1],at:[10,3.4,OUTER+2.1],limits:{}},
  Bedroom:{p:[19,1.68,OUTER+2.6],at:[20.5,1.2,OUTER+4.5],limits:{}},

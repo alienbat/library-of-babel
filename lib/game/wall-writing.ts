@@ -1,19 +1,15 @@
 import * as T from 'three';
 import {HEIGHT,OUTER,PERIOD,type WorldLimits} from './physics.ts';
-/** One reusable atlas, projected onto existing wall faces; no sign or clock meshes. */
+/** One reusable atlas, projected onto existing wall faces; no separate sign meshes. */
 export function createWallWriting(){
   const canvas=document.createElement('canvas');canvas.width=2048;canvas.height=1024;
   const c=canvas.getContext('2d')!;
-  const labels=['STAIRS\nUP →     ← DOWN','STAIRS\nUP ONLY','STAIRS\nDOWN ONLY','REST AREA\n7 BEDS · BATH →','LIBRARY\nFind the story of your life.\nYour search has no deadline.','BATHROOM\nSHOWERS · WC'];
+  const labels=['STAIRS\nUP →     ← DOWN','STAIRS\nUP ONLY','STAIRS\nDOWN ONLY','REST AREA\n7 BEDS · BATH →','LIBRARY\nFind the story of your life.\nYour search has no deadline.','BATHROOM\nSHOWERS · WC','← EAST     WEST →','← WEST     EAST →'];
   labels.forEach((label,i)=>{
     c.save();c.translate((i%4)*512,Math.floor(i/4)*512);c.scale(1,2);
     c.fillStyle='#dad8c7';c.fillRect(0,0,512,256);c.strokeStyle='#7b7667';c.lineWidth=5;c.strokeRect(10,10,492,236);
-    c.fillStyle='#353b36';c.textAlign='center';c.font='22px sans-serif';label.split('\n').forEach((line,row)=>c.fillText(line,256,62+row*44));c.restore();
+    c.fillStyle='#353b36';c.textAlign='center';c.font=i>=6?'bold 38px sans-serif':'22px sans-serif';label.split('\n').forEach((line,row)=>c.fillText(line,256,i>=6?140:62+row*44));c.restore();
   });
-  c.save();c.translate(1024,512);c.scale(2,2);
-  c.fillStyle='#d4d4c4';c.beginPath();c.arc(128,128,124,0,Math.PI*2);c.fill();c.strokeStyle='#2c332e';c.lineWidth=7;
-  for(let h=0;h<12;h++){const a=h*Math.PI/6;c.beginPath();c.moveTo(128+Math.sin(a)*98,128-Math.cos(a)*98);c.lineTo(128+Math.sin(a)*112,128-Math.cos(a)*112);c.stroke();}
-  c.beginPath();c.moveTo(128,54);c.lineTo(128,128);c.lineTo(176,128);c.stroke();c.fillStyle='#343c33';c.fillRect(63,155,130,28);c.fillStyle='#c4d4b8';c.font='17px monospace';c.fillText('YEAR 1 DAY 1',68,175);c.restore();
   const atlas=new T.CanvasTexture(canvas);atlas.colorSpace=T.SRGBColorSpace;atlas.anisotropy=4;
   const uniforms={wallWriting:{value:atlas},writingBottom:{value:-1e20},writingTop:{value:1e20}};
   function apply(material:T.MeshBasicMaterial){
@@ -47,8 +43,8 @@ export function createWallWriting(){
           if(abs(wz-.07)<.012){
             if(wx<18.0){
               ink=writingSample(vec2(17.0+(wx-17.0)*orientation,wy),vec2(17.0,2.2),vec2(1.2,.6),3.0);
-              vec4 clock=writingSample(vec2(17.0+(wx-17.0)*orientation,wy),vec2(17.0,3.0),vec2(.9),6.0);
-              ink=mix(ink,clock,clock.a);
+              vec4 compass=writingSample(vec2(17.0+(wx-17.0)*orientation,wy),vec2(17.0,3.0),vec2(1.6,.5),vBakedPosition.z>0.0?6.0:7.0);
+              ink=mix(ink,compass,compass.a);
             }else ink=writingSample(vec2(21.0+(wx-21.0)*orientation,wy),vec2(21.0,2.1),vec2(1.5,.75),4.0);
           }
         }else if(facing>.9&&abs(wz-.5)<.012){
