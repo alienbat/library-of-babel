@@ -37,6 +37,8 @@ export function coarseNavigation(anchor:NavigationAnchor,p:Position,yaw:number,p
   const mantissa=Math.pow(10,logLy-exponent);
   // Avoid rounding a mantissa to 10 without carrying its exponent.
   const rounded=Number(mantissa.toPrecision(2));
-  const distance=logMeters<3?`${Math.round(10**logMeters)} metres`:logLy<0?`${(10**(logMeters-3)).toLocaleString('en',{maximumSignificantDigits:3})} km`:`${rounded>=10?'1.0':rounded.toPrecision(2)} × 10^${rounded>=10?exponent+1:exponent} light years`;
+  const power=rounded>=10?exponent+1:exponent;
+  const scientific=`${rounded>=10?'1.0':rounded.toPrecision(2)}${power===0?'':` × 10^${power}`}`;
+  const distance=logMeters<3?`${Math.round(10**logMeters)} metres`:logLy<0?`${(10**(logMeters-3)).toLocaleString('en',{maximumSignificantDigits:3})} km`:`${scientific} light years`;
   return {angle:Math.atan2(right,forward)*180/Math.PI,direction,distance};
 }

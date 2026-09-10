@@ -99,7 +99,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     for(const mesh of [frames,lenses]){mesh.count=count;mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();}
   }
   function setLimits(next:WorldLimits){
-    wallWriting.setLimits(next);cornerLimits=next;detailKey='';fixtureX=fixtureY=Infinity;centerX=Infinity;
+    lighting.setLimits(next);wallWriting.setLimits(next);cornerLimits=next;detailKey='';fixtureX=fixtureY=Infinity;centerX=Infinity;
     endCap.material=next.minY!==undefined?boundaryFloorFade:boundaryCeilingFade;
     horizon.setLimits(next);
     endWall.visible=next.minX!==undefined||next.maxX!==undefined;
@@ -246,6 +246,9 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
       if(y<(cornerLimits.minY??-Infinity)-.001||y>(cornerLimits.maxY??Infinity)+.001)continue;
       // Carpet is the top face of one solid deck, never a second coplanar mesh.
       decks.push([x+BAY/2,y-.17,z,BAY,.34,3.6576]);
+      // At the top there is no next floor to supply the gallery ceiling.
+      if(cornerLimits.maxY!==undefined&&Math.abs(y+HEIGHT-.34-cornerLimits.maxY)<.001)
+        slabs.push([x+BAY/2,y+HEIGHT-.17,z,BAY,.34,3.6576]);
       rails.push([x+BAY/2,y+1.2192,side*INNER,BAY,0,0],[x+BAY/2,y+.55,side*INNER,BAY,0,0]);
       for(let j=0;j<6;j++)rails.push([x+j*BAY/6,y+.6,side*INNER,0,1.2,0]);
       for(let j=0;j<3;j++)lamps.push([x+3.81+j*7.62,y+HEIGHT-.38,z,1.6,.035,.28]);
@@ -256,6 +259,10 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         walls.push([x+.5,y+1.8,side*(OUTER+.22),1,3.6,.3],[x+15.5,y+1.8,side*(OUTER+.22),1,3.6,.3],[x+17,y+1.8,side*(OUTER+.22),2,3.6,.3],[x+21.43,y+1.8,side*(OUTER+.22),2.86,3.6,.3]);
         const stairs=staircase(x,y,side,cornerLimits);
         walls.push(...stairs.walls);floors.push(...stairs.floors);slabs.push(...stairs.steps);
+        if(cornerLimits.maxY!==undefined&&Math.abs(y+HEIGHT-.34-cornerLimits.maxY)<.001){
+          slabs.push([x+19,y+HEIGHT-.18,side*(OUTER+2.65),6,.36,5.3],
+            [x+25,y+HEIGHT-.18,side*(OUTER+2.5),6,.36,5]);
+        }
         // Dormitory, seven beds, fountain and an inert food kiosk.
         // Each room deck also forms the ceiling below; never overlap two slabs.
         floors.push([x+19,y-.18,side*(OUTER+2.65),6,.36,5.3]);

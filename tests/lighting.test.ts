@@ -38,3 +38,19 @@ void test('room bake has localized pools of light and is applied to existing mat
     assert.ok(sample(17.5,0,2.65)>sample(16.25,0,.5),'bedroom light softens toward room corners');
   }finally{bake.dispose();}
 });
+
+void test('top stair bake omits the imaginary flight and its contact shadow',async()=>{
+  const {bakeRoomLighting,ROOM_GRID,ROOM_WIDTH,ROOM_DEPTH,ROOM_LIGHTS}=await import('../lib/game/room-lighting.ts');
+  assert.equal(ROOM_LIGHTS.filter(l=>l.room===0).length,2);
+  assert.ok(ROOM_LIGHTS.every(l=>l.y<3.96),'no luminaire under a sloping flight');
+  const normal=bakeRoomLighting(),top=bakeRoomLighting(true);
+  try{
+    const [nx,ny,nz]=ROOM_GRID;
+    const sample=(b:typeof top,px:number,py:number)=>{
+      const x=Math.round(px/ROOM_WIDTH*(nx-1)),y=Math.round(py/3.96*(ny-1)),z=Math.round(2.1/ROOM_DEPTH*(nz-1));
+      return b.positive.image.data![((z*ny+y)*nx+x)*4+1];
+    };
+    assert.notDeepEqual(top.positive.image.data,normal.positive.image.data,'top shaft uses a distinct lighting field without the repeating ramp');
+    assert.equal(sample(top,25,1),sample(normal,25,1),'bathroom bake stays unchanged');
+  }finally{normal.dispose();top.dispose();}
+});

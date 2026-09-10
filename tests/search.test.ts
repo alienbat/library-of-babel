@@ -64,6 +64,7 @@ void test('navigation distance uses metres, kilometres, then light years at thei
   assert.equal(distance(1250),'1.25 km');
   assert.equal(distance(12345678),'12,300 km');
   assert.match(distance(9460730472580800*.999),/ km$/);
-  assert.equal(distance(9460730472580800),'1.0 × 10^0 light years');
+  assert.equal(distance(9460730472580800),'1.0 light years');
+  assert.equal(distance(9460730472580800*1.1),'1.1 light years');
   assert.equal(distance(9460730472580800*100),'1.0 × 10^2 light years');
 });

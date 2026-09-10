@@ -158,3 +158,18 @@ void test('distant cache survives movement, with unchanged book detail and conse
     if(descriptor)Object.defineProperty(globalThis,'document',descriptor);else Reflect.deleteProperty(globalThis,'document');
   }
 });
+
+void test('top-floor ceilings seal both galleries and amenity rooms',()=>{
+  const descriptor=Object.getOwnPropertyDescriptor(globalThis,'document');
+  const context=new Proxy({}, {get:()=>()=>{},set:()=>true});
+  Object.defineProperty(globalThis,'document',{configurable:true,value:{createElement:()=>({width:0,height:0,getContext:()=>context})}});
+  const scene=new T.Scene(),world=createWorld(scene);
+  try{
+    world.setLimits({maxY:3.62});world.update(17,0);scene.updateMatrixWorld(true);
+    for(const side of [-1,1])for(const [x,z] of [[17,OUTER-1.5],[35,OUTER-1.5],[8,OUTER+2],[19,OUTER+2.6],[25,OUTER+2.5]]){
+      const ray=new T.Raycaster(new T.Vector3(x,2,side*z),new T.Vector3(0,1,0),0,3);
+      const hits=ray.intersectObject(scene.children[0],true);
+      assert.ok(hits.some(hit=>Math.abs(hit.point.y-3.62)<.03),'roof must exist above every top-floor room and gallery');
+    }
+  }finally{world.dispose();if(descriptor)Object.defineProperty(globalThis,'document',descriptor);else Reflect.deleteProperty(globalThis,'document');}
+});

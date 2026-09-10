@@ -1,6 +1,6 @@
 import {bakeRoomLighting,ROOM_WIDTH,ROOM_DEPTH,ROOM_GRID} from './room-lighting.ts';
 import * as T from 'three';
-import {HEIGHT,INNER,OUTER,PERIOD} from './physics.ts';
+import {HEIGHT,INNER,OUTER,PERIOD,type WorldLimits} from './physics.ts';
 export const LIGHT_PERIOD=7.62;
 const NX=48,NY=32,NZ=16,RANGE=4;
 /** Bake six directional diffuse irradiance lobes once for one repeating gallery cell. */
@@ -31,12 +31,14 @@ export function bakeGalleryLighting(){
     const t=new T.Data3DTexture(data,NX,NY,NZ);t.format=T.RGBAFormat;t.type=T.UnsignedByteType;
     t.minFilter=t.magFilter=T.LinearFilter;t.wrapS=T.RepeatWrapping;t.wrapT=t.wrapR=T.ClampToEdgeWrapping;t.unpackAlignment=1;t.needsUpdate=true;return t;
   };
-  const pos=texture(positive),neg=texture(negative),rooms=bakeRoomLighting();
+  const pos=texture(positive),neg=texture(negative),rooms=bakeRoomLighting(),topRooms=bakeRoomLighting(true);
+  const roomTop={value:1e20};
   function material(params:T.MeshStandardMaterialParameters){
     const m=new T.MeshBasicMaterial({color:params.color??0xffffff,map:params.map??null,transparent:params.transparent??false,opacity:params.opacity??1});
     const luminous=(params.emissiveIntensity??0)>.5;
     if(luminous){m.color.multiplyScalar(1+(params.emissiveIntensity??0));return m;}
     m.onBeforeCompile=shader=>{
+      shader.uniforms.roomTop=roomTop;shader.uniforms.topRoomPositive={value:topRooms.positive};shader.uniforms.topRoomNegative={value:topRooms.negative};
       shader.uniforms.roomPositive={value:rooms.positive};shader.uniforms.roomNegative={value:rooms.negative};
       shader.uniforms.bakedPositive={value:pos};shader.uniforms.bakedNegative={value:neg};
       shader.vertexShader='varying vec3 vBakedPosition;\nvarying vec3 vBakedNormal;\n'+shader.vertexShader;
@@ -50,7 +52,7 @@ export function bakeGalleryLighting(){
         vBakedPosition=(modelMatrix*bakedPoint).xyz;
         vBakedNormal=normalize(mat3(modelMatrix)*bakedNormal);
       `);
-      shader.fragmentShader='uniform highp sampler3D roomPositive,roomNegative;\n uniform highp sampler3D bakedPositive;\nuniform highp sampler3D bakedNegative;\nvarying vec3 vBakedPosition;\nvarying vec3 vBakedNormal;\n'+shader.fragmentShader;
+      shader.fragmentShader='uniform float roomTop;\nuniform highp sampler3D topRoomPositive,topRoomNegative;\nuniform highp sampler3D roomPositive,roomNegative;\n uniform highp sampler3D bakedPositive;\nuniform highp sampler3D bakedNegative;\nvarying vec3 vBakedPosition;\nvarying vec3 vBakedNormal;\n'+shader.fragmentShader;
       shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
         float cellY=mod(vBakedPosition.y,${HEIGHT});
         // Choose the cell on the visible side of a floor/ceiling boundary.
@@ -62,8 +64,9 @@ export function bakeGalleryLighting(){
         bool inRoom=abs(vBakedPosition.z)>${OUTER+.4};
         if(inRoom){
           vec3 roomUv=(vec3(clamp(roomX/${ROOM_WIDTH.toFixed(1)},0.0,1.0),cellY/${HEIGHT},clamp((abs(vBakedPosition.z)-${OUTER})/${ROOM_DEPTH},0.0,1.0))*vec3(${ROOM_GRID[0]-1}.0,${ROOM_GRID[1]-1}.0,${ROOM_GRID[2]-1}.0)+.5)/vec3(${ROOM_GRID[0]}.0,${ROOM_GRID[1]}.0,${ROOM_GRID[2]}.0);
-          positive=texture(roomPositive,roomUv).rgb*${RANGE}.0;
-          negative=texture(roomNegative,roomUv).rgb*${RANGE}.0;
+          bool topRoom=vBakedPosition.y>=roomTop-.001;
+          positive=(topRoom?texture(topRoomPositive,roomUv):texture(roomPositive,roomUv)).rgb*${RANGE}.0;
+          negative=(topRoom?texture(topRoomNegative,roomUv):texture(roomNegative,roomUv)).rgb*${RANGE}.0;
         }else{
           positive=texture(bakedPositive,uvw).rgb*${RANGE}.0;
           negative=texture(bakedNegative,uvw).rgb*${RANGE}.0;
@@ -75,5 +78,5 @@ export function bakeGalleryLighting(){
     };
     m.customProgramCacheKey=()=> 'baked-gallery-volume-v1';return m;
   }
-  return {material,positive:pos,negative:neg,dispose(){pos.dispose();neg.dispose();rooms.dispose();}};
+  return {material,positive:pos,negative:neg,setLimits(limits:WorldLimits){roomTop.value=limits.maxY===undefined?1e20:limits.maxY-HEIGHT+.34;},dispose(){pos.dispose();neg.dispose();rooms.dispose();topRooms.dispose();}};
 }

@@ -29,6 +29,8 @@ const views={
  Bedroom:{p:[19,1.68,OUTER+2.6],at:[20.5,1.2,OUTER+4.5],limits:{}},
  Bathroom:{p:[23,1.68,OUTER+2.7],at:[27,1.6,OUTER+3.4],limits:{}},
  Bottom:{p:[25,1.68,0],at:[1,.5,0],limits:{minX:0,minY:0}},
+ TopGallery:{p:[17,1.68,16.94],at:[45,3.3,18],limits:{maxY:HEIGHT-.34}},
+ TopDescending:{p:[13.5,1.68,OUTER+2.1],at:[5,2.6,OUTER+2.1],limits:{maxY:HEIGHT-.34}},
  Top:{p:[2.5,1.68,OUTER+2.1],at:[8,2.4,OUTER+2.1],limits:{maxY:HEIGHT-.34}},
 };
 for(const [name,view] of Object.entries(views)){
