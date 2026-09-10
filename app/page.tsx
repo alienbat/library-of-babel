@@ -46,6 +46,16 @@ export default function Home() {
   useEffect(()=>{game.current?.configure({sound,motion,fov,sensitivity,quality});},[ready,sound,motion,fov,sensitivity,quality]);
   const restoreBookmarkPage=useCallback((savedPage:number)=>setPage(current=>current===0?savedPage:current),[]);
   const enter=()=>{game.current?.start();setEntered(true);setPlaying(true);setSettings(false);};
+  useEffect(()=>{
+    if(playing||!entered||!ready||error)return;
+    const resume=(event:KeyboardEvent)=>{
+      if(event.code!=='Escape'||event.repeat)return;
+      event.preventDefault();event.stopImmediatePropagation();
+      game.current?.start();setPlaying(true);setSettings(false);
+    };
+    window.addEventListener('keydown',resume,true);
+    return ()=>window.removeEventListener('keydown',resume,true);
+  },[playing,entered,ready,error]);
   const saveProgress=()=>{try{const when=game.current?.saveProgress();setSaveNotice(when?`Progress saved at ${new Date(when).toLocaleTimeString()}.`:'Enter the library first.');}catch{setSaveNotice('Could not save progress. Browser storage may be unavailable or full.');}};
   const pause=()=>{game.current?.pause();setPlaying(false);};
   const search=async()=>{
@@ -59,6 +69,14 @@ export default function Home() {
     if(!game.current||searchBusy)return;setSearchBusy(true);setSearchError('');
     try{await game.current.trackBookmark(saved.id);setTrackedId(saved.id);setFoundPrefix('');}
     catch(e){setSearchError(e instanceof Error?e.message:'Could not track bookmark.');}finally{setSearchBusy(false);}
+  };
+  const deleteBookmark=async(saved:Bookmark)=>{
+    if(!game.current||searchBusy)return;setSearchBusy(true);setSearchError('');
+    try{
+      await game.current.deleteBookmark(saved.book);
+      if(trackedId===saved.id){game.current.clearSearch();setTrackedId('');}
+    }catch(e){setSearchError(e instanceof Error?e.message:'Could not delete bookmark.');}
+    finally{setSearchBusy(false);}
   };
   const trackedBookmark=bookmarks.find(saved=>saved.id===trackedId);
   return <main className={playing?'game playing':'game'}>
@@ -101,7 +119,7 @@ export default function Home() {
       {stats.navigation&&<button disabled={searchBusy} onClick={()=>{game.current?.clearSearch();setFoundPrefix('');setTrackedId('');}}>Clear target</button>}
       <section className="bookmark-list" aria-label="Saved books"><h3>Saved books</h3>
         <p className="bookmark-storage-note">Saved in this browser.</p>
-        {bookmarks.length===0?<p>No bookmarks yet. Name and save a book while reading it.</p>:<ul>{bookmarks.map(saved=><li key={saved.id}><span><strong>{saved.name}</strong><small>Page {saved.page+1}</small></span><button disabled={searchBusy} onClick={()=>void trackBookmark(saved)}>Track<span className="sr-only"> {saved.name}</span></button></li>)}</ul>}
+        {bookmarks.length===0?<p>No bookmarks yet. Name and save a book while reading it.</p>:<ul>{bookmarks.map(saved=><li key={saved.id}><span><strong>{saved.name}</strong><small>Page {saved.page+1}</small></span><div className="bookmark-actions"><button disabled={searchBusy} onClick={()=>void trackBookmark(saved)}>Track<span className="sr-only"> {saved.name}</span></button><button disabled={searchBusy} onClick={()=>void deleteBookmark(saved)}>Delete<span className="sr-only"> {saved.name}</span></button></div></li>)}</ul>}
         {trackedBookmark&&<output>Tracking “{trackedBookmark.name}”. {stats.navigation?`Roughly ${stats.navigation.distance} away.`:''}</output>}
         {storageWarning&&<p role="alert">Browser storage is unavailable or full. Changes may only last for this session.</p>}
       </section>
