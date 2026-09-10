@@ -6,8 +6,8 @@ export const ROOM_LIGHTS=[
   {x:13.5,y:HEIGHT-.43,z:2.1,room:0},
   {x:17.5,y:HEIGHT-.43,z:2.65,room:1},
   {x:20.5,y:HEIGHT-.43,z:2.65,room:1},
-  {x:25,y:HEIGHT-.43,z:2.5,room:2},
-  {x:27,y:HEIGHT-.43,z:3.75,room:2},
+  // Center of the bathroom interior: x 22.1–27.9, depth .5–4.9.
+  {x:25,y:HEIGHT-.43,z:2.7,room:2},
 ];
 export const ROOM_GRID=[120,32,24] as const;
 const RANGE=4;
