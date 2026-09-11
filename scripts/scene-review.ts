@@ -25,6 +25,12 @@ const views={
  Gallery:{p:[30,1.68,16.94],at:[40,1.6,0],limits:{}},
  CompassOpposite:{p:[17,2.5,-OUTER+2.5],at:[17,3,-OUTER-.1],limits:{}},
  Writing:{p:[17,1.7,OUTER-2.5],at:[17,2.7,OUTER+.1],limits:{}},
+ StairUpLookUp:{p:[2.5,1.68,OUTER+.6],at:[2.5,12,OUTER+.8],limits:{}},
+ StairEdgeLookUp:{p:[3.8,1.68,OUTER+.1],at:[4.1,12,OUTER-.1],limits:{}},
+ StairOppositeLookUp:{p:[13.5,1.68,-OUTER-.6],at:[13.5,12,-OUTER-.8],limits:{}},
+ StairTopLookUp:{p:[13.5,1.68,OUTER+.6],at:[13.5,12,OUTER+.8],limits:{maxY:HEIGHT-.34}},
+ StairBottomLookUp:{p:[2.5,1.68,OUTER+.6],at:[2.5,12,OUTER+.8],limits:{minY:0}},
+ StairDownLookUp:{p:[13.5,1.68,OUTER+.6],at:[13.5,12,OUTER+.8],limits:{}},
  Stairs:{p:[2.5,1.68,OUTER+2.1],at:[10,3.4,OUTER+2.1],limits:{}},
  Bedroom:{p:[19,1.68,OUTER+2.6],at:[20.5,1.2,OUTER+4.5],limits:{}},
  Bathroom:{p:[23,1.68,OUTER+2.7],at:[27,1.6,OUTER+3.4],limits:{}},
@@ -47,3 +53,49 @@ for(const [name,view] of Object.entries(views)){
  };
 }
 (document.querySelector('button') as HTMLButtonElement).click();
+
+const benchmark=document.createElement('button');benchmark.textContent='Benchmark view';document.querySelector('#buttons')!.appendChild(benchmark);
+benchmark.onclick=async()=>{
+ benchmark.disabled=true;const samples:number[]=[],gpu:number[]=[],gl=renderer.getContext() as WebGL2RenderingContext,ext=gl.getExtension('EXT_disjoint_timer_query_webgl2');
+ for(let i=0;i<45;i++){
+  await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));
+  const query=ext?gl.createQuery():null;if(query)gl.beginQuery(ext.TIME_ELAPSED_EXT,query);
+  const start=performance.now();world.update(camera.position.x,camera.position.y-1.68,camera);renderer.render(scene,camera);renderer.getContext().finish();if(query)gl.endQuery(ext.TIME_ELAPSED_EXT);
+  if(i>=10)samples.push(performance.now()-start);
+  if(query){while(!gl.getQueryParameter(query,gl.QUERY_RESULT_AVAILABLE))await new Promise<void>(r=>requestAnimationFrame(()=>r()));if(i>=10&&!gl.getParameter(ext.GPU_DISJOINT_EXT))gpu.push(gl.getQueryParameter(query,gl.QUERY_RESULT)/1e6);gl.deleteQuery(query);}
+ }
+ samples.sort((a,b)=>a-b);gpu.sort((a,b)=>a-b);
+ document.querySelector('#status')!.textContent+=` | render submission: median ${samples[17].toFixed(2)} ms, p90 ${samples[31].toFixed(2)} ms; ${renderer.info.render.calls} draws, ${renderer.info.render.triangles} triangles; GPU ${gpu.length?gpu[Math.floor(gpu.length/2)].toFixed(2)+' ms':'timer unavailable'}`;
+ benchmark.disabled=false;
+};
+
+const resolution=document.createElement('button');resolution.textContent='High resolution';document.querySelector('#buttons')!.appendChild(resolution);
+resolution.onclick=()=>{renderer.setSize(2200,1440,false);renderer.domElement.style.width='1100px';renderer.domElement.style.height='720px';renderer.render(scene,camera);};
+
+let occlusion=true;
+const toggle=document.createElement('button');toggle.textContent='Occlusion on';document.querySelector('#buttons')!.appendChild(toggle);
+toggle.onclick=()=>{occlusion=!occlusion;world.setOcclusionEnabled(occlusion);world.update(camera.position.x,camera.position.y-1.68,camera);renderer.render(scene,camera);toggle.textContent=occlusion?'Occlusion on':'Occlusion off';};
+const compare=document.createElement('button');compare.textContent='Compare pixels';document.querySelector('#buttons')!.appendChild(compare);
+compare.onclick=()=>{
+ const gl=renderer.getContext(),a=new Uint8Array(gl.drawingBufferWidth*gl.drawingBufferHeight*4),b=new Uint8Array(a.length);
+ const read=(enabled:boolean,data:Uint8Array)=>{world.setOcclusionEnabled(enabled);world.update(camera.position.x,camera.position.y-1.68,camera);renderer.render(scene,camera);gl.readPixels(0,0,gl.drawingBufferWidth,gl.drawingBufferHeight,gl.RGBA,gl.UNSIGNED_BYTE,data);};
+ read(false,a);read(true,b);let different=0,max=0;for(let i=0;i<a.length;i++){const delta=Math.abs(a[i]-b[i]);if(delta)different++;max=Math.max(max,delta);}
+ document.querySelector('#status')!.textContent+=` | pixel comparison: ${different} changed channels, max delta ${max}`;
+ world.setOcclusionEnabled(occlusion);
+};
+const inventory=document.createElement('button');inventory.textContent='Draw inventory';document.querySelector('#buttons')!.appendChild(inventory);
+inventory.onclick=()=>{
+ const rows:{group:string;material:string;instances:number;triangles:number}[]=[];
+ scene.traverse(o=>{if(o instanceof T.Mesh)o.onAfterRender=(_r,_s,_c,g,m,group)=>{const count=o instanceof T.InstancedMesh?o.count:1;rows.push({group:o.parent===scene.children[0]?'near':o.parent===scene.children[1]?'distant':o.parent?.name||'other',material:m.name||((m as T.MeshBasicMaterial).color?.getHexString()??m.type),instances:count,triangles:(group?.count??g.index?.count??g.getAttribute('position').count)/3*count});};});
+ renderer.render(scene,camera);rows.sort((a,b)=>b.triangles-a.triangles);
+ document.querySelector('#status')!.textContent=JSON.stringify(rows.slice(0,15));scene.traverse(o=>{if(o instanceof T.Mesh)o.onAfterRender=()=>{};});
+};
+const validate=document.createElement('button');validate.textContent='Validate stair views';document.querySelector('#buttons')!.appendChild(validate);
+validate.onclick=async()=>{
+ validate.disabled=true;const results:string[]=[];
+ for(const name of ['StairUpLookUp','StairDownLookUp','StairEdgeLookUp','StairOppositeLookUp','StairTopLookUp','StairBottomLookUp','Stairs','Top','TopDescending','TopGallery','Gallery','ChasmUp']){
+  const button=[...document.querySelectorAll('button')].find(b=>b.textContent===name)!;button.click();compare.click();results.push(document.querySelector('#status')!.textContent!);
+  await new Promise<void>(r=>requestAnimationFrame(()=>r()));
+ }
+ document.querySelector('#status')!.textContent=results.join('\n');validate.disabled=false;
+};
