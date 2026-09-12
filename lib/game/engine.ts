@@ -5,7 +5,7 @@ import * as T from 'three';
 // oxlint-disable-next-line import/default -- Vite generates the URL export for worker queries.
 import bookWorkerUrl from './book-worker?worker&url';
 import { createWorld } from './world';
-import { EYE, HEIGHT, INNER,BAY,PERIOD, move, flightVector, flyMove, fallStep, type Position, type TravelMode,type WorldLimits } from './physics';
+import { EYE, HEIGHT, INNER,BAY,PERIOD, move, flightVector, flyMove, fallStep, brakeFallStep, type Position, type TravelMode,type WorldLimits } from './physics';
 
 import {bookId,localBookId,bookCenter,pickBook,loadOpened,OPENED_STORAGE_KEY,type BookLocation} from './books';
 
@@ -92,16 +92,32 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   let distanceMm=BigInt(restored?.distanceMm??'0'),distanceRemainder=0,artificialMs=restored?.artificialMs??'0',startedAt=restored?.startedAt??0,savedAt=restored?.savedAt??0;
   let config:Settings={sound:true,motion:false,fov:75,sensitivity:1,quality:'high'};
   const keys=new Set<string>();let lastStats=0,lastTime=performance.now(),frame=0,stepDistance=0,bob=0;
-  let audio:AudioContext|undefined,master:GainNode|undefined;
+  let audio:AudioContext|undefined,master:GainNode|undefined,windGain:GainNode|undefined,windFilter:BiquadFilterNode|undefined,stepBuffer:AudioBuffer|undefined;
   function soundStart(){
     if(!audio){try{
       audio=new AudioContext();master=audio.createGain();master.gain.value=config.sound?.13:0;master.connect(audio.destination);
+      const noise=audio.createBuffer(1,audio.sampleRate*2,audio.sampleRate),samples=noise.getChannelData(0);
+      for(let i=0;i<samples.length;i++)samples[i]=Math.random()*2-1;
+      stepBuffer=noise;
+      const wind=audio.createBufferSource();wind.buffer=noise;wind.loop=true;
+      windFilter=audio.createBiquadFilter();windFilter.type='lowpass';windFilter.frequency.value=200;
+      windGain=audio.createGain();windGain.gain.value=0;
+      wind.connect(windFilter);windFilter.connect(windGain);windGain.connect(master);wind.start();
       const hum=audio.createOscillator(),gain=audio.createGain();hum.type='sine';hum.frequency.value=58;gain.gain.value=.045;hum.connect(gain);gain.connect(master);hum.start();
       const overtone=audio.createOscillator(),g=audio.createGain();overtone.frequency.value=116;g.gain.value=.014;overtone.connect(g);g.connect(master);overtone.start();
     }catch{ /* Walking works without audio support. */ }}
     void audio?.resume().catch(()=>{});
   }
-  function footstep(){if(!audio||!master||!config.sound)return;const size=audio.sampleRate*.13;const b=audio.createBuffer(1,size,audio.sampleRate),a=b.getChannelData(0);for(let i=0;i<size;i++)a[i]=(Math.random()*2-1)*Math.exp(-i/(size*.2));const src=audio.createBufferSource();src.buffer=b;const filter=audio.createBiquadFilter();filter.type='lowpass';filter.frequency.value=420;const gain=audio.createGain();gain.gain.value=.25;src.connect(filter);filter.connect(gain);gain.connect(master);src.start();src.onended=()=>{src.disconnect();filter.disconnect();gain.disconnect();};}
+  function windSound(speed:number){if(!audio||!windGain||!windFilter)return;const strength=Math.min(1,Math.max(0,speed)/53.6448);windGain.gain.setTargetAtTime(strength*strength*1.5,audio.currentTime,.12);windFilter.frequency.setTargetAtTime(180+strength*2200,audio.currentTime,.12);}
+  function footstep(running:boolean){
+    if(!audio||!master||!stepBuffer||!config.sound)return;
+    const now=audio.currentTime,duration=running?.16:.13,src=audio.createBufferSource();src.buffer=stepBuffer;
+    const filter=audio.createBiquadFilter();filter.type='lowpass';filter.frequency.value=running?850:550;
+    const gain=audio.createGain();gain.gain.setValueAtTime(.001,now);gain.gain.linearRampToValueAtTime(running?1.4:1,now+.008);gain.gain.exponentialRampToValueAtTime(.001,now+duration);
+    src.connect(filter);filter.connect(gain);gain.connect(master);src.start(now,Math.random(),duration);
+    const heel=audio.createOscillator(),thud=audio.createGain();heel.frequency.setValueAtTime(running?130:105,now);heel.frequency.exponentialRampToValueAtTime(45,now+.09);thud.gain.setValueAtTime(running?.55:.35,now);thud.gain.exponentialRampToValueAtTime(.001,now+.12);heel.connect(thud);thud.connect(master);heel.start(now);heel.stop(now+.13);
+    src.onended=()=>{src.disconnect();filter.disconnect();gain.disconnect();};heel.onended=()=>{heel.disconnect();thud.disconnect();};
+  }
   const clearKeys=()=>keys.clear();
   function pause(){active=false;closeMenu(false);closeBook(false);clearKeys();if(document.pointerLockElement===canvas)document.exitPointerLock();if(master&&audio)master.gain.setTargetAtTime(0,audio.currentTime,.1);callbacks.onPause();}
   function start(){if(!startedAt){startedAt=Date.now();try{saveProgress();}catch{callbacks.onStorageWarning();}}active=true;clearKeys();soundStart();if(master&&audio)master.gain.setTargetAtTime(config.sound?.13:0,audio.currentTime,.1);
@@ -140,7 +156,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
     }finally{walkBusy=false;}
     closeMenu();
   }
-  function toggleFlight(){if(reading||gameMenu)return;mode=mode==='flying'?'falling':'flying';fallSpeed=0;stepDistance=0;emitStats();}
+  function toggleFlight(){if(reading||gameMenu)return;if(mode==='flying'){mode='falling';}else{if(mode==='walking'){p=flyMove(p,0,.3,0,limits);fallSpeed=0;}mode='flying';}stepDistance=0;emitStats();}
   const keydown=(e:KeyboardEvent)=>{if(!active)return;if(e.code==='Backquote'){e.preventDefault();if(!e.repeat)toggleMenu('debug');return;}if(e.code==='KeyT'){e.preventDefault();if(!e.repeat)toggleMenu();return;}if(gameMenu){if(e.code==='Escape'){e.preventDefault();closeMenu();}return;}if(reading){if(['ArrowLeft','ArrowRight','Escape','Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();if(e.code==='ArrowRight')callbacks.onPage(1);else if(e.code==='ArrowLeft')callbacks.onPage(-1);else if(e.code==='Escape')closeBook();return;}if(e.code==='Escape'){pause();return;}if(e.code==='Space'){e.preventDefault();if(!e.repeat)toggleFlight();return;}if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}};
   const keyup=(e:KeyboardEvent)=>{keys.delete(e.code);};
   function look(dx:number,dy:number){yaw-=dx*.0018*config.sensitivity;pitch=T.MathUtils.clamp(pitch-dy*.0018*config.sensitivity,-1.48,1.48);}
@@ -165,7 +181,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const observer=new ResizeObserver(resize);observer.observe(host);
   function animate(now:number){
     if(disposed)return;frame=requestAnimationFrame(animate);const dt=Math.min((now-lastTime)/1000,.05);lastTime=now;
-    if(reading||gameMenu)return; // The reader freezes the world; no hidden scene renders are needed.
+    if(reading||gameMenu){windSound(0);return;} // The reader freezes the world; no hidden scene renders are needed.
     if(active&&!reading){
       if(keys.has('ArrowLeft'))yaw+=dt*1.4;if(keys.has('ArrowRight'))yaw-=dt*1.4;if(keys.has('ArrowUp'))pitch=Math.min(1.48,pitch+dt);if(keys.has('ArrowDown'))pitch=Math.max(-1.48,pitch-dt);
       let forward=Number(keys.has('KeyW'))-Number(keys.has('KeyS')),right=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
@@ -174,7 +190,8 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
       const fast=keys.has('ShiftLeft')||keys.has('ShiftRight');
       if(mode==='flying') {
         const direction=flightVector(yaw,pitch,forward,right),speed=fast?24:8;
-        p=flyMove(p,direction.x*speed*dt,direction.y*speed*dt,direction.z*speed*dt,limits);
+        p=flyMove(p,direction.x*speed*dt,fallSpeed>0?0:direction.y*speed*dt,direction.z*speed*dt,limits);
+        if(fallSpeed>0){const result=brakeFallStep(p,fallSpeed,dt,limits);p=result.position;fallSpeed=result.speed;}
       } else if(mode==='falling') {
         if(norm){const direction=flightVector(yaw,0,forward,right);p=flyMove(p,direction.x*2.4*dt,0,direction.z*2.4*dt,limits);}
         const result=fallStep(p,fallSpeed,dt,limits);p=result.position;fallSpeed=result.speed;
@@ -183,11 +200,12 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
         forward/=norm;right/=norm;const speed=fast?3.4:1.7;
         p=move(p,(-Math.sin(yaw)*forward+Math.cos(yaw)*right)*speed*dt,(-Math.cos(yaw)*forward-Math.sin(yaw)*right)*speed*dt,limits);
         const distance=Math.hypot(p.x-previous.x,p.y-previous.y,p.z-previous.z);
-        stepDistance+=distance;bob+=distance*8;if(stepDistance>.78){footstep();stepDistance=0;}
+        stepDistance+=distance;bob+=distance*8;if(stepDistance>(fast?1.05:.78)){footstep(fast);stepDistance=0;}
       }
       distanceRemainder+=Math.hypot(p.x-previous.x,p.y-previous.y,p.z-previous.z)*1000;
       const whole=Math.floor(distanceRemainder);distanceMm+=BigInt(whole);distanceRemainder-=whole;
     }
+    windSound(active?fallSpeed:0);
     rebase();
     camera.position.set(p.x,p.y+EYE+(config.motion&&active&&mode==='walking'?Math.sin(bob)*.018:0),p.z);camera.rotation.set(pitch,yaw,0,'YXZ');
     world.update(p.x,p.y,camera);

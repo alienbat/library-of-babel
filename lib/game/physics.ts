@@ -163,3 +163,13 @@ export function fallStep(p:Position,speed:number,dt:number,limits:WorldLimits={}
   if(surface!==null&&p.y-drop<=surface)return {position:{...p,y:surface},speed:0,landed:true};
   return {position:{...p,y:p.y-drop},speed:nextSpeed,landed:false};
 }
+
+/** Net upward braking acceleration; integrate only until downward speed reaches zero. */
+export function brakeFallStep(p:Position,speed:number,dt:number,limits:WorldLimits={}) {
+  const v=Math.max(0,speed),a=5*GRAVITY,t=Math.min(Math.max(0,dt),v/a);
+  const drop=v*t-.5*a*t*t;
+  const support=supportBelow(p);
+  const surface=limits.minY===undefined?support:Math.max(support??-Infinity,limits.minY);
+  if(surface!==null&&p.y-drop<=surface)return {position:{...p,y:surface},speed:0,landed:true};
+  return {position:{...p,y:p.y-drop},speed:Math.max(0,v-a*t),landed:false};
+}
