@@ -53,7 +53,7 @@ export default function Home() {
   useEffect(()=>{
     if(playing||!entered||!ready||error||confirmReset)return;
     const resume=(event:KeyboardEvent)=>{
-      if(event.code!=='Escape'||event.repeat)return;
+      if(!['Escape','KeyM'].includes(event.code)||event.repeat)return;
       event.preventDefault();event.stopImmediatePropagation();
       game.current?.start();setPlaying(true);setSettings(false);
     };
@@ -92,7 +92,7 @@ export default function Home() {
   return <main className={playing?'game playing':'game'}>
     <div ref={viewport} className="viewport" aria-label="First-person view of the Library of Babel" />
     <div className="vignette" aria-hidden="true" />
-    <header className="masthead"><div className="identity"><span className="library-mark" aria-hidden="true">Ⅲ</span><span>THE BABEL LIBRARY<small>AFTER STEVEN L. PECK</small></span></div><div className="header-actions"><button onClick={()=>{setSound(!sound);}} aria-label={sound?'Mute audio':'Enable audio'}>{sound?'Sound on':'Sound off'}</button><button onClick={()=>{if(document.fullscreenElement)void document.exitFullscreen();else void document.documentElement.requestFullscreen?.().catch(()=>{});}} aria-label="Toggle fullscreen">⛶</button>{playing&&!book&&<button onClick={()=>game.current?.toggleMenu()}>Menu <kbd>T</kbd></button>}{playing&&!book&&<button onClick={()=>game.current?.toggleFlight()}>{stats.mode==='flying'?'Stop flying':'Fly'} <kbd>Space</kbd></button>}{playing&&<button onClick={pause}>Pause <kbd>Esc</kbd></button>}</div></header>
+    <header className="masthead"><div className="identity"><span className="library-mark" aria-hidden="true">Ⅲ</span><span>THE BABEL LIBRARY<small>AFTER STEVEN L. PECK</small></span></div><div className="header-actions"><button onClick={()=>{setSound(!sound);}} aria-label={sound?'Mute audio':'Enable audio'}>{sound?'Sound on':'Sound off'}</button><button onClick={()=>{if(document.fullscreenElement)void document.exitFullscreen();else void document.documentElement.requestFullscreen?.().catch(()=>{});}} aria-label="Toggle fullscreen">⛶</button>{playing&&!book&&<button onClick={()=>game.current?.toggleMenu()}>Actions <kbd>T</kbd></button>}{playing&&!book&&<button onClick={()=>game.current?.toggleFlight()}>{stats.mode==='flying'?'Stop flying':'Fly'} <kbd>Space</kbd></button>}{playing&&<button onClick={pause}>Game Menu <kbd>M</kbd></button>}</div></header>
     {!playing&&<section className="menu" aria-label={entered?'Paused':'Enter the library'}>
       <p className="eyebrow">{entered?'YOUR SEARCH CAN WAIT':'A SHORT STAY IN HELL'}</p>
       <h1>{entered?'A moment\nof stillness.':'The Library\nof Babel.'}</h1>
@@ -103,7 +103,7 @@ export default function Home() {
       {saveNotice&&<output className="save-notice">{saveNotice}</output>}
       {error&&<p className="error" role="alert">{error}</p>}
       {settings&&<div className="settings"><label>Field of view <span>{fov}°</span><input type="range" min="55" max="100" value={fov} onChange={e=>setFov(+e.target.value)}/></label><label>Mouse sensitivity <span>{sensitivity.toFixed(1)}</span><input type="range" min="0.3" max="2.5" step="0.1" value={sensitivity} onChange={e=>setSensitivity(+e.target.value)}/></label><label className="inline-label">Gentle walking motion<input type="checkbox" checked={motion} onChange={e=>setMotion(e.target.checked)}/></label><label className="inline-label">Detail<select value={quality} onChange={e=>setQuality(e.target.value)}><option value="high">High</option><option value="low">Low</option></select></label><button className="danger-button" onClick={()=>{setResetError('');setConfirmReset(true);}}>Start Over</button></div>}
-      <div className="instructions"><span><kbd>W A S D</kbd> Move</span><span><kbd>MOUSE</kbd> Look</span><span><kbd>SHIFT</kbd> Move faster</span><span><kbd>SPACE</kbd> Toggle flight</span><span><kbd>LEFT CLICK</kbd> Read a book</span><span><kbd>T</kbd> Menu</span><span><kbd>ESC</kbd> Pause</span></div>
+      <div className="instructions"><span><kbd>W A S D</kbd> Move</span><span><kbd>MOUSE</kbd> Look</span><span><kbd>SHIFT</kbd> Move faster</span><span><kbd>SPACE</kbd> Toggle flight</span><span><kbd>LEFT CLICK</kbd> Read a book</span><span><kbd>T</kbd> Actions</span><span><kbd>M / ESC</kbd> Game Menu</span></div>
       <p className="mobile-instructions">Use the left pad to move. Drag on the right to look. Tap Fly to take off.</p>
     </section>}
     {confirmReset&&<dialog ref={resetDialog} className="reset-dialog" aria-labelledby="reset-title" aria-describedby="reset-description" onCancel={event=>{event.preventDefault();setConfirmReset(false);}}>
@@ -117,8 +117,8 @@ export default function Home() {
       <span className="navigation-arrow" style={{transform:`rotate(${stats.navigation.angle}deg)`}} aria-hidden="true">↑</span>
       <div>{trackedBookmark&&<strong className="tracked-book-name">{trackedBookmark.name}</strong>}<strong>{stats.navigation.direction}</strong><p>You are roughly {stats.navigation.distance} away from the target book.</p><small>Coarse bearing · straight-line distance</small></div>
     </aside>}
-    {menuOpen&&<dialog ref={menuDialog} className="teleport-dialog game-menu-dialog" tabIndex={-1} aria-label="In-game menu" onCancel={e=>{e.preventDefault();game.current?.closeMenu();}}>
-      <p className="eyebrow">THE BABEL LIBRARY</p><h2>Menu</h2>
+    {menuOpen&&<dialog ref={menuDialog} className="teleport-dialog game-menu-dialog" tabIndex={-1} aria-label="Actions" onCancel={e=>{e.preventDefault();game.current?.closeMenu();}}>
+      <p className="eyebrow">THE BABEL LIBRARY</p><h2>Actions</h2>
       <p className="journey-time">Days in the library: {stats.libraryDays??'0'}<br/>{stats.libraryClock??'0 years · 0 months · 0 days · 00:00:00'}</p>
       <div className="game-menu-sections">
       <section className="menu-search-section" aria-labelledby="menu-search-title">

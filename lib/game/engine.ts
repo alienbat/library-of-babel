@@ -53,7 +53,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
     if(walkBusy)return;
     globalFrame=destination==='arrival'?{...newFrame(),originSeed:journeySeed}:newFrame(destination);books.setFrame(globalFrame);
     const next=destinationState(destination);p=next.position;limits=next.limits;yaw=next.yaw;pitch=next.pitch;
-    applyLimits();mode='walking';fallSpeed=0;stepDistance=0;bob=0;
+    applyLimits();takeoffTime=0;mode='walking';fallSpeed=0;stepDistance=0;bob=0;
     closeBook(false);setTarget(null);callbacks.onDestination(destination);emitStats();closeMenu();
   }
   function applyLimits(){
@@ -88,6 +88,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   function closeBook(resume=true){if(!reading)return;reading=null;clearKeys();callbacks.onBook(null);if(resume&&active)start();}
 
   let p:Position=restored?.position??{x:30,y:0,z:INNER+1.7},yaw=restored?.yaw??-.88,pitch=restored?.pitch??-.04,active=false,disposed=false,fallback=false;
+  let takeoffTime=0;
   let mode:TravelMode=restored?.mode??'walking',fallSpeed=restored?.fallSpeed??0;
   let distanceMm=BigInt(restored?.distanceMm??'0'),distanceRemainder=0,artificialMs=restored?.artificialMs??'0',startedAt=restored?.startedAt??0,savedAt=restored?.savedAt??0;
   let config:Settings={sound:true,motion:false,fov:75,sensitivity:1,quality:'high'};
@@ -134,13 +135,23 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   function emitStats(){const time=libraryTime(startedAt||Date.now(),artificialMs);callbacks.onStats({navigation:navigationAnchor?coarseNavigation(navigationAnchor,p,yaw,pitch):null,floor:bigCount(BigInt(Math.round(p.y/HEIGHT))+BigInt(globalFrame.floorOffset)),distance:bigCount(distanceMm/1000n),libraryClock:time.clock,libraryDays:time.days,savedAt,mode,fallSpeed});}
   async function timedWalk(direction:WalkDirection,years:string){
     if(walkBusy)throw new Error('A walk is already in progress.');walkBusy=true;clearKeys();
+    const curtain=document.createElement('dialog');
+    curtain.className='walk-curtain';curtain.setAttribute('aria-label','Walking through the library');
+    curtain.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;max-width:none;max-height:none;margin:0;padding:0;border:0;background:black;opacity:0;outline:none';
+    curtain.addEventListener('cancel',e=>e.preventDefault());document.body.appendChild(curtain);curtain.showModal();
     try{
+      await curtain.animate([{opacity:0},{opacity:1}],{duration:750,fill:'forwards'}).finished;
       const result=await books.walk(p,direction,years);if(disposed)throw new Error('Game closed.');
       globalFrame=result.frame;p=result.position;limits=result.limits;books.setFrame(globalFrame);applyLimits();
-      distanceMm+=BigInt(result.distanceCm)*10n;artificialMs=(BigInt(artificialMs)+BigInt(result.elapsedMs)).toString();mode='walking';fallSpeed=0;stepDistance=0;bob=0;setTarget(null);emitStats();
+      distanceMm+=BigInt(result.distanceCm)*10n;artificialMs=(BigInt(artificialMs)+BigInt(result.elapsedMs)).toString();takeoffTime=0;mode='walking';fallSpeed=0;stepDistance=0;bob=0;setTarget(null);emitStats();
       try{saveProgress();}catch{callbacks.onStorageWarning();}
+      closeMenu(false);
       return result;
-    }finally{walkBusy=false;}
+    }finally{
+      await curtain.animate([{opacity:1},{opacity:0}],{duration:750,fill:'forwards'}).finished.catch(()=>{});
+      curtain.close();curtain.remove();walkBusy=false;
+      if(!disposed&&active&&!gameMenu)start();
+    }
   }
   async function teleportToTarget(){
     if(walkBusy)throw new Error('A journey action is already in progress.');
@@ -150,14 +161,14 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
       const result=await books.targetLanding();if(disposed)throw new Error('Game closed.');
       globalFrame=result.frame;p=result.position;limits=result.limits;
       yaw=result.side===1?Math.PI:0;pitch=Math.atan2(.30+result.row*.39-EYE,1.12);
-      mode='walking';fallSpeed=0;stepDistance=0;bob=0;setTarget(null);
+      takeoffTime=0;mode='walking';fallSpeed=0;stepDistance=0;bob=0;setTarget(null);
       books.setFrame(globalFrame);applyLimits();emitStats();
       try{saveProgress();}catch{callbacks.onStorageWarning();}
     }finally{walkBusy=false;}
     closeMenu();
   }
-  function toggleFlight(){if(reading||gameMenu)return;if(mode==='flying'){mode='falling';}else{if(mode==='walking'){p=flyMove(p,0,.3,0,limits);fallSpeed=0;}mode='flying';}stepDistance=0;emitStats();}
-  const keydown=(e:KeyboardEvent)=>{if(!active)return;if(e.code==='Backquote'){e.preventDefault();if(!e.repeat)toggleMenu('debug');return;}if(e.code==='KeyT'){e.preventDefault();if(!e.repeat)toggleMenu();return;}if(gameMenu){if(e.code==='Escape'){e.preventDefault();closeMenu();}return;}if(reading){if(['ArrowLeft','ArrowRight','Escape','Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();if(e.code==='ArrowRight')callbacks.onPage(1);else if(e.code==='ArrowLeft')callbacks.onPage(-1);else if(e.code==='Escape')closeBook();return;}if(e.code==='Escape'){pause();return;}if(e.code==='Space'){e.preventDefault();if(!e.repeat)toggleFlight();return;}if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}};
+  function toggleFlight(){if(reading||gameMenu)return;if(mode==='flying'){mode='falling';takeoffTime=0;}else{if(mode==='walking'){takeoffTime=.5;fallSpeed=0;}mode='flying';}stepDistance=0;emitStats();}
+  const keydown=(e:KeyboardEvent)=>{if(!active||walkBusy)return;if(e.code==='KeyM'&&!reading&&!(e.target instanceof HTMLElement&&e.target.closest('input,textarea,select,[contenteditable]'))){e.preventDefault();if(!e.repeat)pause();return;}if(e.code==='Backquote'){e.preventDefault();if(!e.repeat)toggleMenu('debug');return;}if(e.code==='KeyT'){e.preventDefault();if(!e.repeat)toggleMenu();return;}if(gameMenu){if(e.code==='Escape'){e.preventDefault();closeMenu();}return;}if(reading){if(['ArrowLeft','ArrowRight','Escape','Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();if(e.code==='ArrowRight')callbacks.onPage(1);else if(e.code==='ArrowLeft')callbacks.onPage(-1);else if(e.code==='Escape')closeBook();return;}if(e.code==='Escape'){pause();return;}if(e.code==='Space'){e.preventDefault();if(!e.repeat)toggleFlight();return;}if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}};
   const keyup=(e:KeyboardEvent)=>{keys.delete(e.code);};
   function look(dx:number,dy:number){yaw-=dx*.0018*config.sensitivity;pitch=T.MathUtils.clamp(pitch-dy*.0018*config.sensitivity,-1.48,1.48);}
   const mousemove=(e:MouseEvent)=>{if(active&&!reading&&!gameMenu&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);};
@@ -182,7 +193,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   function animate(now:number){
     if(disposed)return;frame=requestAnimationFrame(animate);const dt=Math.min((now-lastTime)/1000,.05);lastTime=now;
     if(reading||gameMenu){windSound(0);return;} // The reader freezes the world; no hidden scene renders are needed.
-    if(active&&!reading){
+    if(active&&!reading&&!walkBusy){
       if(keys.has('ArrowLeft'))yaw+=dt*1.4;if(keys.has('ArrowRight'))yaw-=dt*1.4;if(keys.has('ArrowUp'))pitch=Math.min(1.48,pitch+dt);if(keys.has('ArrowDown'))pitch=Math.max(-1.48,pitch-dt);
       let forward=Number(keys.has('KeyW'))-Number(keys.has('KeyS')),right=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
       const norm=Math.hypot(forward,right);
@@ -190,6 +201,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
       const fast=keys.has('ShiftLeft')||keys.has('ShiftRight');
       if(mode==='flying') {
         const direction=flightVector(yaw,pitch,forward,right),speed=fast?24:8;
+        if(takeoffTime>0){const before=takeoffTime;takeoffTime=Math.max(0,takeoffTime-dt);const height=(t:number)=>.3*(1-Math.cos(Math.PI*(1-t/.5)))/2;p=flyMove(p,0,height(takeoffTime)-height(before),0,limits);}
         p=flyMove(p,direction.x*speed*dt,fallSpeed>0?0:direction.y*speed*dt,direction.z*speed*dt,limits);
         if(fallSpeed>0){const result=brakeFallStep(p,fallSpeed,dt,limits);p=result.position;fallSpeed=result.speed;}
       } else if(mode==='falling') {
