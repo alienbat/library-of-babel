@@ -1,9 +1,9 @@
 import {BOOKS_PER_ROW,ROWS,PAGE_COUNT,LINES_PER_PAGE,CHARS_PER_LINE,type BookLocation} from './books.ts';
-import {matchingOrdinalDigits,packDigits} from './search.ts';
+import {matchingOrdinalDigits,exactOrdinalDigits,packDigits} from './search.ts';
 import {destinationState,type Destination} from './destinations.ts';
 import {BAY,HEIGHT} from './physics.ts';
 export const CHARACTER_COUNT=PAGE_COUNT*LINES_PER_PAGE*CHARS_PER_LINE;
-export type GlobalFrame={originSearch?:string;originSeed?:string;destination:Destination;floorOffset:string;sectionOffset:string};
+export type GlobalFrame={originExact?:string;originSearch?:string;originSeed?:string;destination:Destination;floorOffset:string;sectionOffset:string};
 export type GlobalBook={frame:GlobalFrame;level:number;bay:number;side:-1|1;row:number;book:number};
 export const newFrame=(destination:Destination='arrival'):GlobalFrame=>({destination,floorOffset:'0',sectionOffset:'0'});
 let dimensions:ReturnType<typeof computeDimensions>|undefined;
@@ -20,7 +20,7 @@ export function shiftFrame(frame:GlobalFrame,sections:number,floors:number):Glob
   return {...frame,sectionOffset:(BigInt(frame.sectionOffset)+BigInt(sections)).toString(),floorOffset:(BigInt(frame.floorOffset)+BigInt(floors)).toString()};
 }
 export function frameLimits(frame:GlobalFrame){
-  if(frame.originSeed||frame.originSearch)return {};
+  if(frame.originSeed||frame.originSearch||frame.originExact!==undefined)return {};
   const limits={...destinationState(frame.destination).limits};
   const sections=BigInt(frame.sectionOffset),floors=BigInt(frame.floorOffset),near=1000000n;
   if(sections>near||sections< -near){delete limits.minX;delete limits.maxX;}
@@ -32,8 +32,8 @@ export function frameLimits(frame:GlobalFrame){
 export function frameOrigin(frame:GlobalFrame){
   if(!['arrival','bottom-left','bottom-right','top-left','top-right'].includes(frame.destination))throw new RangeError('Invalid frame');
   const d=libraryDimensions(),name=frame.destination;
-  if(frame.originSearch!==undefined){
-    const data=matchingOrdinalDigits(frame.originSearch);
+  if(frame.originSearch!==undefined||frame.originExact!==undefined){
+    const data=frame.originExact!==undefined?exactOrdinalDigits(frame.originExact):matchingOrdinalDigits(frame.originSearch!);
     const pack=(start:number,count:number):bigint=>{if(count<=8192)return packDigits(data,start,count);const low=Math.floor(count/2);return pack(start,low)+pack(start+low,count-low)*95n**BigInt(low);};
     const ordinal=pack(0,data.length),storage=ordinal/d.perFloor,remainder=ordinal%d.perFloor;
     const floor=storage===d.floors-1n?d.partialFloor:storage>=d.partialFloor?storage+1n:storage;

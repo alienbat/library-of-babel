@@ -1,5 +1,5 @@
 import {WALK_YEARS,WALK_DIRECTIONS,YEAR_WALK_CM,YEAR_MS,type WalkDirection,type WalkResult} from './journey.ts';
-import {matchingOrdinalDigits,packDigits,type SearchAddress,type NavigationAnchor} from './search.ts';
+import {matchingOrdinalDigits,exactOrdinalDigits,packDigits,type SearchAddress,type NavigationAnchor} from './search.ts';
 import {BAY,HEIGHT,OUTER,INNER,type Position} from './physics.ts';
 import {init} from 'gmp-wasm/dist/mini.esm.js';
 import {BOOKS_PER_ROW,ROWS,type BookLocation} from './books.ts';
@@ -46,9 +46,10 @@ function contextMath(factory:import('gmp-wasm').CalculateType['Integer'],searchO
     const name=frame.destination;
     const {floors,sections}=library();
     if(!['arrival','bottom-left','bottom-right','top-left','top-right'].includes(name))throw new RangeError('Invalid frame');
-    if(frame.originSearch!==undefined){
-      let address=searchOrigins.get(frame.originSearch);
-      if(!address){address=addressFromOrdinal(fromDigits(matchingOrdinalDigits(frame.originSearch)));if(searchOrigins.size>=8)searchOrigins.delete(searchOrigins.keys().next().value!);searchOrigins.set(frame.originSearch,address);}
+    if(frame.originSearch!==undefined||frame.originExact!==undefined){
+      const key=frame.originExact!==undefined?`exact:${frame.originExact}`:`prefix:${frame.originSearch}`;
+      let address=searchOrigins.get(key);
+      if(!address){address=addressFromOrdinal(fromDigits(frame.originExact!==undefined?exactOrdinalDigits(frame.originExact):matchingOrdinalDigits(frame.originSearch!)));if(searchOrigins.size>=8)searchOrigins.delete(searchOrigins.keys().next().value!);searchOrigins.set(key,address);}
       return {floor:Integer(address.floorHex,16).add(integer(frame.floorOffset)),section:Integer(address.sectionHex,16).div(12,2).mul(12).add(integer(frame.sectionOffset))};
     }
     if(frame.originSeed){

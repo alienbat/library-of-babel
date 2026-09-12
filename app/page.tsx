@@ -11,6 +11,7 @@ import {bookId,turnPage,PAGE_COUNT,type BookLocation} from '../lib/game/books';
 import {DESTINATIONS,DESTINATION_LABELS} from '../lib/game/destinations';
 
 export default function Home() {
+  const [uploadFile,setUploadFile]=useState<File|null>(null);
   const [prefix,setPrefix]=useState(''),[searchBusy,setSearchBusy]=useState(false),[searchError,setSearchError]=useState(''),[foundPrefix,setFoundPrefix]=useState('');
   const [bookmarks,setBookmarks]=useState<Bookmark[]>([]),[trackedId,setTrackedId]=useState('');
   const menuDialog=useRef<HTMLDialogElement>(null);
@@ -67,6 +68,16 @@ export default function Home() {
     setSearchBusy(true);setSearchError('');
     try{setFoundPrefix(await game.current.searchBooks(prefix));setTrackedId('');}
     catch(error){setSearchError(error instanceof Error?error.message:'Could not search. Please try again.');}
+    finally{setSearchBusy(false);}
+  };
+  const uploadBook=async()=>{
+    if(!game.current||!uploadFile||searchBusy)return;
+    setSearchBusy(true);setSearchError('');
+    try{
+      if(!/\.txt$/i.test(uploadFile.name))throw new Error('Choose a .txt file.');
+      const text=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(await uploadFile.arrayBuffer());
+      await game.current.uploadBook(text);setTrackedId('');setFoundPrefix(`Exact match for ${uploadFile.name}`);
+    }catch(e){setSearchError(e instanceof Error?e.message:'Could not process this text file.');}
     finally{setSearchBusy(false);}
   };
   const trackBookmark=async(saved:Bookmark)=>{
@@ -130,6 +141,11 @@ export default function Home() {
         <small>Printable ASCII letters, numbers, spaces and punctuation. Up to {MAX_PREFIX.toLocaleString()} characters.</small>
         <button type="submit" disabled={searchBusy||!prefix.length}>{searchBusy?'Finding a matching book…':'Find a matching book'}</button>
       </form>
+      <section className="book-upload" aria-label="Upload a book"><h3>Upload a book</h3>
+        <p>Choose a UTF-8 .txt file. Tabs are removed; each line break becomes one space. Text is then cut to 1,312,000 characters or padded with spaces. An empty file matches an entirely blank book.</p>
+        <input aria-label="Book text file" type="file" accept=".txt,text/plain" disabled={searchBusy} onChange={e=>{setUploadFile(e.target.files?.[0]??null);setSearchError('');}}/>
+        <button disabled={searchBusy||!uploadFile} onClick={()=>void uploadBook()}>{searchBusy?'Processing…':'Confirm upload'}</button>
+      </section>
       {searchError&&<p role="alert" className="error">{searchError}</p>}
       {foundPrefix&&<output className="search-result"><strong>Matching book found. Navigation target set.</strong><blockquote>{foundPrefix.slice(0,160)}{foundPrefix.length>160?'…':''}</blockquote><p>{stats.navigation?`You are roughly ${stats.navigation.distance} away from the target book.`:'Updating direction…'}</p><small>The target stays set across teleports during this session. At this scale, walking may not visibly change the distance.</small></output>}
       {stats.navigation&&<button disabled={searchBusy} onClick={()=>{game.current?.clearSearch();setFoundPrefix('');setTrackedId('');}}>Clear target</button>}

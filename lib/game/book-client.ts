@@ -55,6 +55,7 @@ export function createBookClient(onHistory:(ids:string[])=>void,onStorageWarning
       if(version!==frameVersion)await request('history');
       return reply.foundPrefix!;
     },
+    async uploadBook(text:string){const version=frameVersion;await request('upload-book',{text});if(version!==frameVersion)await request('history');},
     async targetLanding(){return (await request('target-teleport')).landing!;},
     async walk(position:Position,direction:WalkDirection,years:string){return (await request('journey-walk',{position,direction,years})).journeyWalk!;},
     async getBookmark(book:BookLocation){return (await request('bookmark-get',{book:globalBook(book,book.frame??frame)})).bookmark??null;},

@@ -46,3 +46,5 @@
 .reset-dialog{width:min(440px,calc(100vw - 64px));background:#19231f;color:#e4e1cf;border:1px solid #a5ae8e60;padding:28px}.reset-dialog::backdrop{background:#080d0bd9}.reset-dialog h2{font-family:Georgia,serif;font-size:30px;font-weight:400;margin:0 0 18px}.reset-dialog p{font-size:16px;line-height:1.6;color:#c9cebf}.reset-actions{display:flex;gap:12px;margin-top:24px}.reset-actions>button{flex:1;min-height:48px;border:1px solid #a5ae8e60;font-size:16px}.reset-actions>button:not(.danger-button){background:#344238;color:#eeeadd}
 
 .walk-curtain::backdrop{background:transparent}
+
+.book-upload{margin-top:24px;padding-top:16px;border-top:1px solid #7c897866}.book-upload input{display:block;max-width:100%;margin:14px 0}.menu-search-section .error{color:#ff8585}

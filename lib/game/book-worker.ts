@@ -1,5 +1,5 @@
 import {bookmarkName,bookmarkPage,upsertBookmark,type Bookmark} from './bookmarks.ts';
-import {matchingOrdinalDigits,MAX_PREFIX,type SearchAddress} from './search.ts';
+import {matchingOrdinalDigits,uploadedContent,exactOrdinalDigits,MAX_PREFIX,type SearchAddress} from './search.ts';
 import {createPortableBookMath} from './portable-books';
 import {permuteDigits,textPage,type GlobalBook,type GlobalFrame} from './global-books';
 import {bookId,localBookId} from './books';
@@ -26,6 +26,12 @@ function handle(event:MessageEvent,{targetLanding,walk,bookOrdinal,digits,projec
     let changed=false,bookmarksChanged=false;
     let bookmark:Bookmark|null|undefined;
     let foundPrefix:string|undefined;
+    if(action==='upload-book'){
+      if(typeof event.data.text!=='string')throw new RangeError('Invalid text file');
+      const content=uploadedContent(event.data.text).trimEnd();
+      const index=fromDigits(exactOrdinalDigits(content));
+      targetAddress=addressFromOrdinal(index);targetFrame={destination:'arrival',floorOffset:'0',sectionOffset:'0',originExact:content};foundPrefix='Uploaded book matched exactly.';
+    }
     if(action==='search'){
       const prefix=event.data.prefix;
       if(typeof prefix!=='string'||prefix.length>MAX_PREFIX)throw new RangeError('Invalid search text');
@@ -84,6 +90,6 @@ function handle(event:MessageEvent,{targetLanding,walk,bookOrdinal,digits,projec
       projected=records.map(record=>projectBook(record,frame as GlobalFrame)).filter(b=>b!==null).map(localBookId);
       projectionFrame=frameKey;projectionDirty=false;
     }
-    self.postMessage({id,text,foundPrefix,...(landing?{landing}:{}),...(journeyWalk?{journeyWalk}:{}),...(bookmark!==undefined?{bookmark}:{}),...(bookmarksChanged?{bookmarks}:{}),...(['search','history','clear-target','bookmark-track'].includes(action)?{navigation:targetAddress?navigation(targetAddress,frame):null}:{}),opened:projected,...(changed?{history:records}:{})});
+    self.postMessage({id,text,foundPrefix,...(landing?{landing}:{}),...(journeyWalk?{journeyWalk}:{}),...(bookmark!==undefined?{bookmark}:{}),...(bookmarksChanged?{bookmarks}:{}),...(['upload-book','search','history','clear-target','bookmark-track'].includes(action)?{navigation:targetAddress?navigation(targetAddress,frame):null}:{}),opened:projected,...(changed?{history:records}:{})});
   }catch(error){self.postMessage({id,error:error instanceof Error?error.message:'Book generation failed'});}
 };

@@ -42,3 +42,17 @@ export function coarseNavigation(anchor:NavigationAnchor,p:Position,yaw:number,p
   const distance=logMeters<3?`${Math.round(10**logMeters)} metres`:logLy<0?`${(10**(logMeters-3)).toLocaleString('en',{maximumSignificantDigits:3})} km`:`${scientific} light years`;
   return {angle:Math.atan2(right,forward)*180/Math.PI,direction,distance};
 }
+
+/** Validate the whole converted input before truncation; CRLF is one newline. */
+export function uploadedContent(text:string){
+  const converted=text.replace(/\t/g,'').replace(/\r\n|\r|\n/g,' ');
+  const invalid=/[^\x20-\x7e]/.exec(converted);
+  if(invalid)throw new RangeError(`Unsupported character U+${invalid[0].codePointAt(0)!.toString(16).toUpperCase().padStart(4,'0')} at character ${invalid.index+1}. Only printable ASCII, tabs and line breaks are accepted.`);
+  return converted.slice(0,CHARACTER_COUNT).padEnd(CHARACTER_COUNT,' ');
+}
+export function exactOrdinalDigits(text:string){
+  if(text.length>CHARACTER_COUNT||/[^\x20-\x7e]/.test(text))throw new RangeError('Invalid uploaded book content');
+  const digits=new Uint8Array(CHARACTER_COUNT);
+  for(let i=0;i<text.length;i++)digits[i]=text.charCodeAt(i)-32;
+  return permuteDigits(digits,true);
+}

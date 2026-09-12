@@ -233,7 +233,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const lifecycle=new AbortController();
   const handle = {saveProgress,timedWalk,teleportToTarget,
     getBookmark:(book:BookLocation)=>books.getBookmark(book),saveBookmark:(book:BookLocation,name:string,page:number)=>books.saveBookmark(book,name,page),deleteBookmark:(book:BookLocation)=>books.deleteBookmark(book),trackBookmark:(id:string)=>books.trackBookmark(id),
-    searchBooks:(prefix:string)=>books.search(prefix),clearSearch:()=>books.clearTarget(),
+    uploadBook:(text:string)=>books.uploadBook(text),searchBooks:(prefix:string)=>books.search(prefix),clearSearch:()=>books.clearTarget(),
     start,pause,toggleFlight,openBook,closeBook,toggleMenu,teleport,closeMenu,readPage:(book:BookLocation,page:number)=>books.page(book,page),
     reset(){teleport('arrival');},
     startOver(){
