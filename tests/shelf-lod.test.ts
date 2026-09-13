@@ -14,4 +14,6 @@ void test('shelf detail uses spatial distance on either side of a floor boundary
   const cells=detailCells(new T.Vector3(35,0,OUTER-1),{minX:0,minY:0});
   assert.ok(cells.every(c=>c.level>=0&&c.bay>=0));
   assert.equal(SHELF_RELIEF_RADIUS,500);
+  assert.equal(BOOK_DETAIL_RADIUS,32);
+  assert.ok(detailCells(new T.Vector3(35,27,OUTER-1),{}).some(c=>c.level===0),'real book geometry remains across nearby floors well beyond the previous 12 m radius');
 });

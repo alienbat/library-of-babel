@@ -1,6 +1,6 @@
 import * as T from 'three';
 import {BAY,HEIGHT,OUTER,mod,type WorldLimits} from './physics.ts';
-export const BOOK_DETAIL_RADIUS=12,SHELF_RELIEF_RADIUS=500;
+export const BOOK_DETAIL_RADIUS=32,SHELF_RELIEF_RADIUS=500;
 export type ShelfCell={bay:number;level:number;side:-1|1};
 export function shelfDistanceSquared(eye:T.Vector3,cell:ShelfCell){
   const x=cell.bay*BAY,y=cell.level*HEIGHT,z=cell.side*(OUTER+.035);
@@ -30,7 +30,7 @@ export function shelfLod(material:T.MeshBasicMaterial,eye:T.IUniform<T.Vector3>)
       vec3 cellMin=vec3(shelfBay*${BAY},shelfLevel*${HEIGHT},sign(vBakedPosition.z)*${OUTER+.035});
       vec3 shelfDelta=max(abs(shelfDetailEye-(cellMin+vec3(${BAY/2},1.665,0.0)))-vec3(${BAY/2},1.665,.325),vec3(0.0));
       if(dot(shelfDelta,shelfDelta)<=${BOOK_DETAIL_RADIUS**2}.0)discard;
-      // A 6 cm relief layer: boards in front, book spines behind. Check the
+      // A 3 cm relief layer: boards in front, book spines behind. Check the
       // swept ray against periodic board strips rather than marching geometry.
       float relief=1.0-smoothstep(450.0,${SHELF_RELIEF_RADIUS}.0,length(vBakedPosition-cameraPosition));
       // Let the mip-filtered face take over once individual board edges become
@@ -39,7 +39,7 @@ export function shelfLod(material:T.MeshBasicMaterial,eye:T.IUniform<T.Vector3>)
       relief*=1.0-smoothstep(.5,2.0,boardFootprint);
       if(relief>0.0&&abs(vBakedNormal.z)>.5){
         vec3 ray=vBakedPosition-cameraPosition;
-        vec2 shift=ray.xy/max(abs(ray.z),.0001)*.06;
+        vec2 shift=ray.xy/max(abs(ray.z),.0001)*.03;
         vec2 p=vec2(vBakedPosition.x,vBakedPosition.y-shelfLevel*${HEIGHT});
         vec2 q=p+shift;
         vec2 period=vec2(${BAY/8},.39),width=vec2(.055,.04);

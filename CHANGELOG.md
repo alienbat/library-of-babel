@@ -5,6 +5,9 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Keep solid timber panels at exposed shelf-run ends in every LOD. Extend real
+  book detail from 12 to 32 m; retain the 500 m façade relief range.
+
 - Seal gallery walls to the ceiling, flatten stair frontage, and replace the open
   strips above shelves with matching white wall headers. Update baked contacts
   and distant wall radiance while retaining actual ceiling luminaires.

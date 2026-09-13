@@ -1,6 +1,6 @@
 import * as T from 'three';
 import {createWorld} from '../lib/game/world.ts';
-import {OUTER,HEIGHT} from '../lib/game/physics.ts';
+import {OUTER,HEIGHT,PERIOD} from '../lib/game/physics.ts';
 const renderer=new T.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true});
 renderer.setSize(1100,720);renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
 document.body.appendChild(renderer.domElement);
@@ -9,6 +9,8 @@ const world=createWorld(scene,new Set(),'/models/blender/bed/bed.glb','/models/b
 let errors=0;
 renderer.debug.onShaderError=(gl,program,vs,fs)=>{errors++;console.error(gl.getProgramInfoLog(program),gl.getShaderInfoLog(vs),gl.getShaderInfoLog(fs));};
 const views={
+ ShelfRunStart:{p:[9,1.68,OUTER-1.7],at:[26,1.8,OUTER-.15],limits:{}},
+ ShelfRunEnd:{p:[PERIOD+9,1.68,OUTER-1.7],at:[PERIOD-3,1.8,OUTER-.15],limits:{}},
  AmenitySigns:{p:[20,1.68,OUTER-5],at:[20,1.7,OUTER],limits:{}},
  AmenitySignsOpposite:{p:[20,1.68,-OUTER+5],at:[20,1.7,-OUTER],limits:{}},
  BookReturn:{p:[21.5,1.68,OUTER-1.5],at:[21.43,.9,OUTER-.2],limits:{}},

@@ -214,7 +214,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         boards.push([x+BAY/2,y+.11+row*.39,side*(OUTER-.04),BAY,.04,.5]);
         for(let i=0;i<BOOKS_PER_ROW;i++)books.push([x+(i+.5)*BAY/BOOKS_PER_ROW,y+.30+row*.39,side*(OUTER-.08),.037,.34,.3]);
       }
-      for(let j=0;j<8;j++)uprights.push([x+j*BAY/8,y+1.63,side*(OUTER-.03),.055,3.25,.46]);
+      for(let j=mod(bay,12)===1?1:0;j<8;j++)uprights.push([x+j*BAY/8,y+1.63,side*(OUTER-.03),.055,3.25,.46]);
       const mesh=batch(books,[bookMat,goldMat],detailGroup,bookGeometry);
       const backing=batch([[x+BAY/2,y+1.62,side*(OUTER+.22),BAY,3.18,.28]],shelfBackMat,detailGroup);
       bookBatches.push({...cell,mesh,parts:[mesh,backing,batch(boards,woodMat,detailGroup,shelfFrame.board),batch(uprights,woodMat,detailGroup,shelfFrame.upright)]});
@@ -242,7 +242,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     while(geometries.length>baseGeometryCount)geometries.pop()!.dispose();
     const returnPlacements:BedPlacement[]=[],bbqPlacements:BedPlacement[]=[],propContacts:Box[]=[],bedPlacements:BedPlacement[]=[],bedContacts:Box[]=[],bathroomPlacements:BathroomPlacement[]=[],bathroomContacts:Box[]=[];
     const decks:Box[]=[], slabs:Box[]=[], floors:Box[]=[], shelves:Box[]=[], trim:Box[]=[], rails:Box[]=[], lamps:Box[]=[], walls:Box[]=[], dark:Box[]=[], screens:Box[]=[];
-    const tiles:Box[]=[];
+    const tiles:Box[]=[],shelfEnds:Box[]=[];
     for(let f=fy-32;f<=fy+32;f++)for(let b=bx-15;b<=bx+15;b++)for(const side of [-1,1]) {
       const x=b*BAY,y=f*HEIGHT,z=side*(INNER+1.8288), amenity=mod(b,12)===0;
       if(y<(cornerLimits.minY??-Infinity)-.001||y>(cornerLimits.maxY??Infinity)+.001)continue;
@@ -255,7 +255,10 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
       for(let j=0;j<6;j++)rails.push([x+j*BAY/6,y+.6,side*INNER,0,1.2,0]);
       for(let j=0;j<3;j++)lamps.push([x+3.81+j*7.62,y+HEIGHT-.38,z,1.6,.035,.28]);
       if(!amenity) {
-        shelves.push([x+BAY/2,y+1.62,side*(OUTER+.035),BAY,3.18,.65]);
+        shelves.push([x+BAY/2,y+1.62,side*(OUTER+.035),BAY,3.18,.59]);
+        // Solid timber ends survive both detail levels; never map book spines onto them.
+        if(mod(b,12)===1)shelfEnds.push([x,y+1.63,side*(OUTER-.03),.055,3.25,.46]);
+        if(mod(b+1,12)===0)shelfEnds.push([x+BAY,y+1.63,side*(OUTER-.03),.055,3.25,.46]);
         walls.push([x+BAY/2,y+(3.33+HEIGHT-.34)/2,side*(OUTER+.15),BAY,HEIGHT-.34-3.33,.3]);
         trim.push([x+BAY/2,y+3.28,side*(OUTER-.04),BAY,.10,.5],[x+BAY/2,y+.045,side*(OUTER-.04),BAY,.09,.5]);
       }else {
@@ -302,7 +305,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     beds.set(bedPlacements);bathrooms.set(bathroomPlacements);returns.set(returnPlacements);bbq.set(bbqPlacements);
     batch(tiles,[slabMat,tileMat],group,deckGeometry);
     const deckMaterials=[slabMat,floorMat];
-    batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,[slabMat,floorMat],group,deckGeometry);batch(shelves,shelfMat);batch(trim,woodMat);pipes(rails);batch(lamps,lightMat);batch(walls,wallMat);batch(dark,darkMat);batch(screens,screenMat);
+    batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,[slabMat,floorMat],group,deckGeometry);batch(shelves,shelfMat,group,distantShelfGeometry);batch(shelfEnds,woodMat,group,shelfFrame.upright);batch(trim,woodMat);pipes(rails);batch(lamps,lightMat);batch(walls,wallMat);batch(dark,darkMat);batch(screens,screenMat);
     // Capture the actual room geometry once per lighting variant. Sample a complete
     // amenity cell near this window, even after random starts or origin shifts.
     const roomX=Math.round(bx/12)*PERIOD;
@@ -328,7 +331,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         const width=strip.count*BAY,x=(strip.start+strip.count/2)*BAY,y=f*HEIGHT,z=side*(INNER+1.8288);
         farHeaders.push([x,y+(3.33+HEIGHT-.34)/2,side*(OUTER+.15),width,HEIGHT-.34-3.33,.3]);
         farSlabs.push([x,y-.17,z,width,.34,3.6576]);
-        farShelves[strip.material].push([x,y+1.62,side*(OUTER+.035),width,3.18,.65]);
+        farShelves[strip.material].push([x,y+1.62,side*(OUTER+.035),width,3.18,.59]);
         farLamps[strip.material].push([x,y+HEIGHT-.38,z,width,.035,.28]);
         farRails.push([x,y+1.2192,side*INNER,width,.07,.07],[x,y+.55,side*INNER,width,.07,.07]);
       }

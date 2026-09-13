@@ -13,8 +13,9 @@ visibility to inspect them. They are centred at the origin for runtime instancin
 - Edge bevels: 1.5 mm on boards, 2 mm on uprights, cut inward within those bounds.
 - The game retains eight rows, 570 books per row, 0.39 m row spacing, all original
   book transforms, picking and identifiers. Books rest at the same support height.
-- Plain wall backing, shelf façade textures, distance thresholds and horizon remain
-  unchanged. The Blender exports replace only nearby frame geometry.
+- Plain wall backing, shelf façade textures, 500 m façade relief and horizon remain
+  unchanged. Real-book detail extends to 32 m, and exposed timber end panels
+  persist independently of the book LOD. The Blender exports replace only nearby frame geometry.
 
 `Return.glb` is a 0.50 m wide cabinet with a hood, inset slot, flap, service panel
 and book-return lettering. It stands centred beneath the biography/exit sign beside the rest-area exit. `BBQ.glb` replaces

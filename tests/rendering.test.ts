@@ -86,11 +86,11 @@ void test('distant cache survives movement, with unchanged book detail and conse
         if(Math.abs(scale.x-.055)<1e-5&&Math.abs(scale.y-3.25)<1e-5)uprights++;
         if(material.name==='shelf-facade'){
           facades++;
-          assert.ok(Math.abs(Math.abs(position.z)-scale.z/2-(OUTER-.29))<1e-5,'LOD face aligns with real book spines');
+          assert.ok(Math.abs(Math.abs(position.z)-scale.z/2-(OUTER-.26))<1e-5,'LOD face aligns with the front of the solid timber end');
         }
       }
     });
-    assert.equal(uprights,0,'static facade window carries no individual uprights');
+    assert.ok(uprights>0&&uprights<1000,'only exposed shelf-run ends have permanent timber panels');
     assert.ok(facades>3000,'other shelves use the shared board-and-book facade');
     const readLocation={level:0,side:1 as const,bay:1,row:3,book:120};
     const coloredCount=()=>{
