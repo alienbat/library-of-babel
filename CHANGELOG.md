@@ -5,6 +5,8 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Preserve uploaded text line breaks by padding to 80-character book lines; retain tab removal, blank lines, validation and fixed book length. Add full-book upload fixtures under test_book.
+
 - Fit all 570 book slots between shelf uprights without changing book identities. Share spacing across detailed meshes, impostors, picking, highlighting and target navigation.
 
 - Extend end-wall irradiance sampling behind the galleries instead of stretching the chasm-edge sample; increase boundary transverse resolution to 128 samples.

@@ -148,7 +148,7 @@ export default function Home() {
         <button type="submit" disabled={searchBusy||!prefix.length}>{searchBusy?'Finding a matching book…':'Find a matching book'}</button>
       </form>
       <section className="book-upload" aria-label="Upload a book"><h3>Upload a book</h3>
-        <p>Choose a UTF-8 .txt file. Tabs are removed; each line break becomes one space. Text is then cut to 1,312,000 characters or padded with spaces. An empty file matches an entirely blank book.</p>
+        <p>Choose a UTF-8 .txt file. Tabs are removed; line breaks pad to the next 80-character book line. Text is then cut to 1,312,000 characters or padded with spaces. An empty file matches an entirely blank book.</p>
         <input aria-label="Book text file" type="file" accept=".txt,text/plain" disabled={searchBusy} onChange={e=>{setUploadFile(e.target.files?.[0]??null);setSearchError('');}}/>
         <button disabled={searchBusy||!uploadFile} onClick={()=>void uploadBook()}>{searchBusy?'Processing…':'Confirm upload'}</button>
       </section>

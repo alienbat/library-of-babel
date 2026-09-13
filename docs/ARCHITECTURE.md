@@ -58,7 +58,7 @@ characters deterministically, inverts the v2 mapping and converts the resulting
 ordinal to an exact location. It finds one match without scanning the collection;
 it does not find the nearest match and does not change shelf contents.
 
-Text-file search removes tabs and turns each newline into one space, validates the
+Text-file search removes tabs and pads source lines with spaces to the next 80-character book line (preserving blank lines), validates the
 allowed characters, then truncates or pads with spaces to 1,312,000 characters.
 Validation happens before truncation. An empty file therefore finds the all-space
 book. The file is processed in the browser, not sent to a book-search server.
