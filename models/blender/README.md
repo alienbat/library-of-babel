@@ -2,7 +2,8 @@
 
 Furniture models include the [Scandinavian-style bed](bed/README.md) and
 [closed-lid toilet](toilet/README.md), with editable sources, portable GLB exports
-and rendered previews.
+and rendered previews. The [bathroom kit](bathroom/README.md) integrates the toilet,
+partitions, basin, mirror, tissue dispenser and shower fixtures.
 
 `shelf-test.blend` is a small workflow specimen created with Blender 5.2 LTS:
 three rows of books, supporting shelf boards, a plain backing, materials, a
@@ -23,6 +24,6 @@ not depend on manually clicking the interface or using the GPU. The saved scene
 was reopened in a separate Blender process and in the desktop application; its
 81 book objects and preview camera were verified after reopening.
 
-The bed GLB is imported by the game and emitted as a hashed deployment asset.
+The bed and bathroom GLBs are imported by the game and emitted as hashed assets.
 The editable `.blend` files, scripts and studio previews remain authoring-only;
 they are not included in the deployed game.

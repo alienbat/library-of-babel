@@ -1,3 +1,4 @@
+import {createBathroomFixtures,BATHROOM_CONTACTS,type BathroomPlacement} from './bathroom-fixtures.ts';
 import {DORM,DORM_BEDS,BATH_SHIFT} from './room-layout.ts';
 import {createBeds,type BedPlacement} from './beds.ts';
 import {roomOccluders} from './room-ao.ts';
@@ -15,7 +16,7 @@ import { BAY, HEIGHT, INNER, OUTER, PERIOD, mod,type WorldLimits } from './physi
 import {bookId,ROWS,BOOKS_PER_ROW,type BookLocation} from './books.ts';
 
 type Box = [number, number, number, number, number, number];
-export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set(),bedAssetUrl?:string) {
+export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set(),bedAssetUrl?:string,bathroomAssetUrl?:string) {
   const group = new T.Group(), distantGroup = new T.Group(); scene.add(group,distantGroup);
   const geometries: T.BufferGeometry[] = [];
   const textures: T.Texture[] = [];
@@ -34,9 +35,6 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   // Consolidate identical face materials: two draws instead of six per batch.
   const deckGeometry=faces([0,1,3,4,5,2]);deckGeometry.addGroup(0,30,0);deckGeometry.addGroup(30,6,1);
   const bookGeometry=faces([0,1,4,5,2,3]);bookGeometry.addGroup(0,24,0);bookGeometry.addGroup(24,12,1);
-  const bowlGeo=new T.SphereGeometry(1,12,8);
-  const seatGeo=new T.TorusGeometry(1,.16,6,20);seatGeo.rotateX(Math.PI/2);
-  geometries.push(bowlGeo,seatGeo);
   const baseGeometryCount=geometries.length;
   const dummy = new T.Object3D();
   let seed = 9834;
@@ -72,7 +70,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     for(let j=0;j<=8;j++)rect(j*BAY/8-.055/2,.03,.055,3.18,'#544b3d');
     rect(0,.03,BAY,.06,'#544b3d');
   });
-  const lighting=bakeGalleryLighting(),beds=createBeds(scene,lighting.material,bedAssetUrl),stairCulling=createStairCulling(scene);
+  const lighting=bakeGalleryLighting(),beds=createBeds(scene,lighting.material,bedAssetUrl),bathrooms=createBathroomFixtures(scene,lighting.material,bathroomAssetUrl),stairCulling=createStairCulling(scene);
   let occlusionEnabled=true;
   spines.wrapS=T.RepeatWrapping;
   const boundary=createBoundaryLighting(carpet);
@@ -126,16 +124,12 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const shelfMat=shelfLod(mat({map:spines,roughness:1}),detailEye);shelfMat.name='shelf-facade';
   const lightMat=mat({color:'#fff0c9',emissive:'#fff0c9',emissiveIntensity:2.2});
   const darkMat=mat({color:'#353c38',roughness:.55,metalness:.3});
-  const linenMat=mat({color:'#b7b5a8',roughness:1});
   const tileMap=texture(256,256,c=>{
     c.fillStyle='#bebfb5';c.fillRect(0,0,256,256);
     c.strokeStyle='#858c83';c.lineWidth=2;
     for(let i=0;i<=256;i+=32){c.beginPath();c.moveTo(i,0);c.lineTo(i,256);c.moveTo(0,i);c.lineTo(256,i);c.stroke();}
   });
   const tileMat=mat({map:tileMap,roughness:.75});
-  const ceramicMat=mat({color:'#e1e2d7',roughness:.25});
-  const chromeMat=mat({color:'#adb6b4',metalness:.75,roughness:.28});
-  const mirrorMat=mat({color:'#8faba8',metalness:.65,roughness:.12});
   // One binding per actual book; the multi-book atlas is only a distant facade.
   const binding=texture(32,256,c=>{
     c.fillStyle='#987953';c.fillRect(0,0,32,256);
@@ -243,9 +237,9 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     while(textures.length>baseTextureCount)textures.pop()!.dispose();
     while(materials.length>baseMaterialCount)materials.pop()!.dispose();
     while(geometries.length>baseGeometryCount)geometries.pop()!.dispose();
-    const bedPlacements:BedPlacement[]=[],bedContacts:Box[]=[];
-    const decks:Box[]=[], slabs:Box[]=[], floors:Box[]=[], shelves:Box[]=[], trim:Box[]=[], rails:Box[]=[], lamps:Box[]=[], walls:Box[]=[], linens:Box[]=[], dark:Box[]=[], screens:Box[]=[];
-    const tiles:Box[]=[],ceramics:Box[]=[],bowls:Box[]=[],seats:Box[]=[],chrome:Box[]=[],mirrors:Box[]=[];
+    const bedPlacements:BedPlacement[]=[],bedContacts:Box[]=[],bathroomPlacements:BathroomPlacement[]=[],bathroomContacts:Box[]=[];
+    const decks:Box[]=[], slabs:Box[]=[], floors:Box[]=[], shelves:Box[]=[], trim:Box[]=[], rails:Box[]=[], lamps:Box[]=[], walls:Box[]=[], dark:Box[]=[], screens:Box[]=[];
+    const tiles:Box[]=[];
     for(let f=fy-32;f<=fy+32;f++)for(let b=bx-15;b<=bx+15;b++)for(const side of [-1,1]) {
       const x=b*BAY,y=f*HEIGHT,z=side*(INNER+1.8288), amenity=mod(b,12)===0;
       if(y<(cornerLimits.minY??-Infinity)-.001||y>(cornerLimits.maxY??Infinity)+.001)continue;
@@ -287,37 +281,10 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
           [x+25+BATH_SHIFT,y+1.8,side*(OUTER+5),6,3.6,.2],
           [x+28+BATH_SHIFT,y+1.8,side*(OUTER+2.5),.2,3.6,5]);
 
-        // Wall-mounted basin with a dark recess, tap and soap pump.
-        ceramics.push([x+24.6+BATH_SHIFT,y+.78,side*(OUTER+.65),1.1,.2,.65],
-          [x+24.6+BATH_SHIFT,y+.42,side*(OUTER+.48),.22,.65,.25]);
-        dark.push([x+24.6+BATH_SHIFT,y+.887,side*(OUTER+.7),.7,.014,.36]);
-        chrome.push([x+24.6+BATH_SHIFT,y+1.01,side*(OUTER+.39),.045,.28,.045],
-          [x+24.6+BATH_SHIFT,y+1.13,side*(OUTER+.51),.045,.045,.28]);
-        ceramics.push([x+25+BATH_SHIFT,y+1,side*(OUTER+.48),.1,.24,.1]);
-        chrome.push([x+25+BATH_SHIFT,y+1.13,side*(OUTER+.51),.14,.035,.04]);
-        // Full-length mirror opposite the sink; inexpensive polished panel.
-        chrome.push([x+24.6+BATH_SHIFT,y+1.45,side*(OUTER+4.87),1.05,2.3,.08]);
-        mirrors.push([x+24.6+BATH_SHIFT,y+1.45,side*(OUTER+4.82),.95,2.2,.025]);
-        // Toilet in a screened corner, with cistern, oval bowl, seat and paper.
-        ceramics.push([x+23+BATH_SHIFT,y+.67,side*(OUTER+4.64),.48,.65,.23],
-          [x+23+BATH_SHIFT,y+.22,side*(OUTER+4.3),.28,.44,.4]);
-        bowls.push([x+23+BATH_SHIFT,y+.43,side*(OUTER+4.25),.29,.18,.39]);
-        dark.push([x+23+BATH_SHIFT,y+.57,side*(OUTER+4.23),.32,.015,.44]);
-        seats.push([x+23+BATH_SHIFT,y+.59,side*(OUTER+4.23),.25,.15,.35]);
-        walls.push([x+23.75+BATH_SHIFT,y+1.05,side*(OUTER+4.1),.10,2.1,1.7]);
-        linens.push([x+23.63+BATH_SHIFT,y+.85,side*(OUTER+4.3),.15,.15,.25]);
-        chrome.push([x+23.14+BATH_SHIFT,y+.95,side*(OUTER+4.49),.12,.035,.035]);
-        // Two open shower stalls, each with tray, drain, mixer and overhead head.
-        for(const depth of [1.25,3.75]){
-          ceramics.push([x+27+BATH_SHIFT,y+.025,side*(OUTER+depth),1.65,.05,1.75]);
-          dark.push([x+27+BATH_SHIFT,y+.056,side*(OUTER+depth),.14,.008,.14]);
-          chrome.push([x+27.78+BATH_SHIFT,y+1.65,side*(OUTER+depth),.035,1.55,.035],
-            [x+27.55+BATH_SHIFT,y+2.4,side*(OUTER+depth),.5,.035,.035],
-            [x+27.32+BATH_SHIFT,y+2.37,side*(OUTER+depth),.25,.055,.25],
-            [x+27.73+BATH_SHIFT,y+1.1,side*(OUTER+depth),.12,.08,.28]);
-        }
-        walls.push([x+27+BATH_SHIFT,y+1.1,side*(OUTER+2.5),2,2.2,.10]);
-        dark.push([x+17.85+BATH_SHIFT,y+.68,side*(INNER+.72),.9,1.36,1.1]);screens.push([x+17.85+BATH_SHIFT,y+1.38,side*(INNER+.72),.68,.045,.67]);
+        bathroomPlacements.push({x:x+25+BATH_SHIFT,y,z:side*(OUTER+2.5),side});
+        for(const [dx,dy,dz,w,h,d] of BATHROOM_CONTACTS)
+          bathroomContacts.push([x+25+BATH_SHIFT+dx,y+dy,side*(OUTER+2.5+dz),w,h,d]);
+        dark.push([x+17.85,y+.68,side*(INNER+.72),.9,1.36,1.1]);screens.push([x+17.85,y+1.38,side*(INNER+.72),.68,.045,.67]);
         dark.push([x+20.6,y+.83,side*(OUTER-.24),.5,.22,.5],[x+20.6,y+.45,side*(OUTER-.05),.25,.8,.2]);
         for(const lamp of ROOM_LIGHTS){
           if(lamp.y>HEIGHT&&cornerLimits.maxY!==undefined&&y+lamp.y>cornerLimits.maxY)continue;
@@ -325,17 +292,17 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         }
       }
     }
-    beds.set(bedPlacements);
-    batch(tiles,[slabMat,tileMat],group,deckGeometry);batch(ceramics,ceramicMat);batch(bowls,ceramicMat,group,bowlGeo);batch(seats,ceramicMat,group,seatGeo);batch(chrome,chromeMat);batch(mirrors,mirrorMat);
+    beds.set(bedPlacements);bathrooms.set(bathroomPlacements);
+    batch(tiles,[slabMat,tileMat],group,deckGeometry);
     const deckMaterials=[slabMat,floorMat];
-    batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,[slabMat,floorMat],group,deckGeometry);batch(shelves,shelfMat);batch(trim,woodMat);pipes(rails);batch(lamps,lightMat);batch(walls,wallMat);batch(linens,linenMat);batch(dark,darkMat);batch(screens,screenMat);
+    batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,[slabMat,floorMat],group,deckGeometry);batch(shelves,shelfMat);batch(trim,woodMat);pipes(rails);batch(lamps,lightMat);batch(walls,wallMat);batch(dark,darkMat);batch(screens,screenMat);
     // Capture the actual room geometry once per lighting variant. Sample a complete
     // amenity cell near this window, even after random starts or origin shifts.
     const roomX=Math.round(bx/12)*PERIOD;
     const topFloor=cornerLimits.maxY===undefined?Infinity:Math.round((cornerLimits.maxY-HEIGHT+.34)/HEIGHT);
     const bottomFloor=cornerLimits.minY===undefined?-Infinity:Math.round(cornerLimits.minY/HEIGHT);
     const normalFloor=Math.max(bottomFloor+2,Math.min(fy,topFloor-2));
-    const contacts=(floor:number)=>()=>roomOccluders([decks,slabs,floors,shelves,trim,lamps,walls,linens,dark,screens,tiles,ceramics,chrome,mirrors,bedContacts].flat(),new T.Vector3(roomX,floor*HEIGHT,0));
+    const contacts=(floor:number)=>()=>roomOccluders([decks,slabs,floors,shelves,trim,lamps,walls,dark,screens,tiles,bedContacts,bathroomContacts].flat(),new T.Vector3(roomX,floor*HEIGHT,0));
     lighting.bakeRoomContacts(contacts(normalFloor));
     if(topFloor>=fy-31&&topFloor<=fy+31)
       lighting.bakeRoomContacts(contacts(topFloor),true);
@@ -364,6 +331,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   }
   function update(px:number,py:number,camera?:T.Camera){
     rebuild(px,py);
+    bathrooms.update(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7),group.position.y);
     beds.update(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7),group.position.y);
     updateDetails(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7));
     endWall.position.y=py;endCap.position.x=px;updateFixtures(px,py);
@@ -373,5 +341,5 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     stairCulling.update(group,camera,frustum,cornerLimits,occlusionEnabled);
     for(const {mesh,bounds} of distantBatches){worldBounds.copy(bounds).translate(distantGroup.position);mesh.visible=frustum.intersectsBox(worldBounds);}
   }
-  return { setOcclusionEnabled(enabled:boolean){occlusionEnabled=enabled;},update, markOpened,setLimits,refreshBookColors, dispose(){beds.dispose();stairCulling.dispose();wallWriting.dispose();boundary.dispose();frames.dispose();lenses.dispose();scene.remove(boundaryGroup);endGeometry.dispose();capGeometry.dispose();horizon.dispose();lighting.dispose();scene.remove(group,distantGroup,detailGroup);for(const root of [group,distantGroup,detailGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
+  return { setOcclusionEnabled(enabled:boolean){occlusionEnabled=enabled;},update, markOpened,setLimits,refreshBookColors, dispose(){bathrooms.dispose();beds.dispose();stairCulling.dispose();wallWriting.dispose();boundary.dispose();frames.dispose();lenses.dispose();scene.remove(boundaryGroup);endGeometry.dispose();capGeometry.dispose();horizon.dispose();lighting.dispose();scene.remove(group,distantGroup,detailGroup);for(const root of [group,distantGroup,detailGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
 }

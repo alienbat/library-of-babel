@@ -25,6 +25,7 @@ Regenerate from the repository root (overwrites these outputs):
 Verified by rendering, inspecting the preview, reopening the source and
 reimporting the four-batch GLB in a separate Blender process.
 
-This is the authoring model, awaiting in-game integration. The preview studio
-lighting is not exported. Runtime integration should reuse static bathroom
-lighting and shared mesh instances, with reduced detail at distance.
+The toilet is integrated through the [bathroom kit](../bathroom/README.md).
+After editing this source, regenerate the bathroom kit too: its GLB is the runtime
+asset. Studio lighting is excluded; game fixtures reuse static bathroom lighting
+and shared geometry with distant LODs.

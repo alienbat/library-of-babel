@@ -1,4 +1,4 @@
-import {DORM,DORM_BEDS,BATH_SHIFT} from './room-layout.ts';
+import {DORM,DORM_BEDS,BATH_SHIFT,showerFloorHeight} from './room-layout.ts';
 // Project dimensions in metres; see README.md for literary inspiration and choices.
 export const GAP = 30.48;
 export const INNER = GAP / 2;
@@ -16,7 +16,7 @@ export function floorAt(x: number, z: number, previousY: number): number {
     const ramp = (t - 4) / 8 * HEIGHT;
     return Math.round((previousY - ramp) / HEIGHT) * HEIGHT + ramp;
   }
-  return Math.round(previousY / HEIGHT) * HEIGHT;
+  return Math.round(previousY / HEIGHT) * HEIGHT+showerFloorHeight(t,Math.abs(z)-OUTER);
 }
 export function allowed(x: number, z: number): boolean {
   const a = Math.abs(z), t = mod(x, PERIOD);
@@ -39,7 +39,7 @@ export function allowed(x: number, z: number): boolean {
   if (bathroomX > 22 + RADIUS + .1 && bathroomX < 28 - .1 - RADIUS) {
     const d=a-OUTER;
     if(d < .5+RADIUS || d > 4.9-RADIUS)return false;
-    if(bathroomX>24.05-RADIUS&&bathroomX<25.15+RADIUS&&d<.975+RADIUS)return false;
+    if(bathroomX>24.05-RADIUS&&bathroomX<25.15+RADIUS&&d<1.06+RADIUS)return false;
     if(bathroomX<23.3+RADIUS&&d>3.86-RADIUS)return false;
     if(Math.abs(bathroomX-23.75)<.05+RADIUS&&d>3.25-RADIUS)return false;
     if(bathroomX>26-RADIUS&&Math.abs(d-2.5)<.05+RADIUS)return false;
@@ -108,7 +108,7 @@ export function flightVector(yaw:number,pitch:number,forward:number,right:number
 export function supportBelow(p:Position):number|null {
   if(!allowed(p.x,p.z))return null;
   const t=mod(p.x,PERIOD);
-  const ramp=Math.abs(p.z)>OUTER+.48&&t>=4&&t<=12?(t-4)/8*HEIGHT:0;
+  const ramp=Math.abs(p.z)>OUTER+.48&&t>=4&&t<=12?(t-4)/8*HEIGHT:showerFloorHeight(t,Math.abs(p.z)-OUTER);
   return Math.floor((p.y-ramp+1e-8)/HEIGHT)*HEIGHT+ramp;
 }
 
@@ -125,7 +125,7 @@ export function airClear(p:Position):boolean {
   if(inDoor&&a>OUTER+.4-RADIUS&&a<OUTER+.56+RADIUS&&height+BODY_HEIGHT>2.6)return false;
   // A full body must fit between the deck and the ceiling. Crossing above the
   // 4-foot rail is possible, but passing through a deck or shelving is not.
-  if(height< -1e-7||height+BODY_HEIGHT>HEIGHT-.34)return false;
+  if(height<showerFloorHeight(t,a-OUTER)-1e-7||height+BODY_HEIGHT>HEIGHT-.34)return false;
   if(inRail&&height<1.2192+.04)return false;
   return true;
 }

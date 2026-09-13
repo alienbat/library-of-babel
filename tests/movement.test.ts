@@ -41,7 +41,7 @@ void test('bathrooms connect to dormitories on both sides and repeated floors',(
     p=move(p,0,-side*.5);p=move(p,2.5,0);near(p.x,offset+27);near(p.y,level);
     // Enter both shower trays via the open central aisle.
     for(const depth of [1.25,3.75]){
-      let shower=move(p,0,side*(depth-2.9));shower=move(shower,2,0);
+      let shower=move(p,.5,0);shower=move(shower,0,side*(depth-2.9));shower=move(shower,1.5,0);
       near(shower.x,offset+29);near(Math.abs(shower.z),OUTER+depth);
     }
     const landing=fallStep({...p,y:level+1},0,1);assert.equal(landing.landed,true);near(landing.position.y,level);

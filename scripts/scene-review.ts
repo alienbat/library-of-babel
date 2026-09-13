@@ -5,7 +5,7 @@ const renderer=new T.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true})
 renderer.setSize(1100,720);renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
 document.body.appendChild(renderer.domElement);
 const scene=new T.Scene();scene.background=new T.Color('#202825');
-const world=createWorld(scene,new Set(),'/models/blender/bed/bed.glb'),camera=new T.PerspectiveCamera(65,1100/720,.1,16000);
+const world=createWorld(scene,new Set(),'/models/blender/bed/bed.glb','/models/blender/bathroom/bathroom.glb'),camera=new T.PerspectiveCamera(65,1100/720,.1,16000);
 let errors=0;
 renderer.debug.onShaderError=(gl,program,vs,fs)=>{errors++;console.error(gl.getProgramInfoLog(program),gl.getShaderInfoLog(vs),gl.getShaderInfoLog(fs));};
 const views={
@@ -36,6 +36,10 @@ const views={
  BedroomOpposite:{p:[19,1.68,-OUTER-3.4],at:[21,.6,-OUTER-5.1],limits:{}},
  BedroomTop:{p:[19,1.68,OUTER+3.4],at:[21,.6,OUTER+5.1],limits:{maxY:HEIGHT-.34}},
  Bedroom:{p:[19,1.68,OUTER+3.4],at:[21,.6,OUTER+5.1],limits:{}},
+ Basin:{p:[26.6,1.55,OUTER+2],at:[26.6,1.3,OUTER+.6],limits:{}},
+ Toilet:{p:[24.7,1.35,OUTER+3.15],at:[25,.55,OUTER+4.25],limits:{}},
+ ShowerDrain:{p:[28,1.4,OUTER+1.25],at:[29,.01,OUTER+1.25],limits:{}},
+ BathroomOpposite:{p:[27,1.68,-OUTER-2.9],at:[29,1.3,-OUTER-3.75],limits:{}},
  Bathroom:{p:[25,1.68,OUTER+2.9],at:[29,1.6,OUTER+3.4],limits:{}},
  Bottom:{p:[25,1.68,0],at:[1,.5,0],limits:{minX:0,minY:0}},
  TopGallery:{p:[17,1.68,16.94],at:[45,3.3,18],limits:{maxY:HEIGHT-.34}},

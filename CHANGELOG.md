@@ -5,6 +5,10 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Install Blender bathroom fittings: closed-lid toilet, rounded partitions, tissue
+  dispenser, basin, shower controls and recessed drains; move the mirror above
+  the basin and retain static lighting with spatial LODs.
+
 - Enlarge dormitories to 8 × 6.3 m, separate all seven beds with accessible side
   aisles, and move bathrooms with matching doors, collisions and static lighting.
 

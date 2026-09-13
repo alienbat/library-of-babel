@@ -7,6 +7,8 @@ import * as T from 'three';
 import bookWorkerUrl from './book-worker?worker&url';
 // oxlint-disable-next-line import/default -- Vite generates the bundled asset URL.
 import bedAssetUrl from '../../models/blender/bed/bed.glb?url';
+// oxlint-disable-next-line import/default -- Vite emits the static model asset.
+import bathroomAssetUrl from '../../models/blender/bathroom/bathroom.glb?url';
 import { createWorld } from './world';
 import { EYE, HEIGHT, INNER,BAY,PERIOD, move, flightVector, flyMove, fallStep, brakeFallStep, type Position, type TravelMode,type WorldLimits } from './physics';
 
@@ -31,7 +33,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const camera=new T.PerspectiveCamera(75,host.clientWidth/host.clientHeight,.1,16000);camera.rotation.order='YXZ';
   let opened=new Set<string>();
   try{opened=loadOpened(localStorage);}catch{/* Session history still works without storage. */}
-  const world=createWorld(scene,opened,bedAssetUrl);
+  const world=createWorld(scene,opened,bedAssetUrl,bathroomAssetUrl);
   let restored:Journey|null=null;
   try{restored=readJourney(localStorage);}catch{callbacks.onStorageWarning();}
   const journeySeed=restored?.journeySeed??restored?.frame.originSeed??newJourneySeed();

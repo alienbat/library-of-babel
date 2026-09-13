@@ -12,4 +12,6 @@ assert.ok(asset,'Missing public book worker URL');
 assert.ok(existsSync(`dist/client${asset}`),'Book worker must be included in published assets');
 const bed=source.match(/\/_next\/static\/media\/bed\.[\w-]+\.glb/)?.[0];
 assert.ok(bed&&existsSync(`dist/client${bed}`),'Bed model must use a published asset URL');
-console.log('Production book worker and bed asset URLs verified');
+const bathroom=source.match(/\/_next\/static\/media\/bathroom\.[\w-]+\.glb/)?.[0];
+assert.ok(bathroom&&existsSync(`dist/client${bathroom}`),'Bathroom kit must use a published asset URL');
+console.log('Production worker, bed and bathroom asset URLs verified');

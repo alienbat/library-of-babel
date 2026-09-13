@@ -16,6 +16,9 @@ const worker = files.find((name) => /^book-worker-.*\.js$/.test(name));
 assert.ok(worker, 'Book worker must be emitted as a static asset');
 const bed = files.find((name) => /^bed-.*\.glb$/.test(name));
 assert.ok(bed, 'Blender bed must be emitted as a static asset');
+const bathroom=files.find(name=>/^bathroom-.*\.glb$/.test(name));
+assert.ok(bathroom,'Bathroom kit must be emitted');
+let bathroomReferenced=false;
 let bedReferenced = false;
 let workerReferenced = false;
 for (const file of files.filter((name) => name.endsWith('.js'))) {
@@ -30,9 +33,11 @@ for (const file of files.filter((name) => name.endsWith('.js'))) {
   );
   if (source.includes(`${base}assets/${worker}`)) workerReferenced = true;
   if (source.includes(`${base}assets/${bed}`)) bedReferenced = true;
+  if (source.includes(`${base}assets/${bathroom}`)) bathroomReferenced = true;
 }
 assert.ok(workerReferenced, 'Worker URL must include the deployment base');
 assert.ok(bedReferenced, 'Bed URL must include the deployment base');
+assert.ok(bathroomReferenced,'Bathroom URL must include deployment base');
 for (const file of ['LICENSE.txt', 'NOTICE.txt', 'source.tar.gz'])
   await access(`${directory}/third-party/gmp-wasm/${file}`);
 await writeFile(`${directory}/.nojekyll`, '');
