@@ -45,3 +45,8 @@ shadow maps are added. The mirror is a static shaded panel.
 Validated by Blender source reopen and GLB reimport, game views of the basin,
 toilet, drain and opposite gallery, and tests for reflected winding, fixture
 batch disposal, shower walking/falling support, routes and embedded asset data.
+
+The cistern cap touches the rear wall (toilet local Y = 2.001 m). Shower floors
+span local X 1–2.9 m, with Y −2 to −0.05 m and 0.05 to 2.4 m. Their front
+edges align with the divider; drains stay in their original positions. Shared
+height sampling, coarse LODs and contact bounds use these same extents.

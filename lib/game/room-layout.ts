@@ -16,25 +16,18 @@ export const DORM_BEDS = [
 ];
 
 /** Top surface rings match the Blender shower tray; height is above the tiled deck. */
-export const SHOWER_TRAY_RINGS = [
-  [0.825, 0.875, 0.055],
-  [0.785, 0.835, 0.052],
-  [0.18, 0.18, 0.044],
-  [0.085, 0.085, 0.008],
-];
 export function showerFloorHeight(x: number, depth: number): number {
   const dx = x - (27 + BATH_SHIFT);
-  if (Math.abs(dx) > 0.825) return 0;
+  if (dx < -1-1e-8 || dx > .9+1e-8) return 0;
   for (const centre of [1.25, 3.75]) {
     const dy = depth - centre;
-    if (Math.abs(dy) > 0.875) continue;
-    if (Math.abs(dx) <= 0.085 && Math.abs(dy) <= 0.085) return 0.0135; // top of grate
-    const rings = SHOWER_TRAY_RINGS.map(([w, d, h]) => [
-      [-w, -d, h],
-      [w, -d, h],
-      [w, d, h],
-      [-w, d, h],
-    ]);
+    const [lo,hi]=centre===1.25?[-.75,1.2]:[-1.2,1.15];
+    if (dy < lo-1e-8 || dy > hi+1e-8) continue;
+    if (Math.abs(dx) <= 0.085 && Math.abs(dy) <= 0.085) return 0.0135;
+    const rings = [
+      [-1,.9,lo,hi,.055],[-.96,.86,lo+.04,hi-.04,.052],
+      [-.18,.18,-.18,.18,.044],[-.085,.085,-.085,.085,.008]
+    ].map(([x0,x1,y0,y1,h])=>[[x0,y0,h],[x1,y0,h],[x1,y1,h],[x0,y1,h]]);
     for (let r = 0; r < 3; r++)
       for (let i = 0; i < 4; i++) {
         const a = rings[r][i],

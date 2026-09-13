@@ -53,7 +53,7 @@ with bpy.data.libraries.load(str(HERE.parent/'toilet/toilet.blend'),link=False) 
     dst.collections=['TOILET — export meshes']
 toilet=dst.collections[0]
 for o in list(toilet.objects):
-    move(o,asset);o.location+=Vector((-2,1.75,0))
+    move(o,asset);o.location+=Vector((-2,2.001,0))
     # Reuse a small shared material palette across all bathroom fittings.
     for i,m in enumerate(o.data.materials):
         o.data.materials[i]=metal if 'Satin' in m.name else dark if 'joint' in m.name else linen if 'seat' in m.name else ceramic
@@ -123,13 +123,14 @@ for y in [-1.25,1.25]:
         box('Control index mark',(2.691,y+dy,1.11),(.004,.025,.006),dark,.001)
     # Raised perimeter transitions to a shallow sloped dish, then a recessed grate.
     verts=[];faces=[]
-    rings=[(.825,.875,.055),(.785,.835,.052),(.18,.18,.044),(.085,.085,.008)]
-    for rx,ry,z in rings:
-        for dx,dy in [(-1,-1),(1,-1),(1,1),(-1,1)]:verts.append((2+rx*dx,y+ry*dy,z))
+    ymin,ymax=(-2,-.05) if y<0 else (.05,2.4)
+    rings=[(1,2.9,ymin,ymax,.055),(1.04,2.86,ymin+.04,ymax-.04,.052),(1.82,2.18,y-.18,y+.18,.044),(1.915,2.085,y-.085,y+.085,.008)]
+    for xmin,xmax,ya,yb,z in rings:
+        verts.extend([(xmin,ya,z),(xmax,ya,z),(xmax,yb,z),(xmin,yb,z)])
     for j in range(3):
         for i in range(4):a=j*4+i;b=j*4+(i+1)%4;faces.append((a,b,b+4,a+4))
     # Rim skirt closes the tray down to the existing tiled deck.
-    for dx,dy in [(-1,-1),(1,-1),(1,1),(-1,1)]:verts.append((2+.825*dx,y+.875*dy,.001))
+    verts.extend([(1,ymin,.001),(2.9,ymin,.001),(2.9,ymax,.001),(1,ymax,.001)])
     for i in range(4):faces.append((i,16+i,16+(i+1)%4,(i+1)%4))
     mesh('Shower floor sloping to recessed drain',verts,faces,ceramic)
     box('Drain well',(2,y,.004),(.17,.17,.006),dark,.002)

@@ -41,7 +41,7 @@ export function allowed(x: number, z: number): boolean {
     const d=a-OUTER;
     if(d < .5+RADIUS || d > 4.9-RADIUS)return false;
     if(bathroomX>24.05-RADIUS&&bathroomX<25.15+RADIUS&&d<1.06+RADIUS)return false;
-    if(bathroomX<23.3+RADIUS&&d>3.86-RADIUS)return false;
+    if(bathroomX<23.3+RADIUS&&d>4.088-RADIUS)return false;
     if(Math.abs(bathroomX-23.75)<.05+RADIUS&&d>3.25-RADIUS)return false;
     if(bathroomX>26-RADIUS&&Math.abs(d-2.5)<.05+RADIUS)return false;
     return true;

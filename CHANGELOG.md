@@ -5,6 +5,9 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Move bathroom toilets back to the wall and extend shower floors to the walls
+  and divider edge, with matching walking surfaces, LODs and contact shading.
+
 - Simplify the pause menu by removing secondary taglines, subtitle and credit
   text; centre the single-line masthead beside its mark.
 

@@ -89,3 +89,10 @@ void test('bathroom export has shared materials and embedded spray texture witho
   );
   assert.ok(!g.cameras && !g.extensions?.KHR_lights_punctual);
 });
+
+void test('shower floors meet the walls and divider front without bridging the divider',()=>{
+  for(const [x,z] of [[28,1.25],[29.9,1.25],[29,.5],[29,2.45],[28,3.75],[29.9,3.75],[29,2.55],[29,4.9]])
+    assert.ok(Math.abs(showerFloorHeight(x,z)-.055)<1e-8,`sealed rim at ${x},${z}`);
+  assert.equal(showerFloorHeight(27.99,1.25),0);
+  assert.equal(showerFloorHeight(29,2.5),0);
+});
