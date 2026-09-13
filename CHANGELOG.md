@@ -85,3 +85,5 @@ record; older entries are grouped milestones rather than released version number
 - Absolute-distance shelf LOD, detailed shelf support/backing, conservative stair
   culling and a filtered analytic horizon improved distant rendering without an
   unbounded mesh count. Boundary silhouettes and deck overlap were corrected.
+
+- Limit opened-book tint updates to a fixed 24 m radius independently of shelf detail settings, avoiding whole-window colour refreshes at High detail.

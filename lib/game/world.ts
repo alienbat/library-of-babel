@@ -5,7 +5,7 @@ import {DORM,DORM_BEDS,BATH_SHIFT} from './room-layout.ts';
 import {createBeds,createFurniture,type BedPlacement} from './beds.ts';
 import {roomOccluders} from './room-ao.ts';
 import {createStairCulling} from './landing-occlusion.ts';
-import {detailCells,detailRadius,shelfLod,type ShelfCell} from './shelf-lod.ts';
+import {detailCells,detailRadius,shelfDistanceSquared,shelfLod,type ShelfCell} from './shelf-lod.ts';
 import * as T from 'three';
 import {createWallWriting} from './wall-writing.ts';
 import {ROOM_LIGHTS} from './room-lighting.ts';
@@ -190,22 +190,39 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     boxes.forEach((b,i)=>{dummy.position.set(b[0],b[1],b[2]);dummy.rotation.set(0,0,b[3]>1?Math.PI/2:0);dummy.scale.set(.036,b[3]>1?b[3]:b[4],.036);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});m.computeBoundingSphere();group.add(m);
   }
   const detailGroup=new T.Group();detailGroup.name='nearby-shelf-details';scene.add(detailGroup);
-  const bookBatches:({mesh:T.InstancedMesh;parts:T.InstancedMesh[]}&ShelfCell)[]=[];
+  const bookBatches:({mesh:T.InstancedMesh;parts:T.InstancedMesh[];colored?:boolean}&ShelfCell)[]=[];
   const unreadColor=new T.Color('#ffffff'),openedColor=new T.Color('#43c9c0');
+  // Opened-book tint is independent of the geometry quality setting.
+  const colorRadius=24,colorEye=new T.Vector3();
+  function withinColorRange(location:BookLocation){
+    const x=location.bay*BAY+(location.book+.5)*BAY/BOOKS_PER_ROW;
+    const y=location.level*HEIGHT+.30+location.row*.39,z=location.side*(OUTER-.08);
+    return (x-colorEye.x)**2+(y-colorEye.y)**2+(z-colorEye.z)**2<=colorRadius**2;
+  }
   function refreshBookColors(){
-    for(const {mesh,bay,side,level} of bookBatches){
-      for(let row=0;row<ROWS;row++)for(let book=0;book<BOOKS_PER_ROW;book++)mesh.setColorAt(row*BOOKS_PER_ROW+book,opened.has(bookId({level,bay,side,row,book}))?openedColor:unreadColor);
+    for(const entry of bookBatches){
+      const {mesh,bay,side,level}=entry;
+      if(shelfDistanceSquared(colorEye,entry)>colorRadius**2){
+        if(entry.colored&&mesh.instanceColor){mesh.instanceColor.array.fill(1);mesh.instanceColor.needsUpdate=true;entry.colored=false;}
+        continue;
+      }
+      for(let row=0;row<ROWS;row++)for(let book=0;book<BOOKS_PER_ROW;book++){
+        const location={level,bay,side,row,book};
+        mesh.setColorAt(row*BOOKS_PER_ROW+book,withinColorRange(location)&&opened.has(bookId(location))?openedColor:unreadColor);
+      }
+      entry.colored=true;
       if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
     }
   }
   function markOpened(location:BookLocation){
+    if(!withinColorRange(location))return;
     const found=bookBatches.find(b=>b.level===location.level&&b.bay===location.bay&&b.side===location.side);
-    if(found){found.mesh.setColorAt(location.row*BOOKS_PER_ROW+location.book,openedColor);found.mesh.instanceColor!.needsUpdate=true;}
+    if(found){found.mesh.setColorAt(location.row*BOOKS_PER_ROW+location.book,openedColor);found.mesh.instanceColor!.needsUpdate=true;found.colored=true;}
   }
   let detailKey='';
   function updateDetails(eye:T.Vector3){
     const snapped=new T.Vector3(Math.round(eye.x),Math.round(eye.y),Math.round(eye.z));
-    const key=snapped.toArray().join(':');if(key===detailKey)return;detailKey=key;detailEye.value.copy(snapped);
+    const key=snapped.toArray().join(':');if(key===detailKey)return;detailKey=key;detailEye.value.copy(snapped);colorEye.copy(snapped);
     const cells=detailCells(snapped,cornerLimits,bookRadius.value),id=(c:ShelfCell)=>`${c.bay}:${c.level}:${c.side}`;
     const wanted=new Set(cells.map(id));
     for(let i=bookBatches.length-1;i>=0;i--)if(!wanted.has(id(bookBatches[i]))){for(const part of bookBatches[i].parts){detailGroup.remove(part);part.dispose();}bookBatches.splice(i,1);}
