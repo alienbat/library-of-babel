@@ -11,7 +11,7 @@ export const ROOM_LIGHTS=[
   {x:25+BATH_SHIFT,y:HEIGHT-.43,z:2.7,room:2},
 ];
 export function roomLights(top=false,bottom=false,belowTop=false){
-  if(top)return [...ROOM_LIGHTS.filter(l=>l.room!==0),{x:8,y:HEIGHT-.34-.035/2,z:2.1,room:0}];
+  if(top)return [...ROOM_LIGHTS.filter(l=>l.room!==0),...[2.5,13.5].map(x=>({x,y:HEIGHT-.34-.035/2,z:2.1,room:0}))];
   return ROOM_LIGHTS.filter(l=>(!bottom||l.x!==13.5)&&(!belowTop||l.x!==2.5));
 }
 export const ROOM_GRID=[120,32,24] as const;

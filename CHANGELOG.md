@@ -5,6 +5,10 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Align gallery door heads with shelf crowns at 3.33 m, and standardize wall
+  sign dimensions, text size and alignment. Mount two lights on the top
+  stairwell ceiling at the usual landing positions and update the static bake.
+
 - Remove the floating fixture beneath the removed top stair landing. Bake the
   final flight from the top ceiling light, with contact shading from its actual
   geometry instead of repeating the normal stairwell lighting.

@@ -8,7 +8,7 @@ export function createWallWriting(){
   labels.forEach((label,i)=>{
     c.save();c.translate((i%4)*512,Math.floor(i/4)*512);c.scale(1,2);
     c.fillStyle='#dad8c7';c.fillRect(0,0,512,256);c.strokeStyle='#7b7667';c.lineWidth=5;c.strokeRect(10,10,492,236);
-    c.fillStyle='#353b36';c.textAlign='center';c.font=(i===6||i===7)?'bold 38px sans-serif':'22px sans-serif';label.split('\n').forEach((line,row)=>c.fillText(line,256,(i===6||i===7)?140:62+row*44));c.restore();
+    c.fillStyle='#353b36';c.textAlign='center';c.font='32px sans-serif';c.textBaseline='middle';const lines=label.split('\n');lines.forEach((line,row)=>c.fillText(line,256,128+(row-(lines.length-1)/2)*48));c.restore();
   });
   const atlas=new T.CanvasTexture(canvas);atlas.colorSpace=T.SRGBColorSpace;atlas.anisotropy=4;
   const uniforms={wallWriting:{value:atlas},writingBottom:{value:-1e20},writingTop:{value:1e20}};
@@ -38,14 +38,14 @@ export function createWallWriting(){
           if(abs(wz)<.012&&wx>=1.0&&wx<=15.0){
             float floorY=vBakedPosition.y-wy;
             float tile=abs(floorY-writingTop)<.01?2.0:abs(floorY-writingBottom)<.01?1.0:0.0;
-            ink=writingSample(vec2(8.0+(wx-8.0)*orientation,wy),vec2(8.0,2.2),vec2(2.6,1.3),tile);
+            ink=writingSample(vec2(8.0+(wx-8.0)*orientation,wy),vec2(8.0,2.15),vec2(1.8,.8),tile);
           }
           if(abs(wz)<.012&&wx>15.0){
             if(wx<18.0){
-              ink=writingSample(vec2(17.0+(wx-17.0)*orientation,wy),vec2(17.0,2.15),vec2(1.6,.8),vBakedPosition.z>0.0?8.0:3.0);
-              vec4 compass=writingSample(vec2(17.0+(wx-17.0)*orientation,wy),vec2(17.0,3.0),vec2(1.6,.5),vBakedPosition.z>0.0?6.0:7.0);
+              ink=writingSample(vec2(17.0+(wx-17.0)*orientation,wy),vec2(17.0,2.15),vec2(1.8,.8),vBakedPosition.z>0.0?8.0:3.0);
+              vec4 compass=writingSample(vec2(17.0+(wx-17.0)*orientation,wy),vec2(17.0,3.0),vec2(1.8,.8),vBakedPosition.z>0.0?6.0:7.0);
               ink=mix(ink,compass,compass.a);
-            }else ink=writingSample(vec2(21.43+(wx-21.43)*orientation,wy),vec2(21.43,2.1),vec2(1.8,.75),4.0);
+            }else ink=writingSample(vec2(21.43+(wx-21.43)*orientation,wy),vec2(21.43,2.15),vec2(1.8,.8),4.0);
           }
 
         }

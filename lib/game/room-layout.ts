@@ -1,3 +1,5 @@
+/** Common gallery opening height, aligned with the shelf crown. */
+export const ENTRY_HEIGHT = 3.33;
 /** Shared authoring/collision dimensions, in metres from the amenity bay origin. */
 export const DORM = {
   left: 16,

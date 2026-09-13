@@ -1,4 +1,4 @@
-import {DORM,DORM_BEDS,BATH_SHIFT,showerFloorHeight} from './room-layout.ts';
+import {ENTRY_HEIGHT,DORM,DORM_BEDS,BATH_SHIFT,showerFloorHeight} from './room-layout.ts';
 // Project dimensions in metres; see README.md for literary inspiration and choices.
 export const GAP = 30.48;
 export const INNER = GAP / 2;
@@ -129,7 +129,8 @@ export function airClear(p:Position):boolean {
   const level=Math.floor((p.y-ramp+1e-8)/HEIGHT)*HEIGHT+ramp;
   const height=p.y-level;
   const inDoor=(t>1&&t<4)||(t>12&&t<15);
-  if(inDoor&&a>OUTER+.4-RADIUS&&a<OUTER+.56+RADIUS&&height+BODY_HEIGHT>2.6)return false;
+  if(t>DORM.doorLeft&&t<DORM.doorRight&&a>OUTER-RADIUS&&a<OUTER+.5+RADIUS&&height+BODY_HEIGHT>ENTRY_HEIGHT)return false;
+  if(inDoor&&a>OUTER-RADIUS&&a<OUTER+.3+RADIUS&&height+BODY_HEIGHT>ENTRY_HEIGHT)return false;
   // A full body must fit between the deck and the ceiling. Crossing above the
   // 4-foot rail is possible, but passing through a deck or shelving is not.
   if(height<showerFloorHeight(t,a-OUTER)-1e-7||height+BODY_HEIGHT>HEIGHT-.34)return false;

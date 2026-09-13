@@ -62,7 +62,7 @@ void test('terminal stairwell alcoves are removed, with ceiling-mounted top ligh
     assert.ok(!model.walls.some(b=>b[3]===.16),'no redundant interior partition');
   }
   const topLights=roomLights(true).filter(l=>l.room===0);
-  assert.equal(topLights.length,1);assert.equal(topLights[0].x,8);
+  assert.equal(topLights.length,2);assert.deepEqual(topLights.map(l=>l.x),[2.5,13.5]);
   assert.ok(Math.abs(topLights[0].y+.035/2-(HEIGHT-.34))<1e-8);
   assert.ok(!roomLights(false,true).some(l=>l.x===13.5));
   assert.ok(Math.abs(supportBelow({x:2.5,y:.2,z:OUTER+2},{maxY:HEIGHT-.34})!+HEIGHT)<1e-8);
@@ -83,4 +83,17 @@ void test('final stair flight has no lamp beneath the removed top landing',async
   assert.notDeepEqual(final.positive.image.data,normal.positive.image.data);
   assert.equal(final.positive.image.depth,nz);
   normal.dispose();final.dispose();top.dispose();
+});
+
+void test('gallery entry lintels align with the shelf crown and block flying above the opening',async()=>{
+  const {ENTRY_HEIGHT,DORM}=await import('../lib/game/room-layout.ts');
+  const {airClear,BODY_HEIGHT}=await import('../lib/game/physics.ts');
+  for(const side of [-1,1]){
+    const model=staircase(0,0,side);
+    for(const lintel of model.walls.slice(4,6))assert.ok(Math.abs(lintel[1]-lintel[4]/2-ENTRY_HEIGHT)<1e-8);
+    for(const x of [2.5,13.5,(DORM.doorLeft+DORM.doorRight)/2]){
+      assert.ok(airClear({x,y:ENTRY_HEIGHT-BODY_HEIGHT-.01,z:side*(OUTER+.15)}));
+      assert.ok(!airClear({x,y:ENTRY_HEIGHT-BODY_HEIGHT+.01,z:side*(OUTER+.15)}));
+    }
+  }
 });

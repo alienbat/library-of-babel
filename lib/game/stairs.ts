@@ -1,3 +1,4 @@
+import {ENTRY_HEIGHT} from './room-layout.ts';
 import {HEIGHT,OUTER,type WorldLimits} from './physics.ts';
 export type StairBox=[number,number,number,number,number,number];
 /** Closed stairwell shell. Flights belong to their lower floor. */
@@ -12,12 +13,12 @@ export function staircase(x:number,y:number,side:number,limits:WorldLimits={}){
     [x+1,wallY,side*(OUTER+1.95),.2,HEIGHT,3.9],
     [x+15,wallY,side*(OUTER+1.95),.2,HEIGHT,3.9]);
   // Lintels above the two gallery doors close the remaining front-wall gaps.
-  const lintelHeight=HEIGHT-.34-2.6;
+  const lintelHeight=HEIGHT-.34-ENTRY_HEIGHT;
   for(const landing of [2.5,13.5]){
     const closed=(top&&landing===2.5)||(bottom&&landing===13.5);
     if(closed)walls.push([x+landing,wallY,side*(OUTER+.15),3,HEIGHT,.3]);
     else{
-      walls.push([x+landing,y+2.6+lintelHeight/2,side*(OUTER+.15),3,lintelHeight,.3]);
+      walls.push([x+landing,y+ENTRY_HEIGHT+lintelHeight/2,side*(OUTER+.15),3,lintelHeight,.3]);
       floors.push([x+landing,y-.17,side*(OUTER+1.9),3,.34,3.8]);
     }
   }

@@ -17,6 +17,8 @@ const views={
  CeilingLight:{p:[3.81,2,17.1],at:[3.81,3.58,17.0688],limits:{}},
  TopClosedEntry:{p:[2.5,1.68,OUTER-2],at:[2.5,1.8,OUTER+1],limits:{minX:0,maxY:HEIGHT-.34}},
  BottomClosedEntry:{p:[13.5,1.68,OUTER-2],at:[13.5,1.8,OUTER+1],limits:{minX:0,minY:0}},
+ AlignedFrontage:{p:[14,1.8,0],at:[14,1.8,OUTER],limits:{}},
+ TopTwoLights:{p:[8,-2,OUTER+2],at:[8,3.6,OUTER+2.1],limits:{maxY:HEIGHT-.34}},
  FinalStairFlight:{p:[4,-HEIGHT+1.68,OUTER+2],at:[8,3.6,OUTER+2],limits:{maxY:HEIGHT-.34}},
  TopStairCeiling:{p:[10,1.2,OUTER+2],at:[6,3.6,OUTER+2],limits:{minX:0,maxY:HEIGHT-.34}},
  ShelfBookClose:{p:[30,1.45,OUTER-.62],at:[30,1.45,OUTER],limits:{}},

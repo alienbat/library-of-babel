@@ -1,7 +1,7 @@
 import {createCeilingLights} from './ceiling-lights.ts';
 import {createShelfFrame} from './shelf-frame.ts';
 import {createBathroomFixtures,BATHROOM_CONTACTS,type BathroomPlacement} from './bathroom-fixtures.ts';
-import {DORM,DORM_BEDS,BATH_SHIFT} from './room-layout.ts';
+import {DORM,DORM_BEDS,BATH_SHIFT,ENTRY_HEIGHT} from './room-layout.ts';
 import {createBeds,createFurniture,type BedPlacement} from './beds.ts';
 import {roomOccluders} from './room-ao.ts';
 import {createStairCulling} from './landing-occlusion.ts';
@@ -300,6 +300,9 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         trim.push([trimX,y+3.28,side*(OUTER-.04),trimWidth,.10,.5],[trimX,y+.045,side*(OUTER-.04),trimWidth,.09,.5]);
       }else {
         walls.push([x+.5,y+1.81,side*(OUTER+.15),1,3.62,.3],[x+15.5,y+1.81,side*(OUTER+.15),1,3.62,.3],[x+17,y+1.81,side*(OUTER+.25),2,3.62,.5],[x+22,y+1.81,side*(OUTER+.25),4,3.62,.5]);
+        // Match the bedroom and stair openings to the shelf crown.
+        const doorLintel=HEIGHT-.34-ENTRY_HEIGHT;
+        walls.push([x+(DORM.doorLeft+DORM.doorRight)/2,y+ENTRY_HEIGHT+doorLintel/2,side*(OUTER+.25),DORM.doorRight-DORM.doorLeft,doorLintel,.5]);
         const stairs=staircase(x,y,side,cornerLimits);
         walls.push(...stairs.walls);floors.push(...stairs.floors);slabs.push(...stairs.steps);
         if(cornerLimits.maxY!==undefined&&Math.abs(y+HEIGHT-.34-cornerLimits.maxY)<.001){
