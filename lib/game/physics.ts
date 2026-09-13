@@ -24,7 +24,8 @@ export function allowed(x: number, z: number): boolean {
   // Stairs sit behind the shelves. Their side wall prevents stepping off mid-flight.
   if (a <= OUTER - RADIUS) {
     // Food kiosk, set back from the rail.
-    return !(t > 17.4 - RADIUS && t < 18.3 + RADIUS && a < INNER + 1.3 + RADIUS);
+    return !(t > 17.4 - RADIUS && t < 18.3 + RADIUS && a < INNER + 1.3 + RADIUS)
+      && !(t > 22.25 - RADIUS && t < 22.75 + RADIUS && a > OUTER - .46 - RADIUS);
   }
   if (t > 1 + RADIUS && t < 15 - RADIUS) {
     if (a > OUTER + 3.7 - RADIUS) return false;

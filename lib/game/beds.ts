@@ -12,13 +12,14 @@ export function detailedBed(p: BedPlacement, eye: T.Vector3, shiftY: number) {
     RADIUS ** 2
   );
 }
-export function createBeds(
+export function createFurniture(
   scene: T.Scene,
   material: (p: T.MeshStandardMaterialParameters) => T.MeshBasicMaterial,
   assetUrl?: string,
+  kind: 'bed' | 'return' | 'bbq' = 'bed',
 ) {
   const group = new T.Group();
-  group.name = 'dormitory-beds';
+  group.name = kind === 'bed' ? 'dormitory-beds' : `library-${kind}`;
   scene.add(group);
   type Part = { geometry: T.BufferGeometry; material: T.MeshBasicMaterial };
   const low: Part[] = [],
@@ -40,27 +41,37 @@ export function createBeds(
     pieces.forEach((g) => g.dispose());
     low.push({ geometry, material: material({ color }) });
   }
-  // Head is -Z in glTF; rotate the whole model to face consistently on either gallery.
-  coarse('#a07a4a', [
-    [-0.473, 0.335, 0, 0.054, 0.16, 1.7],
-    [0.473, 0.335, 0, 0.054, 0.16, 1.7],
-    [0, 0.335, -0.868, 0.946, 0.16, 0.064],
-    [0, 0.335, 0.868, 0.946, 0.16, 0.064],
-    ...[-0.435, 0.435].flatMap((x) =>
-      [-0.785, 0.785].map((z) => [x, 0.185, z, 0.065, 0.37, 0.065]),
-    ),
-    [0, 0.79, -0.855, 0.94, 0.32, 0.055],
-  ]);
-  coarse('#ccc4ad', [
-    [0, 0.515, 0, 0.922, 0.215, 1.688],
-    [0, 0.69, -0.57, 0.68, 0.12, 0.384],
-  ]);
-  coarse('#4e6155', [
-    [0, 0.645, 0.28, 0.96, 0.04, 1.23],
-    [0, 0.6, 0.875, 0.96, 0.13, 0.02],
-    [-0.478, 0.6, 0.28, 0.02, 0.13, 1.23],
-    [0.478, 0.6, 0.28, 0.02, 0.13, 1.23],
-  ]);
+  if (kind === 'return') {
+    coarse('#63766a', [[0, 0.62, 0, 0.5, 1.24, 0.44]]);
+    coarse('#29312d', [[0, 0.97, 0.235, 0.414, 0.155, 0.02]]);
+    coarse('#adb3ac', [[0, 1.067, 0.252, 0.47, 0.045, 0.094]]);
+  } else if (kind === 'bbq') {
+    coarse('#85877e', [[0, 0.46, 0, 0.74, 0.85, 0.87]]);
+    coarse('#adb3ac', [[0, 0.94, 0, 0.9, 0.08, 1.1]]);
+    coarse('#29312d', [[0, 0.984, 0, 0.68, 0.014, 0.78]]);
+  } else {
+    // Head is -Z in glTF; rotate the whole model to face consistently on either gallery.
+    coarse('#a07a4a', [
+      [-0.473, 0.335, 0, 0.054, 0.16, 1.7],
+      [0.473, 0.335, 0, 0.054, 0.16, 1.7],
+      [0, 0.335, -0.868, 0.946, 0.16, 0.064],
+      [0, 0.335, 0.868, 0.946, 0.16, 0.064],
+      ...[-0.435, 0.435].flatMap((x) =>
+        [-0.785, 0.785].map((z) => [x, 0.185, z, 0.065, 0.37, 0.065]),
+      ),
+      [0, 0.79, -0.855, 0.94, 0.32, 0.055],
+    ]);
+    coarse('#ccc4ad', [
+      [0, 0.515, 0, 0.922, 0.215, 1.688],
+      [0, 0.69, -0.57, 0.68, 0.12, 0.384],
+    ]);
+    coarse('#4e6155', [
+      [0, 0.645, 0.28, 0.96, 0.04, 1.23],
+      [0, 0.6, 0.875, 0.96, 0.13, 0.02],
+      [-0.478, 0.6, 0.28, 0.02, 0.13, 1.23],
+      [0.478, 0.6, 0.28, 0.02, 0.13, 1.23],
+    ]);
+  }
   function releaseMeshes() {
     for (const mesh of meshes) {
       group.remove(mesh);
@@ -80,7 +91,7 @@ export function createBeds(
           part.material,
           Math.max(1, placements.length),
         );
-        mesh.name = `bed-${kind}`;
+        mesh.name = `${group.name}-${kind}`;
         mesh.userData.bedLod = kind;
         mesh.count = 0;
         mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);
@@ -106,7 +117,7 @@ export function createBeds(
           }
           const geometry = o.geometry.clone().applyMatrix4(o.matrixWorld);
           const m = material({ color: source.color, map: source.map });
-          m.name = `bed ${source.name}`;
+          m.name = `${kind} ${source.name}`;
           if (source.map) maps.add(source.map);
           high.push({ geometry, material: m });
           o.geometry.dispose();
@@ -117,7 +128,7 @@ export function createBeds(
       .catch((error) => {
         if (!disposed)
           console.warn(
-            'Detailed bed unavailable; using the lightweight bed model.',
+            `Detailed ${kind} unavailable; using the lightweight model.`,
             error,
           );
       });
@@ -176,3 +187,6 @@ export function createBeds(
     },
   };
 }
+
+/** Retain the bed API while sharing spatial instancing with other furnishings. */
+export const createBeds = createFurniture;

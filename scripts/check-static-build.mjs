@@ -44,3 +44,9 @@ await writeFile(`${directory}/.nojekyll`, '');
 console.log(
   `Static entry, asset paths, module worker and third-party notices verified at ${base}`,
 );
+
+const scripts=await Promise.all(files.filter(f=>f.endsWith('.js')).map(f=>readFile(`${directory}/assets/${f}`,'utf8')));
+for(const name of ['ShelfBoard','ShelfUpright','Return','BBQ']){
+  const file=files.find(f=>f.startsWith(name+'-')&&f.endsWith('.glb'));
+  assert.ok(file&&scripts.some(s=>s.includes(`${base}assets/${file}`)),`${name} must be emitted and use the deployment base`);
+}

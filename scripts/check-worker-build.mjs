@@ -15,3 +15,8 @@ assert.ok(bed&&existsSync(`dist/client${bed}`),'Bed model must use a published a
 const bathroom=source.match(/\/_next\/static\/media\/bathroom\.[\w-]+\.glb/)?.[0];
 assert.ok(bathroom&&existsSync(`dist/client${bathroom}`),'Bathroom kit must use a published asset URL');
 console.log('Production worker, bed and bathroom asset URLs verified');
+
+for(const name of ['ShelfBoard','ShelfUpright','Return','BBQ']){
+  const url=source.match(new RegExp('/_next/static/media/'+name+'\\.[\\w-]+\\.glb'))?.[0];
+  assert.ok(url&&existsSync(`dist/client${url}`),`${name} must use a published asset URL`);
+}

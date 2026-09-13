@@ -5,6 +5,10 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Add bevelled Blender shelf boards with unchanged dimensions and book capacity,
+  an after-hours book-return cabinet, and a park-style BBQ food dispenser. Reuse
+  shared spatial LODs and static lighting, with matching return collision bounds.
+
 - Install Blender bathroom fittings: closed-lid toilet, rounded partitions, tissue
   dispenser, basin, shower controls and recessed drains; move the mirror above
   the basin and retain static lighting with spatial LODs.

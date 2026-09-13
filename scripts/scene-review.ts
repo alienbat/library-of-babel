@@ -1,14 +1,18 @@
 import * as T from 'three';
 import {createWorld} from '../lib/game/world.ts';
-import {OUTER,HEIGHT} from '../lib/game/physics.ts';
+import {OUTER,INNER,HEIGHT} from '../lib/game/physics.ts';
 const renderer=new T.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true});
 renderer.setSize(1100,720);renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
 document.body.appendChild(renderer.domElement);
 const scene=new T.Scene();scene.background=new T.Color('#202825');
-const world=createWorld(scene,new Set(),'/models/blender/bed/bed.glb','/models/blender/bathroom/bathroom.glb'),camera=new T.PerspectiveCamera(65,1100/720,.1,16000);
+const world=createWorld(scene,new Set(),'/models/blender/bed/bed.glb','/models/blender/bathroom/bathroom.glb',{board:'/models/blender/library-furnishings/ShelfBoard.glb',upright:'/models/blender/library-furnishings/ShelfUpright.glb',returns:'/models/blender/library-furnishings/Return.glb',bbq:'/models/blender/library-furnishings/BBQ.glb'}),camera=new T.PerspectiveCamera(65,1100/720,.1,16000);
 let errors=0;
 renderer.debug.onShaderError=(gl,program,vs,fs)=>{errors++;console.error(gl.getProgramInfoLog(program),gl.getShaderInfoLog(vs),gl.getShaderInfoLog(fs));};
 const views={
+ BookReturn:{p:[21.5,1.68,OUTER-1.5],at:[22.5,.9,OUTER-.2],limits:{}},
+ ParkDispenser:{p:[19,1.68,INNER+2.5],at:[17.85,.8,INNER+.72],limits:{}},
+ ReturnOpposite:{p:[21.5,1.68,-OUTER+1.5],at:[22.5,.9,-OUTER+.2],limits:{}},
+ BBQOpposite:{p:[19,1.68,-INNER-2.5],at:[17.85,.8,-INNER-.72],limits:{}},
  FloatingNearFloor:{p:[35,4.1,OUTER-1.5],at:[38,5.4,OUTER],limits:{}},
  ShelfTransition:{p:[84,1.68,OUTER-1.6],at:[100,1.68,OUTER-.23],limits:{}},
  ShelfDetail:{p:[31,1.68,OUTER-1.4],at:[30,1.5,OUTER],limits:{}},

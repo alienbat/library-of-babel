@@ -1,3 +1,11 @@
+// oxlint-disable-next-line import/default
+import board from '../../models/blender/library-furnishings/ShelfBoard.glb?url';
+// oxlint-disable-next-line import/default
+import upright from '../../models/blender/library-furnishings/ShelfUpright.glb?url';
+// oxlint-disable-next-line import/default
+import returns from '../../models/blender/library-furnishings/Return.glb?url';
+// oxlint-disable-next-line import/default
+import bbq from '../../models/blender/library-furnishings/BBQ.glb?url';
 import {clearLocationStorage} from './location-store';
 import {readJourney,newJourneySeed,JOURNEY_STORAGE,libraryTime,bigCount,type Journey,type WalkDirection} from './journey';
 import {BOOKMARK_STORAGE,type Bookmark} from './bookmarks';
@@ -33,7 +41,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const camera=new T.PerspectiveCamera(75,host.clientWidth/host.clientHeight,.1,16000);camera.rotation.order='YXZ';
   let opened=new Set<string>();
   try{opened=loadOpened(localStorage);}catch{/* Session history still works without storage. */}
-  const world=createWorld(scene,opened,bedAssetUrl,bathroomAssetUrl);
+  const world=createWorld(scene,opened,bedAssetUrl,bathroomAssetUrl,{board,upright,returns,bbq});
   let restored:Journey|null=null;
   try{restored=readJourney(localStorage);}catch{callbacks.onStorageWarning();}
   const journeySeed=restored?.journeySeed??restored?.frame.originSeed??newJourneySeed();
