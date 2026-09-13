@@ -37,3 +37,16 @@ void test('shelf-front lighting has no black top or base sampling strips',()=>{
  for(let y=0;y/(ny-1)*3.96<=3.33;y++)for(let x=0;x<nx;x++)
   assert.ok(data[(((nz-1)*ny+y)*nx+x)*4+2]>8,'a probe must not be buried in the opaque shelf proxy');
 });
+
+void test('boundary fields use corridor periods and cannot wrap across the chasm',()=>{
+ for(const name of ['boundaryFloor','boundaryCeiling','boundaryWall']){
+  const f=JSON.parse(readFileSync(new URL(`../lib/game/baked/${name}.json`,import.meta.url),'utf8'));
+  assert.equal(f.boundaryFixtures,false);
+  assert.equal(f.repeatPeriod,name==='boundaryWall'?3.96:2.8575);
+  assert.equal(f.transverseSpan,15.24);
+ }
+ const bake=createBoundaryLighting(new T.Texture());
+ assert.equal(bake.uniforms.boundaryLight.value.wrapS,T.RepeatWrapping);
+ assert.equal(bake.uniforms.boundaryLight.value.wrapT,T.ClampToEdgeWrapping);
+ bake.dispose();
+});

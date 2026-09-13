@@ -10,7 +10,7 @@ import * as T from 'three';
 import {createWallWriting} from './wall-writing.ts';
 import {roomLights} from './room-lighting.ts';
 import {staircase} from './stairs.ts';
-import {createBoundaryLighting,BOUNDARY_SPAN,BOUNDARY_LIGHT_SPACING,WALL_LIGHT_SPACING} from './boundary-lighting.ts';
+import {createBoundaryLighting,BOUNDARY_SPAN} from './boundary-lighting.ts';
 import {createInfiniteHorizon,withHorizonFade} from './horizon.ts';
 import {bakeGalleryLighting} from './lighting.ts';
 import { BAY, HEIGHT, INNER, RAIL_OFFSET, OUTER, mod,type WorldLimits } from './physics.ts';
@@ -92,26 +92,9 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   materials.push(boundaryWallFade,boundaryFloorFade,boundaryCeilingFade);
   const endWall=new T.Mesh(endGeometry,boundaryWallFade),endCap=new T.Mesh(capGeometry,boundaryFloorFade);
   boundaryGroup.add(endWall,endCap);endWall.visible=endCap.visible=false;
-  let cornerLimits:WorldLimits={},fixtureX=Infinity,fixtureY=Infinity;
-  const frameMaterial=boundary.frame,lensMaterial=new T.MeshBasicMaterial({color:new T.Color('#fff0c9').multiplyScalar(2.2)});materials.push(lensMaterial);
-  const frames=new T.InstancedMesh(boxGeo,frameMaterial,144),lenses=new T.InstancedMesh(boxGeo,lensMaterial,144);boundaryGroup.add(frames,lenses);frames.count=lenses.count=0;
-  function updateFixtures(px:number,py:number){
-    const bx=Math.floor(px/BOUNDARY_LIGHT_SPACING),by=Math.floor(py/WALL_LIGHT_SPACING);
-    if(bx===fixtureX&&by===fixtureY)return;fixtureX=bx;fixtureY=by;
-    let count=0;
-    const put=(x:number,y:number,z:number,wall:boolean)=>{
-      if(x<(cornerLimits.minX??-Infinity)||x>(cornerLimits.maxX??Infinity)||y<(cornerLimits.minY??-Infinity)||y>(cornerLimits.maxY??Infinity))return;
-      dummy.rotation.set(0,0,0);dummy.position.set(x,y,z);dummy.scale.set(wall?.08:1.8,wall?1.8:.04,.38);dummy.updateMatrix();frames.setMatrixAt(count,dummy.matrix);
-      dummy.position.x+=wall?(cornerLimits.minX!==undefined?.05:-.05):0;
-      dummy.position.y+=wall?0:cornerLimits.minY!==undefined?.026:-.026;
-      dummy.scale.set(wall?.025:1.6,wall?1.6:.012,.20);dummy.updateMatrix();lenses.setMatrixAt(count++,dummy.matrix);
-    };
-    if(endCap.visible)for(let i=bx-16;i<=bx+16;i++)for(let k=-1;k<=0;k++)put((i+.5)*BOUNDARY_LIGHT_SPACING,endCap.position.y+(cornerLimits.minY!==undefined?.025:-.025),(k+.5)*BOUNDARY_LIGHT_SPACING,false);
-    if(endWall.visible)for(let i=by-10;i<=by+10;i++)for(let k=-1;k<=0;k++)put(endWall.position.x+(cornerLimits.minX!==undefined?.045:-.045),(i+.5)*WALL_LIGHT_SPACING,(k+.5)*BOUNDARY_LIGHT_SPACING,true);
-    for(const mesh of [frames,lenses]){mesh.count=count;mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();}
-  }
+  let cornerLimits:WorldLimits={};
   function setLimits(next:WorldLimits){
-    lighting.setLimits(next);wallWriting.setLimits(next);cornerLimits=next;detailKey='';fixtureX=fixtureY=Infinity;centerX=Infinity;
+    lighting.setLimits(next);wallWriting.setLimits(next);cornerLimits=next;detailKey='';centerX=Infinity;
     endCap.material=next.minY!==undefined?boundaryFloorFade:boundaryCeilingFade;
     horizon.setLimits(next);
     endWall.visible=next.minX!==undefined||next.maxX!==undefined;
@@ -373,12 +356,12 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     beds.update(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7),group.position.y);
     ceilingLights.update(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7),group.position.y,bookRadius.value);
     updateDetails(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7));
-    endWall.position.y=py;endCap.position.x=px;updateFixtures(px,py);
+    endWall.position.y=py;endCap.position.x=px;
     if(!camera)return;
     camera.updateMatrixWorld();horizon.update(camera);clipMatrix.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);
     frustum.setFromProjectionMatrix(clipMatrix);
     stairCulling.update(group,camera,frustum,cornerLimits,occlusionEnabled);
     for(const {mesh,bounds} of distantBatches){worldBounds.copy(bounds).translate(distantGroup.position);mesh.visible=frustum.intersectsBox(worldBounds);}
   }
-  return { setDetail(quality:string){const next=detailRadius(quality);if(next!==bookRadius.value){bookRadius.value=next;detailKey='';}},setOcclusionEnabled(enabled:boolean){occlusionEnabled=enabled;},update, markOpened,setLimits,refreshBookColors, dispose(){ceilingLights.dispose();shelfFrame.dispose();returns.dispose();bbq.dispose();bathrooms.dispose();beds.dispose();stairCulling.dispose();wallWriting.dispose();boundary.dispose();frames.dispose();lenses.dispose();scene.remove(boundaryGroup);endGeometry.dispose();capGeometry.dispose();horizon.dispose();lighting.dispose();scene.remove(group,distantGroup,detailGroup);for(const root of [group,distantGroup,detailGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
+  return { setDetail(quality:string){const next=detailRadius(quality);if(next!==bookRadius.value){bookRadius.value=next;detailKey='';}},setOcclusionEnabled(enabled:boolean){occlusionEnabled=enabled;},update, markOpened,setLimits,refreshBookColors, dispose(){ceilingLights.dispose();shelfFrame.dispose();returns.dispose();bbq.dispose();bathrooms.dispose();beds.dispose();stairCulling.dispose();wallWriting.dispose();boundary.dispose();scene.remove(boundaryGroup);endGeometry.dispose();capGeometry.dispose();horizon.dispose();lighting.dispose();scene.remove(group,distantGroup,detailGroup);for(const root of [group,distantGroup,detailGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
 }

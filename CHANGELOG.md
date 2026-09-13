@@ -5,6 +5,8 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Remove inter-gallery boundary fixtures and emissive LOD marks. Re-bake boundary surfaces from corridor illumination, repeat end-wall lighting per storey, and clamp lighting across the chasm.
+
 - Centre a half-length gallery light over each shelf unit. Increase Cycles sampling
   and filter residual noise offline; keep irradiance probes outside shelf masses
   and inside room walls to prevent black bands and spots.

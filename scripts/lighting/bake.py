@@ -47,6 +47,7 @@ for name in selected:
  for p,i in zip(mesh.polygons,mat_indices):p.material_index=i
  bvh=BVHTree.FromPolygons([Vector(v) for v in verts],faces,all_triangles=True)
  for x,y,z,w,d in source['lights']:
+  if name=='boundaryWall' and x<0:continue
   bpy.ops.object.light_add(type='AREA',location=convert((x,y-.023,z)))
   lamp=bpy.context.object;lamp.data.energy=150;lamp.data.shape='RECTANGLE';lamp.data.size=w;lamp.data.size_y=d
  if name.startswith('boundary'):
@@ -56,13 +57,6 @@ for name in selected:
   if wall_mode:plane.location.x=-.17
   bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
   plane.data.materials.append(materials[0])
-  for i in range(-3,5):
-   for z in [-7.62,7.62]:
-    position=(.04,i*15.84+7.92,z) if wall_mode else (i*15.24+7.62,height+(-.04 if top_mode else .04),z)
-    bpy.ops.object.light_add(type='AREA',location=convert(position));lamp=bpy.context.object
-    lamp.data.energy=150;lamp.data.shape='RECTANGLE';lamp.data.size=1.6;lamp.data.size_y=.2
-    if wall_mode:lamp.rotation_euler[1]=-math.pi/2
-    elif not top_mode:lamp.rotation_euler[0]=math.pi
  # Sample the free space on each side of surfaces instead of the inside of a slab.
  # This prevents trilinear interpolation from blending solid-space black texels.
  def relocate(p):
@@ -83,7 +77,7 @@ for name in selected:
    for x in range(nx):
     if name in ['top','final','bottom'] and x/(nx-1)*32>=15.5:continue # enclosed rooms reuse their shared ordinary bake
     if name.startswith('boundary'):
-     p=(.025,(x+.5)/nx*15.84,(z+.5)/nz*15.24) if name=='boundaryWall' else ((x+.5)/nx*15.24,3.595 if name=='boundaryCeiling' else .025,(z+.5)/nz*15.24)
+     p=(.025,(x+.5)/nx*H,z/(nz-1)*INNER) if name=='boundaryWall' else (45.72+(x+.5)/nx*2.8575,3.595 if name=='boundaryCeiling' else .025,z/(nz-1)*INNER)
     elif name=='gallery':p=((x+.5)/nx*2.8575+45.72,min(3.54,max(.06,y/(ny-1)*H)),min(OUTER-.35,INNER+z/(nz-1)*(OUTER-INNER)))
     else:p=(x/(nx-1)*32,y/(ny-1)*H-(H if name=='final' else 0),OUTER+z/(nz-1)*6.5)
     if not name.startswith('boundary') and name!='gallery':
@@ -122,7 +116,7 @@ for name in selected:
  for lo,hi in ranges:
   block=radiance[:,:,lo:hi,:].copy()
   for axis in range(3):
-   pad=[(0,0)]*4;pad[axis]=(1,1);padded=np.pad(block,pad,mode='edge')
+   pad=[(0,0)]*4;pad[axis]=(1,1);padded=np.pad(block,pad,mode='wrap' if name.startswith('boundary') and axis==2 else 'edge')
    slices=[slice(None)]*4;slices[axis]=slice(0,-2);a=padded[tuple(slices)]
    slices[axis]=slice(1,-1);b=padded[tuple(slices)]
    slices[axis]=slice(2,None);c=padded[tuple(slices)]
@@ -131,5 +125,7 @@ for name in selected:
  for probe,lobes in enumerate(radiance.reshape((-1,6))):
   for axis,value in enumerate(lobes):(positive if axis<3 else negative)[probe*4+axis%3]=round(min(4,float(value))/4*255)
  result={'grid':grid,'range':4,'positive':base64.b64encode(positive).decode(),'negative':base64.b64encode(negative).decode(),'samples':SAMPLES,'diffuseBounces':6,'seconds':round(time.time()-start,2),'engine':'Blender Cycles','extraAO':False,'filter':'compartment-separated 3-tap Gaussian in linear light','probeClearance':0.06}
+ if name.startswith('boundary'):
+  result.update(boundaryFixtures=False,repeatPeriod=H if name=='boundaryWall' else 2.8575,transverseSpan=INNER)
  (OUT/f'{name}.json').write_text(json.dumps(result,separators=(',',':')))
  print('DONE',name,result['seconds'],max(positive),flush=True)

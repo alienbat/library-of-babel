@@ -297,3 +297,23 @@ Before handing work to another agent, report the exact worktree/branch, whether
 bakes are still running (PID/session/log), fields completed, whether sealing ran,
 which preview was rebuilt, validation results and PR status. A running bake and a
 stale preview are especially easy to mistake for a completed deployment.
+
+## Unlit boundary surfaces
+
+The inter-gallery floor, ceiling and end walls have no fixtures, including no
+procedural emissive lenses in the horizon shader. Their fields contain corridor
+illumination and bounce only. Floor/ceiling X repeats every 2.8575 m; end-wall Y
+repeats every 3.96 m, with several neighboring storeys present in the transport
+scene. The wall exporter excludes geometry and lights behind the end wall.
+
+Boundary sampling uses cell centers on the periodic axis, with wrapped Gaussian
+filtering there. Across the half-chasm, samples include center and gallery edge;
+the runtime mirrors with abs(Z) and clamps this texture axis. It must not repeat
+across the chasm or interpolate the gallery edge with the center. Endpoint planes
+on the periodic axis are different cell centers, not duplicate endpoints: do not
+force them equal in seal.py.
+
+This remains a repeated interior end-wall approximation: the wall field does not
+resolve the loss of neighboring floors immediately beside a terminal ceiling or
+floor. Floor and ceiling fields themselves use the corresponding terminal scene.
+Exact corner interreflection would require additional terminal wall fields.

@@ -173,8 +173,7 @@ void test('distant cache survives movement, with unchanged book detail and conse
     checkBoundaryHandoff((boundaries.children[0] as T.Mesh<T.PlaneGeometry,T.MeshBasicMaterial>).material);
     assert.ok(cap.geometry.parameters.height<30.48,'cap does not overlap gallery decks');
     assert.ok(cap.position.y>0&&cap.position.y<.01);
-    const fixtureFrames=boundaries.children[2] as T.InstancedMesh;
-    assert.ok(fixtureFrames.count>0&&fixtureFrames.count<=108,'bounded instanced fixture window');
+    assert.equal(boundaries.children.length,2,'boundary surfaces have no fixture geometry');
     const wall=(scene.children[0].children.find(object=>object instanceof T.InstancedMesh&&!Array.isArray(object.material)&&object.material.customProgramCacheKey()==='baked-wall-writing-v2') as T.InstancedMesh).material as T.MeshBasicMaterial;
     const writtenShader={uniforms:{},vertexShader:T.ShaderLib.basic.vertexShader,fragmentShader:T.ShaderLib.basic.fragmentShader} as T.WebGLProgramParametersWithUniforms;
     wall.onBeforeCompile(writtenShader,{} as T.WebGLRenderer);
@@ -185,7 +184,7 @@ void test('distant cache survives movement, with unchanged book detail and conse
     assert.ok(Math.abs(writtenShader.uniforms.writingTop.value)<1e-8,'top-floor atlas switches to downstairs only');
     assert.equal(cap.material.name,'boundary-ceiling');assert.ok(cap.position.y<3.62);checkBoundaryHandoff(cap.material);
     world.setLimits({});world.update(30,0,camera);
-    assert.equal(cap.visible,false);assert.equal(fixtureFrames.count,0);
+    assert.equal(cap.visible,false);
 
   } finally {
     world.dispose();
