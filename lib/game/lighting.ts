@@ -1,3 +1,4 @@
+import {DORM} from './room-layout.ts';
 import {bakeRoomAO,applyRoomAO} from './room-ao.ts';
 import {bakeRoomLighting,ROOM_WIDTH,ROOM_DEPTH,ROOM_GRID} from './room-lighting.ts';
 import * as T from 'three';
@@ -81,7 +82,7 @@ export function bakeGalleryLighting(){
           negative=texture(bakedNegative,uvw).rgb*${RANGE}.0;
         }
         float irradiance=dot(n*n,mix(negative,positive,step(vec3(0.0),n)));
-        if(inRoom&&roomX>22.0)diffuseColor.rgb*=vec3(.96,1.01,1.12);
+        if(inRoom&&roomX>${DORM.right.toFixed(1)})diffuseColor.rgb*=vec3(.96,1.01,1.12);
         diffuseColor.rgb*=irradiance*vec3(1.0,.97,.89);
       `);
     };

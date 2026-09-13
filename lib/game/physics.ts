@@ -1,3 +1,4 @@
+import {DORM,DORM_BEDS,BATH_SHIFT} from './room-layout.ts';
 // Project dimensions in metres; see README.md for literary inspiration and choices.
 export const GAP = 30.48;
 export const INNER = GAP / 2;
@@ -19,7 +20,7 @@ export function floorAt(x: number, z: number, previousY: number): number {
 }
 export function allowed(x: number, z: number): boolean {
   const a = Math.abs(z), t = mod(x, PERIOD);
-  if (a < INNER + RADIUS || a > OUTER + 5.2 - RADIUS) return false;
+  if (a < INNER + RADIUS || a > OUTER + DORM.depth - .1 - RADIUS) return false;
   // Stairs sit behind the shelves. Their side wall prevents stepping off mid-flight.
   if (a <= OUTER - RADIUS) {
     // Food kiosk, set back from the rail.
@@ -30,28 +31,25 @@ export function allowed(x: number, z: number): boolean {
     if (t > 4 && t < 12 && a < OUTER + 0.5 + RADIUS) return false;
     return true;
   }
-  // Bathroom side doorway lines up with the aisle between the seven beds.
-  if (t >= 22 - RADIUS && t <= 22 + RADIUS + .1) {
-    return a > OUTER + 2 + RADIUS && a < OUTER + 3.5 - RADIUS;
+  // Bathroom doorway and fixtures use the same translated layout as the meshes.
+  const bathroomX=t-BATH_SHIFT;
+  if (t >= DORM.right - .1 - RADIUS && t <= DORM.right + .1 + RADIUS) {
+    return a > OUTER + DORM.bathDoorStart + RADIUS && a < OUTER + DORM.bathDoorEnd - RADIUS;
   }
-  if (t > 22 + RADIUS + .1 && t < 28 - .1 - RADIUS) {
+  if (bathroomX > 22 + RADIUS + .1 && bathroomX < 28 - .1 - RADIUS) {
     const d=a-OUTER;
     if(d < .5+RADIUS || d > 4.9-RADIUS)return false;
-    if(t>24.05-RADIUS&&t<25.15+RADIUS&&d<.975+RADIUS)return false;
-    if(t<23.3+RADIUS&&d>3.86-RADIUS)return false;
-    if(Math.abs(t-23.75)<.05+RADIUS&&d>3.25-RADIUS)return false;
-    if(t>26-RADIUS&&Math.abs(d-2.5)<.05+RADIUS)return false;
+    if(bathroomX>24.05-RADIUS&&bathroomX<25.15+RADIUS&&d<.975+RADIUS)return false;
+    if(bathroomX<23.3+RADIUS&&d>3.86-RADIUS)return false;
+    if(Math.abs(bathroomX-23.75)<.05+RADIUS&&d>3.25-RADIUS)return false;
+    if(bathroomX>26-RADIUS&&Math.abs(d-2.5)<.05+RADIUS)return false;
     return true;
   }
-  // Dormitory doorway and room, with solid bed furniture.
-  if (t > 16 + RADIUS && t < 22 - RADIUS) {
-    if (a < OUTER + 0.3 && !(t > 18 && t < 20)) return false;
-    for (let i = 0; i < 4; i++) {
-      if (t > 16.3 + i * 1.4 - RADIUS && t < 17.3 + i * 1.4 + RADIUS && a > OUTER + 3.25 - RADIUS) return false;
-    }
-    for (let i = 0; i < 3; i++) {
-      if (t > 16.3 + [0,3.2,4.4][i] - RADIUS && t < 17.3 + [0,3.2,4.4][i] + RADIUS && a < OUTER + 2.3 + RADIUS) return false;
-    }
+  if (t > DORM.left + .1 + RADIUS && t < DORM.right - .1 - RADIUS) {
+    const d=a-OUTER;
+    if (d < .37+RADIUS && !(t>DORM.doorLeft+RADIUS&&t<DORM.doorRight-RADIUS))return false;
+    for(const bed of DORM_BEDS)
+      if(Math.abs(t-bed.x)<.5+RADIUS&&Math.abs(d-bed.depth)<.9+RADIUS)return false;
     return true;
   }
   return false;

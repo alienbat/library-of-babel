@@ -52,9 +52,9 @@ void test('distant cache survives movement, with unchanged book detail and conse
           object.getMatrixAt(i,matrix);matrix.decompose(position,rotation,scale);
           if(position.z*side<0)continue;
           const depth=Math.abs(position.z)-OUTER;
-          if(Math.abs(position.x-25)<scale.x/2&&Math.abs(depth-2.8)<scale.z/2&&Math.abs(position.y+scale.y/2)<1e-5)floorSurfaces++;
-          if(Math.abs(position.y-1.8)<.001&&Math.abs(position.x-25)<.001&&depth<1&&standard.color.getHexString()==='a8a69a')liningDepth=depth+scale.z/2;
-          if(Math.abs(position.y-1.62)<.001&&position.x-scale.x/2<28&&position.x+scale.x/2>23&&(standard.name==='shelf-backing'||standard.name==='shelf-facade'))shelfDepth=Math.max(shelfDepth,depth+scale.z/2);
+          if(Math.abs(position.x-27)<scale.x/2&&Math.abs(depth-2.8)<scale.z/2&&Math.abs(position.y+scale.y/2)<1e-5)floorSurfaces++;
+          if(Math.abs(position.y-1.8)<.001&&Math.abs(position.x-27)<.001&&depth<1&&standard.color.getHexString()==='a8a69a')liningDepth=depth+scale.z/2;
+          if(Math.abs(position.y-1.62)<.001&&position.x-scale.x/2<30&&position.x+scale.x/2>25&&(standard.name==='shelf-backing'||standard.name==='shelf-facade'))shelfDepth=Math.max(shelfDepth,depth+scale.z/2);
         }
       });
       assert.equal(floorSurfaces,1,'bathroom has exactly one exposed floor surface, including the ceiling below');
@@ -172,7 +172,7 @@ void test('top-floor ceilings seal both galleries and amenity rooms',()=>{
   const scene=new T.Scene(),world=createWorld(scene);
   try{
     world.setLimits({maxY:3.62});world.update(17,0);scene.updateMatrixWorld(true);
-    for(const side of [-1,1])for(const [x,z] of [[17,OUTER-1.5],[35,OUTER-1.5],[8,OUTER+2],[19,OUTER+2.6],[25,OUTER+2.5]]){
+    for(const side of [-1,1])for(const [x,z] of [[17,OUTER-1.5],[35,OUTER-1.5],[8,OUTER+2],[19,OUTER+3.4],[17,OUTER+5.8],[23,OUTER+5.8],[27,OUTER+2.5]]){
       const ray=new T.Raycaster(new T.Vector3(x,2,side*z),new T.Vector3(0,1,0),0,3);
       const hits=ray.intersectObject(scene.children[0],true);
       assert.ok(hits.some(hit=>Math.abs(hit.point.y-3.62)<.03),'roof must exist above every top-floor room and gallery');

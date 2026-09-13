@@ -1,9 +1,10 @@
+import {ROOM_VOLUME} from './room-layout.ts';
 import * as T from 'three';
 import { HEIGHT, OUTER } from './physics.ts';
 const NX = 60,
   NY = 24,
   NZ = 16,
-  DEPTH = 5.5,
+  DEPTH = ROOM_VOLUME.depth,
   RADIUS = 0.75,
   SAMPLES = 32;
 /** Conservative room geometry in canonical coordinates, independent of spawn/rebase. */
@@ -13,7 +14,7 @@ export function roomOccluders(
 ) {
   const volume = new T.Box3(
     new T.Vector3(0, -RADIUS, -RADIUS),
-    new T.Vector3(30, HEIGHT + RADIUS, DEPTH + RADIUS),
+    new T.Vector3(ROOM_VOLUME.width, HEIGHT + RADIUS, DEPTH + RADIUS),
   );
   const result: T.Box3[] = [];
   for (const [x, y, z, w, h, d] of boxes) {
@@ -50,7 +51,7 @@ export function bakeRoomAO(bounds: readonly T.Box3[]) {
     for (let y = 0; y < NY; y++)
       for (let x = 0; x < NX; x++) {
         p.set(
-          (x / (NX - 1)) * 30,
+          (x / (NX - 1)) * ROOM_VOLUME.width,
           (y / (NY - 1)) * HEIGHT,
           (z / (NZ - 1)) * DEPTH,
         );

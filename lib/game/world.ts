@@ -1,3 +1,4 @@
+import {DORM,DORM_BEDS,BATH_SHIFT} from './room-layout.ts';
 import {createBeds,type BedPlacement} from './beds.ts';
 import {roomOccluders} from './room-ao.ts';
 import {createStairCulling} from './landing-occlusion.ts';
@@ -260,60 +261,63 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         shelves.push([x+BAY/2,y+1.62,side*(OUTER+.035),BAY,3.18,.65]);
         trim.push([x+BAY/2,y+3.28,side*(OUTER-.04),BAY,.10,.5],[x+BAY/2,y+.045,side*(OUTER-.04),BAY,.09,.5]);
       }else {
-        walls.push([x+.5,y+1.8,side*(OUTER+.22),1,3.6,.3],[x+15.5,y+1.8,side*(OUTER+.22),1,3.6,.3],[x+17,y+1.8,side*(OUTER+.22),2,3.6,.3],[x+21.43,y+1.8,side*(OUTER+.22),2.86,3.6,.3]);
+        walls.push([x+.5,y+1.8,side*(OUTER+.22),1,3.6,.3],[x+15.5,y+1.8,side*(OUTER+.22),1,3.6,.3],[x+17,y+1.8,side*(OUTER+.22),2,3.6,.3],[x+22,y+1.8,side*(OUTER+.22),4,3.6,.3]);
         const stairs=staircase(x,y,side,cornerLimits);
         walls.push(...stairs.walls);floors.push(...stairs.floors);slabs.push(...stairs.steps);
         if(cornerLimits.maxY!==undefined&&Math.abs(y+HEIGHT-.34-cornerLimits.maxY)<.001){
-          slabs.push([x+19,y+HEIGHT-.18,side*(OUTER+2.65),6,.36,5.3],
-            [x+25,y+HEIGHT-.18,side*(OUTER+2.5),6,.36,5]);
+          slabs.push([x+20,y+HEIGHT-.18,side*(OUTER+DORM.depth/2),8,.36,DORM.depth],
+            [x+25+BATH_SHIFT,y+HEIGHT-.18,side*(OUTER+2.5),6,.36,5]);
         }
         // Dormitory, seven beds, fountain and an inert food kiosk.
         // Each room deck also forms the ceiling below; never overlap two slabs.
-        floors.push([x+19,y-.18,side*(OUTER+2.65),6,.36,5.3]);
-        walls.push([x+19,y+1.8,side*(OUTER+5.3),6,3.6,.2],[x+16,y+1.8,side*(OUTER+2.65),.2,3.6,5.3],[x+22,y+1.8,side*(OUTER+1),.2,3.6,2],[x+22,y+1.8,side*(OUTER+4.4),.2,3.6,1.8],[x+22,y+3.1,side*(OUTER+2.75),.2,1,1.5]);
-        for(let bed=0;bed<7;bed++) {
-          const back=bed<4, xx=x+16.8+(back?bed*1.4:[0,3.2,4.4][bed-4]), zz=side*(OUTER+(back?4.15:1.4));
-          bedPlacements.push({x:xx,y,z:zz,side});
-          // AO proxies include the new mattress and headboard without filling the space below the frame.
-          bedContacts.push([xx,y+.515,zz,.922,.215,1.688],[xx,y+.79,zz+side*.855,.94,.32,.055]);
+        floors.push([x+20,y-.18,side*(OUTER+DORM.depth/2),8,.36,DORM.depth]);
+        walls.push([x+20,y+1.8,side*(OUTER+DORM.depth),8,3.6,.2],
+          [x+DORM.left,y+1.8,side*(OUTER+DORM.depth/2),.2,3.6,DORM.depth],
+          [x+DORM.right,y+1.8,side*(OUTER+DORM.bathDoorStart/2),.2,3.6,DORM.bathDoorStart],
+          [x+DORM.right,y+1.8,side*(OUTER+(DORM.bathDoorEnd+DORM.depth)/2),.2,3.6,DORM.depth-DORM.bathDoorEnd],
+          [x+DORM.right,y+3.1,side*(OUTER+(DORM.bathDoorStart+DORM.bathDoorEnd)/2),.2,1,DORM.bathDoorEnd-DORM.bathDoorStart]);
+        for(const bed of DORM_BEDS) {
+          const xx=x+bed.x,zz=side*(OUTER+bed.depth),head=side*bed.head;
+          bedPlacements.push({x:xx,y,z:zz,side:head});
+          bedContacts.push([xx,y+.515,zz,.922,.215,1.688],[xx,y+.79,zz+head*.855,.94,.32,.055]);
         }
         // Bathroom attached to the sleeping room; an open doorway meets its aisle.
-        tiles.push([x+25,y-.18,side*(OUTER+2.5),6,.36,5]);
-        walls.push([x+25,y+1.8,side*(OUTER+.325),6,3.6,.35],
-          [x+25,y+1.8,side*(OUTER+5),6,3.6,.2],
-          [x+28,y+1.8,side*(OUTER+2.5),.2,3.6,5]);
+        tiles.push([x+25+BATH_SHIFT,y-.18,side*(OUTER+2.5),6,.36,5]);
+        walls.push([x+25+BATH_SHIFT,y+1.8,side*(OUTER+.325),6,3.6,.35],
+          [x+25+BATH_SHIFT,y+1.8,side*(OUTER+5),6,3.6,.2],
+          [x+28+BATH_SHIFT,y+1.8,side*(OUTER+2.5),.2,3.6,5]);
 
         // Wall-mounted basin with a dark recess, tap and soap pump.
-        ceramics.push([x+24.6,y+.78,side*(OUTER+.65),1.1,.2,.65],
-          [x+24.6,y+.42,side*(OUTER+.48),.22,.65,.25]);
-        dark.push([x+24.6,y+.887,side*(OUTER+.7),.7,.014,.36]);
-        chrome.push([x+24.6,y+1.01,side*(OUTER+.39),.045,.28,.045],
-          [x+24.6,y+1.13,side*(OUTER+.51),.045,.045,.28]);
-        ceramics.push([x+25,y+1,side*(OUTER+.48),.1,.24,.1]);
-        chrome.push([x+25,y+1.13,side*(OUTER+.51),.14,.035,.04]);
+        ceramics.push([x+24.6+BATH_SHIFT,y+.78,side*(OUTER+.65),1.1,.2,.65],
+          [x+24.6+BATH_SHIFT,y+.42,side*(OUTER+.48),.22,.65,.25]);
+        dark.push([x+24.6+BATH_SHIFT,y+.887,side*(OUTER+.7),.7,.014,.36]);
+        chrome.push([x+24.6+BATH_SHIFT,y+1.01,side*(OUTER+.39),.045,.28,.045],
+          [x+24.6+BATH_SHIFT,y+1.13,side*(OUTER+.51),.045,.045,.28]);
+        ceramics.push([x+25+BATH_SHIFT,y+1,side*(OUTER+.48),.1,.24,.1]);
+        chrome.push([x+25+BATH_SHIFT,y+1.13,side*(OUTER+.51),.14,.035,.04]);
         // Full-length mirror opposite the sink; inexpensive polished panel.
-        chrome.push([x+24.6,y+1.45,side*(OUTER+4.87),1.05,2.3,.08]);
-        mirrors.push([x+24.6,y+1.45,side*(OUTER+4.82),.95,2.2,.025]);
+        chrome.push([x+24.6+BATH_SHIFT,y+1.45,side*(OUTER+4.87),1.05,2.3,.08]);
+        mirrors.push([x+24.6+BATH_SHIFT,y+1.45,side*(OUTER+4.82),.95,2.2,.025]);
         // Toilet in a screened corner, with cistern, oval bowl, seat and paper.
-        ceramics.push([x+23,y+.67,side*(OUTER+4.64),.48,.65,.23],
-          [x+23,y+.22,side*(OUTER+4.3),.28,.44,.4]);
-        bowls.push([x+23,y+.43,side*(OUTER+4.25),.29,.18,.39]);
-        dark.push([x+23,y+.57,side*(OUTER+4.23),.32,.015,.44]);
-        seats.push([x+23,y+.59,side*(OUTER+4.23),.25,.15,.35]);
-        walls.push([x+23.75,y+1.05,side*(OUTER+4.1),.10,2.1,1.7]);
-        linens.push([x+23.63,y+.85,side*(OUTER+4.3),.15,.15,.25]);
-        chrome.push([x+23.14,y+.95,side*(OUTER+4.49),.12,.035,.035]);
+        ceramics.push([x+23+BATH_SHIFT,y+.67,side*(OUTER+4.64),.48,.65,.23],
+          [x+23+BATH_SHIFT,y+.22,side*(OUTER+4.3),.28,.44,.4]);
+        bowls.push([x+23+BATH_SHIFT,y+.43,side*(OUTER+4.25),.29,.18,.39]);
+        dark.push([x+23+BATH_SHIFT,y+.57,side*(OUTER+4.23),.32,.015,.44]);
+        seats.push([x+23+BATH_SHIFT,y+.59,side*(OUTER+4.23),.25,.15,.35]);
+        walls.push([x+23.75+BATH_SHIFT,y+1.05,side*(OUTER+4.1),.10,2.1,1.7]);
+        linens.push([x+23.63+BATH_SHIFT,y+.85,side*(OUTER+4.3),.15,.15,.25]);
+        chrome.push([x+23.14+BATH_SHIFT,y+.95,side*(OUTER+4.49),.12,.035,.035]);
         // Two open shower stalls, each with tray, drain, mixer and overhead head.
         for(const depth of [1.25,3.75]){
-          ceramics.push([x+27,y+.025,side*(OUTER+depth),1.65,.05,1.75]);
-          dark.push([x+27,y+.056,side*(OUTER+depth),.14,.008,.14]);
-          chrome.push([x+27.78,y+1.65,side*(OUTER+depth),.035,1.55,.035],
-            [x+27.55,y+2.4,side*(OUTER+depth),.5,.035,.035],
-            [x+27.32,y+2.37,side*(OUTER+depth),.25,.055,.25],
-            [x+27.73,y+1.1,side*(OUTER+depth),.12,.08,.28]);
+          ceramics.push([x+27+BATH_SHIFT,y+.025,side*(OUTER+depth),1.65,.05,1.75]);
+          dark.push([x+27+BATH_SHIFT,y+.056,side*(OUTER+depth),.14,.008,.14]);
+          chrome.push([x+27.78+BATH_SHIFT,y+1.65,side*(OUTER+depth),.035,1.55,.035],
+            [x+27.55+BATH_SHIFT,y+2.4,side*(OUTER+depth),.5,.035,.035],
+            [x+27.32+BATH_SHIFT,y+2.37,side*(OUTER+depth),.25,.055,.25],
+            [x+27.73+BATH_SHIFT,y+1.1,side*(OUTER+depth),.12,.08,.28]);
         }
-        walls.push([x+27,y+1.1,side*(OUTER+2.5),2,2.2,.10]);
-        dark.push([x+17.85,y+.68,side*(INNER+.72),.9,1.36,1.1]);screens.push([x+17.85,y+1.38,side*(INNER+.72),.68,.045,.67]);
+        walls.push([x+27+BATH_SHIFT,y+1.1,side*(OUTER+2.5),2,2.2,.10]);
+        dark.push([x+17.85+BATH_SHIFT,y+.68,side*(INNER+.72),.9,1.36,1.1]);screens.push([x+17.85+BATH_SHIFT,y+1.38,side*(INNER+.72),.68,.045,.67]);
         dark.push([x+20.6,y+.83,side*(OUTER-.24),.5,.22,.5],[x+20.6,y+.45,side*(OUTER-.05),.25,.8,.2]);
         for(const lamp of ROOM_LIGHTS){
           if(lamp.y>HEIGHT&&cornerLimits.maxY!==undefined&&y+lamp.y>cornerLimits.maxY)continue;

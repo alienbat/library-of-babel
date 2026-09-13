@@ -33,9 +33,9 @@ void test('room bake has localized pools of light and is applied to existing mat
       const x=Math.round(px/ROOM_WIDTH*(nx-1)),y=Math.round(py/3.96*(ny-1)),z=Math.round(pz/ROOM_DEPTH*(nz-1));
       return data[((z*ny+y)*nx+x)*4+1];
     };
-    assert.ok(sample(25,0,2.5)>sample(22.5,0,.6),'bathroom fixture creates a visible floor light pool');
+    assert.ok(sample(27,0,2.5)>sample(24.5,0,.6),'bathroom fixture creates a visible floor light pool');
     assert.ok(sample(13.5,0,2.1)>40,'upper stair landing receives its own overhead light');
-    assert.ok(sample(17.5,0,2.65)>sample(16.25,0,.5),'bedroom light softens toward room corners');
+    assert.ok(sample(18,0,3.15)>sample(16.25,0,.5),'bedroom light softens toward room corners');
   }finally{bake.dispose();}
 });
 

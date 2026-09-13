@@ -5,6 +5,9 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Enlarge dormitories to 8 × 6.3 m, separate all seven beds with accessible side
+  aisles, and move bathrooms with matching doors, collisions and static lighting.
+
 - Replace dormitory block beds with an original Blender model, shared spatial LODs
   and the existing baked room lighting; include editable source and previews.
 

@@ -24,7 +24,7 @@ These are **the game’s adopted specifications**, verified against the implemen
 | Alphabet                       | 95 printable ASCII characters, including space; case and spacing matter                                                                                   |
 | Collection size                | Exactly 95^1,312,000 distinct books; each complete content string maps to one occupied global slot                                                        |
 | Amenities                      | Every 12th section, or 274.32 m, on each gallery; stairs, a seven-bed dormitory, bathroom and decorative food/water fixtures                              |
-| Room footprints                | Dormitory about 6 × 5.3 m; bathroom about 6 × 5 m; the repeating room-lighting region spans 30 × 5.5 m                                                    |
+| Room footprints                | Dormitory 8 × 6.3 m; bathroom about 6 × 5 m; the repeating room-lighting region spans 32 × 6.5 m                                                    |
 | Stair flight                   | 24 steps over an 8 m horizontal run, rising one floor; terminal floors omit the flight beyond the boundary                                                |
 | Bathroom fittings              | Two showers, basin, mirror panel and screened toilet; layout and toilet are project interpretations                                                       |
 | Finishes and lighting          | Warm brown books/shelves, gilt-colored page edges, gray carpet and reddish-brown rails; steady baked illumination, no day/night cycle or atmospheric haze |
