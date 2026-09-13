@@ -1,0 +1,14 @@
+{
+  "samples": 96,
+  "diffuseBounces": 6,
+  "worldStrength": 0,
+  "ao": false,
+  "atlases": [
+    2048,
+    4096,
+    4096
+  ],
+  "denoised": true,
+  "bakeSeconds": 39.01,
+  "triangles": 124212
+}

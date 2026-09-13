@@ -13,9 +13,11 @@
     "format": "oxfmt",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "test:scene": "node scripts/serve-scene-review.mjs",
-    "build:github": "vite build --config vite.static.config.ts && node scripts/check-static-build.mjs",
+    "build:github": "npm run build:raytrace && vite build --config vite.static.config.ts && node scripts/check-static-build.mjs",
     "preview:github": "vite preview --config vite.static.config.ts --host 127.0.0.1 --port 8772",
-    "deploy:github": "node scripts/deploy-github.mjs"
+    "deploy:github": "node scripts/deploy-github.mjs",
+    "build:raytrace": "node scripts/build-raytrace-preview.mjs",
+    "preview:raytrace": "npm run build:raytrace && vite --config vite.raytrace.config.ts --host 127.0.0.1 --port 8773 --strictPort"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

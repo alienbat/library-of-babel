@@ -38,3 +38,6 @@ next-env.d.ts
 /work/
 
 *.tsbuildinfo
+
+# Generated ray-traced prototype viewer; rebuild with npm run build:raytrace.
+/public/raytrace-prototype/preview.js
