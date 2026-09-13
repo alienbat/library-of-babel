@@ -33,3 +33,6 @@ export const OPENED_STORAGE_KEY='babel-opened-books-v1';
 export function loadOpened(storage:Pick<Storage,'getItem'>):Set<string>{
   try{const data:unknown=JSON.parse(storage.getItem(OPENED_STORAGE_KEY)||'[]');return new Set(Array.isArray(data)?data.filter((id):id is string=>typeof id==='string'&&/^v1\/L-?\d+\/[NS]\/S-?\d+\/B\d+$/.test(id)):[]);}catch{return new Set();}
 }
+
+/** Running title always comes from the opening of page one. */
+export function bookOpeningTitle(opening:string){const first=opening.slice(0,40),period=first.indexOf('.');return period===0?'.':period>0?first.slice(0,period):first;}

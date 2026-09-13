@@ -6,7 +6,7 @@ import {MAX_PREFIX} from '../lib/game/search';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GameHandle, GameStats } from '../lib/game/engine';
 
-import {bookId,bookDisplayId,turnPage,PAGE_COUNT,type BookLocation} from '../lib/game/books';
+import {bookId,bookOpeningTitle,turnPage,PAGE_COUNT,type BookLocation} from '../lib/game/books';
 
 import {DESTINATIONS,DESTINATION_LABELS} from '../lib/game/destinations';
 
@@ -30,6 +30,8 @@ export default function Home() {
   const [stats,setStats]=useState<GameStats>({floor:'0',distance:'0',mode:'walking',fallSpeed:0}),[drag,setDrag]=useState(false);
   const [target,setTarget]=useState<BookLocation|null>(null),[book,setBook]=useState<BookLocation|null>(null),[page,setPage]=useState(0),[storageWarning,setStorageWarning]=useState(false);
   useEffect(()=>{if(book)reader.current?.showModal();},[book]);
+  const [opening,setOpening]=useState<{book:BookLocation|null;text:string}>({book:null,text:''});
+  useEffect(()=>{let cancelled=false;if(book)void game.current?.readPage(book,0).then(text=>{if(!cancelled)setOpening({book,text});}).catch(()=>{});return ()=>{cancelled=true;};},[book]);
   const pageKey=book?`${bookId(book)}:${page}`:'';
   const [pageResult,setPageResult]=useState({key:'',text:'',error:''});
   const pageText=pageResult.key===pageKey?pageResult.text:'';
@@ -123,7 +125,7 @@ export default function Home() {
       {resetError&&<p className="error" role="alert">{resetError}</p>}
       <div className="reset-actions"><button autoFocus onClick={()=>setConfirmReset(false)}>No</button><button className="danger-button" onClick={()=>{try{game.current?.startOver();}catch{setResetError('Could not clear progress. Check browser storage permissions and try again.');}}}>Yes</button></div>
     </dialog>}
-    {playing&&!book&&!menuOpen&&!debugOpen&&<><span className={target?"crosshair targeting":"crosshair"} aria-hidden="true"/><div className="walking-hint">{target?`Left click to open · ${bookDisplayId(target)}`:stats.mode==='flying'?'WASD follows your view · Look up/down to climb or descend · Space to fall':stats.mode==='falling'?'Falling · Space to fly again':drag?'Drag to look · WASD to walk · Space to fly':'WASD to walk · Mouse to look · Space to fly'}</div>{target&&<button className="read-target" onClick={()=>game.current?.openBook()}>Open book</button>}<div className="touch-pad" aria-label="Movement controls">{(['forward','left','back','right'] as const).map((direction,i)=><button key={direction} className={direction} aria-label={`Walk ${direction}`} onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);game.current?.touchMove(direction,true);}} onPointerUp={()=>game.current?.touchMove(direction,false)} onPointerCancel={()=>game.current?.touchMove(direction,false)}>{['↑','←','↓','→'][i]}</button>)}</div></>}
+    {playing&&!book&&!menuOpen&&!debugOpen&&<><span className={target?"crosshair targeting":"crosshair"} aria-hidden="true"/><div className="walking-hint">{target?'Left click to open':stats.mode==='flying'?'WASD follows your view · Look up/down to climb or descend · Space to fall':stats.mode==='falling'?'Falling · Space to fly again':drag?'Drag to look · WASD to walk · Space to fly':'WASD to walk · Mouse to look · Space to fly'}</div>{target&&<button className="read-target" onClick={()=>game.current?.openBook()}>Open book</button>}<div className="touch-pad" aria-label="Movement controls">{(['forward','left','back','right'] as const).map((direction,i)=><button key={direction} className={direction} aria-label={`Walk ${direction}`} onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);game.current?.touchMove(direction,true);}} onPointerUp={()=>game.current?.touchMove(direction,false)} onPointerCancel={()=>game.current?.touchMove(direction,false)}>{['↑','←','↓','→'][i]}</button>)}</div></>}
     {playing&&!book&&!menuOpen&&!debugOpen&&stats.navigation&&<aside className="navigation-target" aria-label="Direction to target book">
       <span className="navigation-arrow" style={{transform:`rotate(${stats.navigation.angle}deg)`}} aria-hidden="true">↑</span>
       <div>{trackedBookmark&&<strong className="tracked-book-name">{trackedBookmark.name}</strong>}<strong>{stats.navigation.direction}</strong><p>You are roughly {stats.navigation.distance} away from the target book.</p><small>Coarse bearing · straight-line distance</small></div>
@@ -168,14 +170,12 @@ export default function Home() {
     {book&&<dialog ref={reader} className="book-reader" onCancel={e=>{e.preventDefault();game.current?.closeBook();}} aria-modal="true" aria-label="Open library book">
       <div className="reader-toolbar"><span>THE BABEL LIBRARY <small>410 PAGES · 40 LINES · 80 CHARACTERS</small></span><button onClick={()=>game.current?.closeBook()}>Return to shelf <kbd>RIGHT CLICK</kbd></button></div>
       <div className="book-scroll"><article className="book-page" key={`${bookId(book)}:${page}`}>
-        <div className="page-running-head">THE LIBRARY</div>
+        <div className="page-running-head">{opening.book===book?bookOpeningTitle(opening.text):' '}</div>
         <pre className="book-text" aria-label={`Page ${page+1} content`}>{pageText||(pageError||'Preparing this book…')}</pre>
         <div className="page-folio">{page+1}</div>
-        <div className="book-footnote">{bookDisplayId(book)}</div>
       </article></div>
       <nav className="reader-navigation" aria-label="Book pages"><button disabled={page===0} onClick={()=>setPage(p=>turnPage(p,-1))}>← Previous</button><span aria-live="polite">Page {page+1} of {PAGE_COUNT}</span><button disabled={page===PAGE_COUNT-1} onClick={()=>setPage(p=>turnPage(p,1))}>Next →</button></nav>
       <BookmarkEditor key={bookId(book)} game={game} book={book} page={page} onRestore={restoreBookmarkPage}/>
-      <p className="reader-help">← / → Turn page · Right click or Esc to return · Opened books turn teal{storageWarning?' · Saved data may only last for this session.': ''}</p>
     </dialog>}
     <footer><span>{playing?(stats.mode==='flying'?'FLYING':stats.mode==='falling'?`FALLING · ${Math.round(stats.fallSpeed / 0.44704)} MPH`:'WALKING'):'AN UNOFFICIAL LITERARY EXPLORATION'}</span><div><span className="library-clock">{stats.libraryClock}</span><span>LEVEL <b>{stats.floor==='0'?'0':`${stats.floor.startsWith('-')?'':'+'}${stats.floor}`}</b></span><span><b>{stats.distance.toLocaleString()}</b> m travelled total</span></div></footer>
   </main>;
