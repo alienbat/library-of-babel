@@ -62,3 +62,7 @@ occurs after the workflow's PR is approved and merged.
 
 Check the linked Actions run if deployment fails. Only the artifact produced by its
 successful build is published; the deployment job has Pages and OIDC permissions.
+
+## Entry points
+
+The site root is a prerendered React landing page (`static/project-page.tsx`), hydrated by `static/landing.tsx`. The game has its own HTML entry at `static/play/index.html`, served at `/library-of-babel/play/`. Both share the same origin and therefore browser storage. `build:github` prerenders the landing HTML after the multi-entry Vite build. The landing module does not import the game.

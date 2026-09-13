@@ -13,7 +13,7 @@
     "format": "oxfmt",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "test:scene": "node scripts/serve-scene-review.mjs",
-    "build:github": "vite build --config vite.static.config.ts && node scripts/check-static-build.mjs",
+    "build:github": "vite build --config vite.static.config.ts && node scripts/render-landing.mjs && node scripts/check-static-build.mjs",
     "preview:github": "vite preview --config vite.static.config.ts --host 127.0.0.1 --port 8772",
     "deploy:github": "node scripts/deploy-github.mjs",
     "bake:lighting": "node scripts/bake-lighting.mjs"
