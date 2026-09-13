@@ -1,3 +1,4 @@
+import {bakeRoomAO,applyRoomAO} from './room-ao.ts';
 import {bakeRoomLighting,ROOM_WIDTH,ROOM_DEPTH,ROOM_GRID} from './room-lighting.ts';
 import * as T from 'three';
 import {HEIGHT,INNER,OUTER,PERIOD,type WorldLimits} from './physics.ts';
@@ -33,6 +34,14 @@ export function bakeGalleryLighting(){
   };
   const pos=texture(positive),neg=texture(negative),rooms=bakeRoomLighting(),topRooms=bakeRoomLighting(true);
   const roomTop={value:1e20};
+  const aoBaked=new Set<boolean>();
+  function bakeRoomContacts(occluders:()=>T.Box3[],top=false){
+    if(aoBaked.has(top))return;
+    const ao=bakeRoomAO(occluders());
+    const target=top?topRooms:rooms;
+    applyRoomAO(target.positive,ao);applyRoomAO(target.negative,ao);
+    aoBaked.add(top);
+  }
   function material(params:T.MeshStandardMaterialParameters){
     const m=new T.MeshBasicMaterial({color:params.color??0xffffff,map:params.map??null,transparent:params.transparent??false,opacity:params.opacity??1});
     const luminous=(params.emissiveIntensity??0)>.5;
@@ -78,5 +87,5 @@ export function bakeGalleryLighting(){
     };
     m.customProgramCacheKey=()=> 'baked-gallery-volume-v1';return m;
   }
-  return {material,positive:pos,negative:neg,setLimits(limits:WorldLimits){roomTop.value=limits.maxY===undefined?1e20:limits.maxY-HEIGHT+.34;},dispose(){pos.dispose();neg.dispose();rooms.dispose();topRooms.dispose();}};
+  return {material,bakeRoomContacts,positive:pos,negative:neg,setLimits(limits:WorldLimits){roomTop.value=limits.maxY===undefined?1e20:limits.maxY-HEIGHT+.34;},dispose(){pos.dispose();neg.dispose();rooms.dispose();topRooms.dispose();}};
 }

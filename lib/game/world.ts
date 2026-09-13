@@ -1,3 +1,4 @@
+import {roomOccluders} from './room-ao.ts';
 import {createStairCulling} from './landing-occlusion.ts';
 import {detailCells,shelfLod,type ShelfCell} from './shelf-lod.ts';
 import * as T from 'three';
@@ -7,7 +8,7 @@ import {staircase} from './stairs.ts';
 import {createBoundaryLighting,BOUNDARY_SPAN,BOUNDARY_LIGHT_SPACING,WALL_LIGHT_SPACING} from './boundary-lighting.ts';
 import {createInfiniteHorizon,withHorizonFade} from './horizon.ts';
 import {bakeGalleryLighting} from './lighting.ts';
-import { BAY, HEIGHT, INNER, OUTER, mod,type WorldLimits } from './physics.ts';
+import { BAY, HEIGHT, INNER, OUTER, PERIOD, mod,type WorldLimits } from './physics.ts';
 
 import {bookId,ROWS,BOOKS_PER_ROW,type BookLocation} from './books.ts';
 
@@ -321,6 +322,16 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     batch(tiles,[slabMat,tileMat],group,deckGeometry);batch(ceramics,ceramicMat);batch(bowls,ceramicMat,group,bowlGeo);batch(seats,ceramicMat,group,seatGeo);batch(chrome,chromeMat);batch(mirrors,mirrorMat);
     const deckMaterials=[slabMat,floorMat];
     batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,[slabMat,floorMat],group,deckGeometry);batch(shelves,shelfMat);batch(trim,woodMat);pipes(rails);batch(lamps,lightMat);batch(walls,wallMat);batch(furniture,railMat);batch(linens,linenMat);batch(blankets,blanketMat);batch(dark,darkMat);batch(screens,screenMat);
+    // Capture the actual room geometry once per lighting variant. Sample a complete
+    // amenity cell near this window, even after random starts or origin shifts.
+    const roomX=Math.round(bx/12)*PERIOD;
+    const topFloor=cornerLimits.maxY===undefined?Infinity:Math.round((cornerLimits.maxY-HEIGHT+.34)/HEIGHT);
+    const bottomFloor=cornerLimits.minY===undefined?-Infinity:Math.round(cornerLimits.minY/HEIGHT);
+    const normalFloor=Math.max(bottomFloor+2,Math.min(fy,topFloor-2));
+    const contacts=(floor:number)=>()=>roomOccluders([decks,slabs,floors,shelves,trim,lamps,walls,furniture,linens,blankets,dark,screens,tiles,ceramics,chrome,mirrors].flat(),new T.Vector3(roomX,floor*HEIGHT,0));
+    lighting.bakeRoomContacts(contacts(normalFloor));
+    if(topFloor>=fy-31&&topFloor<=fy+31)
+      lighting.bakeRoomContacts(contacts(topFloor),true);
     // This periodic horizon never needs to be regenerated when walking. Moving its
     // origin by whole bays/floors preserves the same shelf and lamp alignment.
     distantGroup.position.set(bx*BAY,fy*HEIGHT,0);
