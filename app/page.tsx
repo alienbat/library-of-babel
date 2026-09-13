@@ -6,7 +6,7 @@ import {MAX_PREFIX} from '../lib/game/search';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GameHandle, GameStats } from '../lib/game/engine';
 
-import {bookId,turnPage,PAGE_COUNT,type BookLocation} from '../lib/game/books';
+import {bookId,bookDisplayId,turnPage,PAGE_COUNT,type BookLocation} from '../lib/game/books';
 
 import {DESTINATIONS,DESTINATION_LABELS} from '../lib/game/destinations';
 
@@ -123,7 +123,7 @@ export default function Home() {
       {resetError&&<p className="error" role="alert">{resetError}</p>}
       <div className="reset-actions"><button autoFocus onClick={()=>setConfirmReset(false)}>No</button><button className="danger-button" onClick={()=>{try{game.current?.startOver();}catch{setResetError('Could not clear progress. Check browser storage permissions and try again.');}}}>Yes</button></div>
     </dialog>}
-    {playing&&!book&&!menuOpen&&!debugOpen&&<><span className={target?"crosshair targeting":"crosshair"} aria-hidden="true"/><div className="walking-hint">{target?`Left click to open · ${bookId(target)}`:stats.mode==='flying'?'WASD follows your view · Look up/down to climb or descend · Space to fall':stats.mode==='falling'?'Falling · Space to fly again':drag?'Drag to look · WASD to walk · Space to fly':'WASD to walk · Mouse to look · Space to fly'}</div>{target&&<button className="read-target" onClick={()=>game.current?.openBook()}>Open book</button>}<div className="touch-pad" aria-label="Movement controls">{(['forward','left','back','right'] as const).map((direction,i)=><button key={direction} className={direction} aria-label={`Walk ${direction}`} onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);game.current?.touchMove(direction,true);}} onPointerUp={()=>game.current?.touchMove(direction,false)} onPointerCancel={()=>game.current?.touchMove(direction,false)}>{['↑','←','↓','→'][i]}</button>)}</div></>}
+    {playing&&!book&&!menuOpen&&!debugOpen&&<><span className={target?"crosshair targeting":"crosshair"} aria-hidden="true"/><div className="walking-hint">{target?`Left click to open · ${bookDisplayId(target)}`:stats.mode==='flying'?'WASD follows your view · Look up/down to climb or descend · Space to fall':stats.mode==='falling'?'Falling · Space to fly again':drag?'Drag to look · WASD to walk · Space to fly':'WASD to walk · Mouse to look · Space to fly'}</div>{target&&<button className="read-target" onClick={()=>game.current?.openBook()}>Open book</button>}<div className="touch-pad" aria-label="Movement controls">{(['forward','left','back','right'] as const).map((direction,i)=><button key={direction} className={direction} aria-label={`Walk ${direction}`} onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);game.current?.touchMove(direction,true);}} onPointerUp={()=>game.current?.touchMove(direction,false)} onPointerCancel={()=>game.current?.touchMove(direction,false)}>{['↑','←','↓','→'][i]}</button>)}</div></>}
     {playing&&!book&&!menuOpen&&!debugOpen&&stats.navigation&&<aside className="navigation-target" aria-label="Direction to target book">
       <span className="navigation-arrow" style={{transform:`rotate(${stats.navigation.angle}deg)`}} aria-hidden="true">↑</span>
       <div>{trackedBookmark&&<strong className="tracked-book-name">{trackedBookmark.name}</strong>}<strong>{stats.navigation.direction}</strong><p>You are roughly {stats.navigation.distance} away from the target book.</p><small>Coarse bearing · straight-line distance</small></div>
@@ -171,7 +171,7 @@ export default function Home() {
         <div className="page-running-head">THE LIBRARY</div>
         <pre className="book-text" aria-label={`Page ${page+1} content`}>{pageText||(pageError||'Preparing this book…')}</pre>
         <div className="page-folio">{page+1}</div>
-        <div className="book-footnote">{bookId(book)}</div>
+        <div className="book-footnote">{bookDisplayId(book)}</div>
       </article></div>
       <nav className="reader-navigation" aria-label="Book pages"><button disabled={page===0} onClick={()=>setPage(p=>turnPage(p,-1))}>← Previous</button><span aria-live="polite">Page {page+1} of {PAGE_COUNT}</span><button disabled={page===PAGE_COUNT-1} onClick={()=>setPage(p=>turnPage(p,1))}>Next →</button></nav>
       <BookmarkEditor key={bookId(book)} game={game} book={book} page={page} onRestore={restoreBookmarkPage}/>

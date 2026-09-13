@@ -7,6 +7,8 @@ export function bookId(b:BookLocation){
   if(!b.frame)return localBookId(b);
   return `v2/${b.frame.destination}${b.frame.originExact!==undefined?`=${encodeURIComponent(b.frame.originExact)}`:''}${b.frame.originSearch!==undefined?`!${encodeURIComponent(b.frame.originSearch)}`:b.frame.originSeed?`~${b.frame.originSeed}`:''}/F${BigInt(b.frame.floorOffset)+BigInt(b.level)}/S${BigInt(b.frame.sectionOffset)+BigInt(b.bay)}/${b.side===1?'N':'S'}/R${b.row+1}/B${b.book+1}`;
 }
+/** Display only: the full identity remains available to storage and book generation. */
+export function bookDisplayId(b:BookLocation){const id=bookId(b);return id.length>120?`${id.slice(0,28)}…${id.slice(-80)} (abbreviated)`:id;}
 export function bookCenter(b:BookLocation):Position{return {x:b.bay*BAY+(b.book+.5)*BAY/BOOKS_PER_ROW,y:b.level*HEIGHT+.30+b.row*.39,z:b.side*(OUTER-.08)};}
 export function turnPage(page:number,delta:number){return Math.max(0,Math.min(PAGE_COUNT-1,page+delta));}
 /** Constant-time picking on the exposed book spines, including gaps and trim. */
