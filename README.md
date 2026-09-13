@@ -77,6 +77,7 @@ Bug reports should include the browser, device, reproduction steps and a screens
 
 - [Architecture and implementation](docs/ARCHITECTURE.md)
 - [Development and validation](docs/DEVELOPMENT.md)
+- [GitHub Pages build and deployment](docs/GITHUB_PAGES.md)
 - [Changelog](CHANGELOG.md)
 - [Literary attribution and rights policy](docs/ATTRIBUTION.md)
 
