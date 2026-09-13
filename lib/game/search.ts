@@ -1,3 +1,4 @@
+import {CHARS_PER_LINE} from './books.ts';
 import {CHARACTER_COUNT,permuteDigits} from './global-books.ts';
 import {EYE,type Position} from './physics.ts';
 export const MAX_PREFIX=3200;
@@ -43,12 +44,21 @@ export function coarseNavigation(anchor:NavigationAnchor,p:Position,yaw:number,p
   return {angle:Math.atan2(right,forward)*180/Math.PI,direction,distance};
 }
 
-/** Validate the whole converted input before truncation; CRLF is one newline. */
+/** Preserve source lines on the fixed book grid; validate even beyond the cutoff. */
 export function uploadedContent(text:string){
-  const converted=text.replace(/\t/g,'').replace(/\r\n|\r|\n/g,' ');
-  const invalid=/[^\x20-\x7e]/.exec(converted);
+  const cleaned=text.replace(/\t/g,'').replace(/\r\n|\r/g,'\n');
+  const invalid=/[^\x20-\x7e\n]/.exec(cleaned);
   if(invalid)throw new RangeError(`Unsupported character U+${invalid[0].codePointAt(0)!.toString(16).toUpperCase().padStart(4,'0')} at character ${invalid.index+1}. Only printable ASCII, tabs and line breaks are accepted.`);
-  return converted.slice(0,CHARACTER_COUNT).padEnd(CHARACTER_COUNT,' ');
+  const parts:string[]=[];let length=0;
+  for(const line of cleaned.split('\n')){
+    if(length>=CHARACTER_COUNT)break;
+    const chunk=line.slice(0,CHARACTER_COUNT-length);parts.push(chunk);length+=chunk.length;
+    // A full line has already advanced the book grid. An empty source line
+    // still occupies one blank line, including after another newline.
+    const padding=line.length===0?CHARS_PER_LINE:(CHARS_PER_LINE-line.length%CHARS_PER_LINE)%CHARS_PER_LINE;
+    const spaces=Math.min(padding,CHARACTER_COUNT-length);parts.push(' '.repeat(spaces));length+=spaces;
+  }
+  return parts.join('').padEnd(CHARACTER_COUNT,' ');
 }
 export function exactOrdinalDigits(text:string){
   if(text.length>CHARACTER_COUNT||/[^\x20-\x7e]/.test(text))throw new RangeError('Invalid uploaded book content');
