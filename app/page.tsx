@@ -105,11 +105,11 @@ export default function Home() {
   return <main className={playing?'game playing':'game'}>
     <div ref={viewport} className="viewport" aria-label="First-person view of the Library of Babel" />
     <div className="vignette" aria-hidden="true" />
-    <header className="masthead"><div className="identity"><span className="library-mark" aria-hidden="true">Ⅲ</span><span>THE BABEL LIBRARY<small>AFTER STEVEN L. PECK</small></span></div><div className="header-actions"><button onClick={()=>{setSound(!sound);}} aria-label={sound?'Mute audio':'Enable audio'}>{sound?'Sound on':'Sound off'}</button><button onClick={()=>{if(document.fullscreenElement)void document.exitFullscreen();else void document.documentElement.requestFullscreen?.().catch(()=>{});}} aria-label="Toggle fullscreen">⛶</button>{playing&&!book&&<button onClick={()=>game.current?.toggleMenu()}>Actions <kbd>T</kbd></button>}{playing&&!book&&<button onClick={()=>game.current?.toggleFlight()}>{stats.mode==='flying'?'Stop flying':'Fly'} <kbd>Space</kbd></button>}{playing&&<button onClick={pause}>Game Menu <kbd>M</kbd></button>}</div></header>
+    <header className="masthead"><div className="identity"><span className="library-mark" aria-hidden="true">Ⅲ</span><span>THE LIBRARY OF BABEL<small>AN INDEPENDENT EXPLORATION</small></span></div><div className="header-actions"><button onClick={()=>{setSound(!sound);}} aria-label={sound?'Mute audio':'Enable audio'}>{sound?'Sound on':'Sound off'}</button><button onClick={()=>{if(document.fullscreenElement)void document.exitFullscreen();else void document.documentElement.requestFullscreen?.().catch(()=>{});}} aria-label="Toggle fullscreen">⛶</button>{playing&&!book&&<button onClick={()=>game.current?.toggleMenu()}>Actions <kbd>T</kbd></button>}{playing&&!book&&<button onClick={()=>game.current?.toggleFlight()}>{stats.mode==='flying'?'Stop flying':'Fly'} <kbd>Space</kbd></button>}{playing&&<button onClick={pause}>Game Menu <kbd>M</kbd></button>}</div></header>
     {!playing&&<section className="menu" aria-label={entered?'Paused':'Enter the library'}>
-      <p className="eyebrow">{entered?'YOUR SEARCH CAN WAIT':'A SHORT STAY IN HELL'}</p>
-      <h1>{entered?'A moment\nof stillness.':'The Library\nof Babel.'}</h1>
-      <p className="intro">{entered?'The shelves will still be here.':'A hundred feet across. No end in sight.\nSomewhere in these books is your story.'}</p>
+      <p className="eyebrow">{entered?'YOUR SEARCH CAN WAIT':'A LIBRARY OF EVERY POSSIBLE BOOK'}</p>
+      <h1>{entered?'A moment\nof stillness.':'The Library\nof Babel'}</h1>
+      <p className="intro">{entered?'The shelves will still be here.':'Explore two galleries across an immense chasm.\nRead, search, and bookmark what you find.'}</p>
       <div className="menu-actions"><button className="enter" onClick={enter} disabled={!ready||!!error}>{error?'Unable to enter':!ready?'Preparing the library…':entered?'Continue walking':'Enter the library'} <span>→</span></button>{entered&&<button className="settings-button" onClick={saveProgress}>Save Progress</button>}<button className="settings-button" onClick={()=>setSettings(!settings)} aria-expanded={settings}>Settings</button></div>
       {!!stats.savedAt&&<small className="save-notice">Last saved: {new Date(stats.savedAt).toLocaleString()}</small>}
       {storageWarning&&<p className="error" role="alert">Browser storage is unavailable or full. Progress and bookmarks may only last for this session.</p>}
@@ -117,6 +117,7 @@ export default function Home() {
       {error&&<p className="error" role="alert">{error}</p>}
       {settings&&<div className="settings"><label>Field of view <span>{fov}°</span><input type="range" min="55" max="100" value={fov} onChange={e=>setFov(+e.target.value)}/></label><label>Mouse sensitivity <span>{sensitivity.toFixed(1)}</span><input type="range" min="0.3" max="2.5" step="0.1" value={sensitivity} onChange={e=>setSensitivity(+e.target.value)}/></label><label className="inline-label">Gentle walking motion<input type="checkbox" checked={motion} onChange={e=>setMotion(e.target.checked)}/></label><label className="inline-label">Detail<select value={quality} onChange={e=>setQuality(e.target.value)}><option value="high">High</option><option value="low">Low</option></select></label><button className="danger-button" onClick={()=>{setResetError('');setConfirmReset(true);}}>Start Over</button></div>}
       <div className="instructions"><span><kbd>W A S D</kbd> Move</span><span><kbd>MOUSE</kbd> Look</span><span><kbd>SHIFT</kbd> Move faster</span><span><kbd>SPACE</kbd> Toggle flight</span><span><kbd>LEFT CLICK</kbd> Read a book</span><span><kbd>T</kbd> Actions</span><span><kbd>M / ESC</kbd> Game Menu</span></div>
+      <p className="project-credit">Independent project inspired by Steven L. Peck’s <a href="https://www.penguin.co.uk/books/486146/a-short-stay-in-hell-by-peck-steven-l/9781807841348" target="_blank" rel="noopener noreferrer">A Short Stay in Hell</a>. Not affiliated with or endorsed by the author or publisher.</p>
       <p className="mobile-instructions">Use the left pad to move. Drag on the right to look. Tap Fly to take off.</p>
     </section>}
     {confirmReset&&<dialog ref={resetDialog} className="reset-dialog" aria-labelledby="reset-title" aria-describedby="reset-description" onCancel={event=>{event.preventDefault();setConfirmReset(false);}}>
@@ -131,7 +132,7 @@ export default function Home() {
       <div>{trackedBookmark&&<strong className="tracked-book-name">{trackedBookmark.name}</strong>}<strong>{stats.navigation.direction}</strong><p>You are roughly {stats.navigation.distance} away from the target book.</p><small>Coarse bearing · straight-line distance</small></div>
     </aside>}
     {menuOpen&&<dialog ref={menuDialog} className="teleport-dialog game-menu-dialog" tabIndex={-1} aria-label="Actions" onCancel={e=>{e.preventDefault();game.current?.closeMenu();}}>
-      <p className="eyebrow">THE BABEL LIBRARY</p><h2>Actions</h2>
+      <p className="eyebrow">THE LIBRARY OF BABEL</p><h2>Actions</h2>
       <p className="journey-time">Days in the library: {stats.libraryDays??'0'}<br/>{stats.libraryClock??'0 years · 0 months · 0 days · 00:00:00'}</p>
       <div className="game-menu-sections">
       <section className="menu-search-section" aria-labelledby="menu-search-title">
@@ -139,7 +140,7 @@ export default function Home() {
       <p>Find one book that starts with your exact text. Matching is case-sensitive; the result is not necessarily the nearest book.</p>
       <form onSubmit={e=>{e.preventDefault();void search();}}>
         <label htmlFor="book-prefix">Beginning of the book</label>
-        <textarea id="book-prefix" value={prefix} onChange={e=>setPrefix(e.target.value)} maxLength={MAX_PREFIX} placeholder="My name is Soren" rows={3} onKeyDown={e=>e.stopPropagation()}/>
+        <textarea id="book-prefix" value={prefix} onChange={e=>setPrefix(e.target.value)} maxLength={MAX_PREFIX} placeholder="A new page begins" rows={3} onKeyDown={e=>e.stopPropagation()}/>
         <small>Printable ASCII letters, numbers, spaces and punctuation. Up to {MAX_PREFIX.toLocaleString()} characters.</small>
         <button type="submit" disabled={searchBusy||!prefix.length}>{searchBusy?'Finding a matching book…':'Find a matching book'}</button>
       </form>
@@ -168,7 +169,7 @@ export default function Home() {
       <button className="teleport-cancel" onClick={()=>game.current?.closeMenu()}>Close <kbd>`</kbd></button>
     </dialog>}
     {book&&<dialog ref={reader} className="book-reader" onCancel={e=>{e.preventDefault();game.current?.closeBook();}} aria-modal="true" aria-label="Open library book">
-      <div className="reader-toolbar"><span>THE BABEL LIBRARY <small>410 PAGES · 40 LINES · 80 CHARACTERS</small></span><button onClick={()=>game.current?.closeBook()}>Return to shelf <kbd>RIGHT CLICK</kbd></button></div>
+      <div className="reader-toolbar"><span>THE LIBRARY OF BABEL <small>410 PAGES · 40 LINES · 80 CHARACTERS</small></span><button onClick={()=>game.current?.closeBook()}>Return to shelf <kbd>RIGHT CLICK</kbd></button></div>
       <div className="book-scroll"><article className="book-page" key={`${bookId(book)}:${page}`}>
         <div className="page-running-head">{opening.book===book?bookOpeningTitle(opening.text):' '}</div>
         <pre className="book-text" aria-label={`Page ${page+1} content`}>{pageText||(pageError||'Preparing this book…')}</pre>

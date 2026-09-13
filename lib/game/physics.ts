@@ -1,4 +1,4 @@
-// Dimensions are metres. The corridor and chasm follow Peck's description.
+// Project dimensions in metres; see README.md for literary inspiration and choices.
 export const GAP = 30.48;
 export const INNER = GAP / 2;
 export const OUTER = INNER + 3.6576;
@@ -91,7 +91,7 @@ export function move(p: Position, dx: number, dz: number,limits:WorldLimits={}):
 export type TravelMode = 'walking' | 'flying' | 'falling';
 export const BODY_HEIGHT = EYE + 0.12;
 export const GRAVITY = 9.81;
-// Peck explicitly recalls a limit of around 120 mph during the fall.
+// Adopted falling-speed limit: 120 mph. See README.md for model assumptions.
 export const TERMINAL_SPEED = 120 * 0.44704;
 
 /** A camera-relative flight vector, with normalized diagonal movement. */

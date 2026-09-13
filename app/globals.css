@@ -57,3 +57,6 @@
 @media(max-width:650px){.book-page{width:calc(80ch + 52px)}}
 
 .page-running-head{white-space:pre;min-height:1em}
+
+.project-credit { max-width: 38rem; margin: 1rem auto 0; font-size: .75rem; line-height: 1.5; opacity: .75; }
+.project-credit a { color: inherit; text-underline-offset: .15em; }
