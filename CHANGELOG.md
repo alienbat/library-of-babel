@@ -5,6 +5,10 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Centre a half-length gallery light over each shelf unit. Increase Cycles sampling
+  and filter residual noise offline; keep irradiance probes outside shelf masses
+  and inside room walls to prevent black bands and spots.
+
 - Replace ambient offsets and startup room AO with offline Cycles diffuse
   irradiance fields. Preserve shelf models, book interactions and LODs; use
   separate terminal stairwell/boundary bakes and shared periodic sample planes.

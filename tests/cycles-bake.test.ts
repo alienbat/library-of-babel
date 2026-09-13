@@ -26,3 +26,14 @@ void test('zero source strength adds no ambient energy in gallery or terminal fi
  assert.deepEqual(boundary.uniforms.boundaryLightMean.value.toArray(),[0,0,0]);
  bake.dispose();boundary.dispose();
 });
+void test('gallery fixtures align with shelf units and retain half-length diffusers',async()=>{
+ const {GALLERY_LIGHT_COUNT:count,GALLERY_LIGHT_LENGTH:length,GALLERY_LIGHT_PERIOD:period}=await import('../lib/game/gallery-fixtures.ts');
+ assert.equal(count,8);assert.equal(length,.8);assert.equal(period*count,22.86);
+});
+void test('shelf-front lighting has no black top or base sampling strips',()=>{
+ const field=JSON.parse(readFileSync(new URL('../lib/game/baked/gallery.json',import.meta.url),'utf8')) as LightField;
+ const [nx,ny,nz]=field.grid,data=Buffer.from(field.negative,'base64');
+ // Every shelf-front sample through the crown height must receive illumination.
+ for(let y=0;y/(ny-1)*3.96<=3.33;y++)for(let x=0;x<nx;x++)
+  assert.ok(data[(((nz-1)*ny+y)*nx+x)*4+2]>8,'a probe must not be buried in the opaque shelf proxy');
+});

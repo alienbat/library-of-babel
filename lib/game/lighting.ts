@@ -1,10 +1,11 @@
+import {GALLERY_LIGHT_PERIOD} from './gallery-fixtures.ts';
 import {loadLightField} from './baked-light-field.ts';
 import galleryField from './baked/gallery.json' with {type:'json'};
 import {DORM} from './room-layout.ts';
 import {bakeBottomRoomLighting,bakeRoomLighting,ROOM_WIDTH,ROOM_DEPTH,ROOM_GRID} from './room-lighting.ts';
 import * as T from 'three';
 import {HEIGHT,INNER,OUTER,PERIOD,type WorldLimits} from './physics.ts';
-export const LIGHT_PERIOD=7.62;
+export const LIGHT_PERIOD=GALLERY_LIGHT_PERIOD;
 const [,NY,NZ]=galleryField.grid,RANGE=4;
 /** Load the offline Cycles irradiance fields for the repeating library. */
 export function bakeGalleryLighting(lightStrength=1){

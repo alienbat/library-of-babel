@@ -3,12 +3,13 @@ Receivers are UV-isolated white diffuse patches invisible to transport rays.
 The exported runtime architecture is the occluder, including terminal stair shells.
 """
 import bpy,json,math,time,base64,sys
+import numpy as np
 from pathlib import Path
 from mathutils import Vector,Matrix
 from mathutils.bvhtree import BVHTree
 ROOT=Path(__file__).resolve().parents[2]
 OUT=ROOT/'lib/game/baked';OUT.mkdir(exist_ok=True)
-SAMPLES=int(__import__('os').environ.get('BAKE_SAMPLES','1024'))
+SAMPLES=int(__import__('os').environ.get('BAKE_SAMPLES','2048'))
 H=3.96;INNER=15.24;OUTER=18.8976
 configs={'gallery':('normal',(64,32,16)), 'rooms':('normal',(160,32,32)), 'top':('top',(160,32,32)), 'final':('top',(160,32,32)), 'bottom':('bottom',(160,32,32)), 'boundaryFloor':('bottom',(32,1,32)), 'boundaryCeiling':('top',(32,1,32)), 'boundaryWall':('normal',(32,1,32))}
 selected=sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else configs
@@ -80,14 +81,21 @@ for name in selected:
  for z in range(nz):
   for y in range(ny):
    for x in range(nx):
+    if name in ['top','final','bottom'] and x/(nx-1)*32>=15.5:continue # enclosed rooms reuse their shared ordinary bake
     if name.startswith('boundary'):
      p=(.025,(x+.5)/nx*15.84,(z+.5)/nz*15.24) if name=='boundaryWall' else ((x+.5)/nx*15.24,3.595 if name=='boundaryCeiling' else .025,(z+.5)/nz*15.24)
-    elif name=='gallery':p=((x+.5)/nx*7.62+45.72,min(3.60,max(.025,y/(ny-1)*H)),INNER+z/(nz-1)*(OUTER-INNER))
+    elif name=='gallery':p=((x+.5)/nx*2.8575+45.72,min(3.54,max(.06,y/(ny-1)*H)),min(OUTER-.35,INNER+z/(nz-1)*(OUTER-INNER)))
     else:p=(x/(nx-1)*32,y/(ny-1)*H-(H if name=='final' else 0),OUTER+z/(nz-1)*6.5)
+    if not name.startswith('boundary') and name!='gallery':
+     px,py,pz=p
+     if px<15.5:px=max(1.06,min(14.94,px));pz=max(OUTER+.36,min(OUTER+3.64,pz))
+     elif px<24:px=max(16.16,min(23.84,px));pz=max(OUTER+.56,min(OUTER+6.14,pz));py=max(.06,min(3.54,py))
+     else:px=max(24.16,min(29.84,px));pz=max(OUTER+.56,min(OUTER+4.84,pz));py=max(.06,min(3.54,py))
+     p=(px,py,pz)
     p=relocate(p)
-    for n in normals:
+    for ni,n in enumerate(normals):
      u=n.cross(Vector((0,0,1)) if abs(n.z)<.9 else Vector((0,1,0))).normalized();v=n.cross(u)
-     k=len(rf);off=len(rv)
+     k=((z*ny+y)*nx+x)*6+ni;off=len(rv)
      rv.extend(tuple(p+(a*u+b*v)*.001) for a,b in [(-1,-1),(1,-1),(1,1),(-1,1)])
      rf.append((off,off+1,off+2,off+3));tx=k%cols*tile;ty=k//cols*tile
      uvs.extend([(tx/size,ty/size),((tx+tile)/size,ty/size),((tx+tile)/size,(ty+tile)/size),(tx/size,(ty+tile)/size)])
@@ -100,14 +108,28 @@ for name in selected:
  bpy.ops.object.select_all(action='DESELECT');receiver.select_set(True);bpy.context.view_layer.objects.active=receiver
  scene.render.bake.margin=0;scene.render.bake.use_pass_color=False;scene.render.bake.use_pass_direct=True;scene.render.bake.use_pass_indirect=True
  print('BAKING',name,grid,size,SAMPLES,flush=True);bpy.ops.object.bake(type='DIFFUSE')
- pixels=list(image.pixels);positive=bytearray(count*4);negative=bytearray(count*4)
+ pixels=list(image.pixels);radiance=np.zeros((nz,ny,nx,6),dtype=np.float32);positive=bytearray(count*4);negative=bytearray(count*4)
  for probe in range(count):
   for axis in range(6):
    k=probe*6+axis;tx=k%cols*tile;ty=k//cols*tile
    values=[sum(pixels[((ty+dy)*size+tx+dx)*4+c]*weight for c,weight in enumerate((.2126,.7152,.0722))) for dy in range(tile) for dx in range(tile)]
    value=sum(values)/len(values)
-   (positive if axis<3 else negative)[probe*4+axis%3]=round(min(4,max(0,value))/4*255)
+   radiance.reshape((-1,6))[probe,axis]=max(0,value)
   positive[probe*4+3]=negative[probe*4+3]=255
- result={'grid':grid,'range':4,'positive':base64.b64encode(positive).decode(),'negative':base64.b64encode(negative).decode(),'samples':SAMPLES,'diffuseBounces':6,'seconds':round(time.time()-start,2),'engine':'Blender Cycles','extraAO':False}
+ # A narrow linear-light Gaussian removes residual estimator noise. Do not blend
+ # across the stair/bedroom/bathroom compartment boundaries.
+ ranges=[(0,nx)] if name=='gallery' or name.startswith('boundary') else [(0,math.ceil(15.5/32*(nx-1))),(math.ceil(15.5/32*(nx-1)),math.ceil(24/32*(nx-1))),(math.ceil(24/32*(nx-1)),nx)]
+ for lo,hi in ranges:
+  block=radiance[:,:,lo:hi,:].copy()
+  for axis in range(3):
+   pad=[(0,0)]*4;pad[axis]=(1,1);padded=np.pad(block,pad,mode='edge')
+   slices=[slice(None)]*4;slices[axis]=slice(0,-2);a=padded[tuple(slices)]
+   slices[axis]=slice(1,-1);b=padded[tuple(slices)]
+   slices[axis]=slice(2,None);c=padded[tuple(slices)]
+   block=(a+2*b+c)*.25
+  radiance[:,:,lo:hi,:]=block
+ for probe,lobes in enumerate(radiance.reshape((-1,6))):
+  for axis,value in enumerate(lobes):(positive if axis<3 else negative)[probe*4+axis%3]=round(min(4,float(value))/4*255)
+ result={'grid':grid,'range':4,'positive':base64.b64encode(positive).decode(),'negative':base64.b64encode(negative).decode(),'samples':SAMPLES,'diffuseBounces':6,'seconds':round(time.time()-start,2),'engine':'Blender Cycles','extraAO':False,'filter':'compartment-separated 3-tap Gaussian in linear light','probeClearance':0.06}
  (OUT/f'{name}.json').write_text(json.dumps(result,separators=(',',':')))
  print('DONE',name,result['seconds'],max(positive),flush=True)
