@@ -5,6 +5,9 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Simplify the pause menu by removing secondary taglines, subtitle and credit
+  text; centre the single-line masthead beside its mark.
+
 - Bind book and ceiling-light detail to Settings: Low uses 32 m and High 100 m.
   Add a rounded Blender ceiling diffuser throughout galleries and rooms, with
   a shared 12-triangle box LOD and unchanged baked illumination.

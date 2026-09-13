@@ -60,3 +60,6 @@
 
 .project-credit { max-width: 38rem; margin: 1rem auto 0; font-size: .75rem; line-height: 1.5; opacity: .75; }
 .project-credit a { color: inherit; text-underline-offset: .15em; }
+
+/* Keep breathing room when the pause menu omits its introductory paragraph. */
+.menu h1 + .menu-actions{margin-top:24px}
