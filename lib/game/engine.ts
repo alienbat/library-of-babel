@@ -1,3 +1,4 @@
+import {clearLocationStorage} from './location-store';
 import {readJourney,newJourneySeed,JOURNEY_STORAGE,libraryTime,bigCount,type Journey,type WalkDirection} from './journey';
 import {BOOKMARK_STORAGE,type Bookmark} from './bookmarks';
 import {coarseNavigation,type NavigationAnchor,type NavigationHint} from './search';
@@ -229,6 +230,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
     if(now-lastStats>300){lastStats=now;emitStats();}
   }
   books.setFrame(globalFrame);applyLimits();callbacks.onDestination(globalFrame.destination);emitStats();
+  if(globalFrame.originExact!==undefined){const original=globalFrame;void books.referenceFrame(original).then(next=>{if(disposed||globalFrame.originExact!==original.originExact)return;globalFrame={...next,floorOffset:globalFrame.floorOffset,sectionOffset:globalFrame.sectionOffset};books.setFrame(globalFrame);try{saveProgress();}catch{callbacks.onStorageWarning();}}).catch(()=>callbacks.onStorageWarning());}
   const autoSave=()=>{if(startedAt)try{saveProgress();}catch{callbacks.onStorageWarning();}};
   const saveTimer=setInterval(autoSave,300000),timeTimer=setInterval(emitStats,1000);
   window.addEventListener('pagehide',autoSave);
@@ -239,11 +241,12 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
     uploadBook:(text:string)=>books.uploadBook(text),searchBooks:(prefix:string)=>books.search(prefix),clearSearch:()=>books.clearTarget(),
     start,pause,toggleFlight,openBook,closeBook,toggleMenu,teleport,closeMenu,readPage:(book:BookLocation,page:number)=>books.page(book,page),
     reset(){teleport('arrival');},
-    startOver(){
+    async startOver(){
       // Clear only this game's progress. Stop autosave and the worker before reload
       // so pagehide or an outstanding book response cannot restore the old journey.
       for(const key of [JOURNEY_STORAGE,BOOKMARK_STORAGE,OPENED_STORAGE_KEY,'babel-global-opened-v2'])localStorage.removeItem(key);
       handle.dispose(false);
+      await clearLocationStorage();
       window.location.reload();
     },
     touchMove(direction:string,pressed:boolean){const code=({forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'} as Record<string,string>)[direction];if(pressed)keys.add(code);else keys.delete(code);},

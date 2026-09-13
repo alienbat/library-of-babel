@@ -16,6 +16,7 @@ export function readJourney(storage:Pick<Storage,'getItem'>):Journey|null{
     (j.journeySeed!==undefined&&!/^[a-f0-9]{64}$/.test(j.journeySeed))||
     (j.limits!==undefined&&Object.values(j.limits).some(n=>typeof n!=='number'||!Number.isFinite(n)))||
     (j.frame.originSearch!==undefined&&(typeof j.frame.originSearch!=='string'||!j.frame.originSearch.length||j.frame.originSearch.length>3200||!/^[\x20-\x7e]+$/.test(j.frame.originSearch)))||
+    (j.frame.originRef!==undefined&&(typeof j.frame.originRef!=='string'||!/^[a-zA-Z0-9-]{1,80}$/.test(j.frame.originRef)))||
     (j.frame.originExact!==undefined&&(typeof j.frame.originExact!=='string'||j.frame.originExact.length>1312000||/[^\x20-\x7e]/.test(j.frame.originExact)))||
     (j.frame.originSeed!==undefined&&!/^[a-f0-9]{64}$/.test(j.frame.originSeed))||
     ![j.position?.x,j.position?.y,j.position?.z,j.yaw,j.pitch,j.fallSpeed].every(n=>typeof n==='number'&&Number.isFinite(n))||

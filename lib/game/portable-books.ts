@@ -1,3 +1,4 @@
+import {resolveLocation,referenceLocation} from './location-store.ts';
 import {WALK_YEARS,WALK_DIRECTIONS,YEAR_WALK_CM,YEAR_MS,type WalkDirection,type WalkResult} from './journey.ts';
 import {matchingOrdinalDigits,exactOrdinalDigits,packDigits,type SearchAddress,type NavigationAnchor} from './search.ts';
 import {BAY,HEIGHT,OUTER,INNER,type Position} from './physics.ts';
@@ -46,6 +47,7 @@ function contextMath(factory:import('gmp-wasm').CalculateType['Integer'],searchO
     const name=frame.destination;
     const {floors,sections}=library();
     if(!['arrival','bottom-left','bottom-right','top-left','top-right'].includes(name))throw new RangeError('Invalid frame');
+    if(frame.originRef){const a=resolveLocation(frame.originRef);return {floor:Integer(a.floorHex,16).add(integer(frame.floorOffset)),section:Integer(a.sectionHex,16).add(integer(frame.sectionOffset))};}
     if(frame.originSearch!==undefined||frame.originExact!==undefined){
       const key=frame.originExact!==undefined?`exact:${frame.originExact}`:`prefix:${frame.originSearch}`;
       let address=searchOrigins.get(key);
@@ -63,6 +65,15 @@ function contextMath(factory:import('gmp-wasm').CalculateType['Integer'],searchO
       floor:(name==='arrival'?floors.div(2,2):name.startsWith('top')?floors.sub(1):Integer(0)).add(integer(frame.floorOffset)),
       section:(name==='arrival'?sections.div(24,2).mul(12):name.endsWith('right')?sections.sub(12):Integer(0)).add(integer(frame.sectionOffset)),
     };
+  }
+  function referenceFrame(frame:GlobalFrame):GlobalFrame{
+    if(frame.originRef){resolveLocation(frame.originRef);return frame;}
+    if(frame.originExact===undefined)return frame;
+    const base=origin({...frame,floorOffset:'0',sectionOffset:'0'});
+    return {destination:frame.destination,floorOffset:frame.floorOffset,sectionOffset:frame.sectionOffset,originRef:referenceLocation(base.floor.toString(16),base.section.toString(16))};
+  }
+  function frameForAddress(address:SearchAddress):GlobalFrame{
+    return {destination:'arrival',floorOffset:'0',sectionOffset:'0',originRef:referenceLocation(address.floorHex,Integer(address.sectionHex,16).div(12,2).mul(12).toString(16))};
   }
   function absolute(book:GlobalBook){const base=origin(book.frame);return {floor:base.floor.add(integer(book.level)),section:base.section.add(integer(book.bay))};}
   function bookOrdinal(book:GlobalBook){
@@ -167,5 +178,5 @@ function contextMath(factory:import('gmp-wasm').CalculateType['Integer'],searchO
     const x=ax.sign*10**(ax.log-largest),y=ay.sign*10**(ay.log-largest),length=Math.hypot(x,y);
     return {direction:[x/length,y/length,0],logMeters:largest+Math.log10(length)};
   }
-  return {targetLanding,walk,bookOrdinal,digits,projectBook,fromDigits,addressFromOrdinal,navigation};
+  return {referenceFrame,frameForAddress,targetLanding,walk,bookOrdinal,digits,projectBook,fromDigits,addressFromOrdinal,navigation};
 }

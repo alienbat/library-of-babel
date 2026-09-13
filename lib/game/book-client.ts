@@ -6,7 +6,7 @@ import type {NavigationAnchor} from './search.ts';
 import {globalBook,newFrame,type GlobalBook,type GlobalFrame} from './global-books.ts';
 import {loadOpened,type BookLocation} from './books.ts';
 const STORAGE='babel-global-opened-v2';
-type Reply={id:number;landing?:TargetLanding;journeyWalk?:WalkResult;bookmarks?:Bookmark[];bookmark?:Bookmark|null;navigation?:NavigationAnchor|null;foundPrefix?:string;text?:string;opened:string[];history?:GlobalBook[];error?:string};
+type Reply={id:number;frame?:GlobalFrame;landing?:TargetLanding;journeyWalk?:WalkResult;bookmarks?:Bookmark[];bookmark?:Bookmark|null;navigation?:NavigationAnchor|null;foundPrefix?:string;text?:string;opened:string[];history?:GlobalBook[];error?:string};
 export function createBookClient(onHistory:(ids:string[])=>void,onStorageWarning:()=>void,workerUrl:string,onNavigation:(anchor:NavigationAnchor|null)=>void=()=>{},onBookmarks:(records:Bookmark[])=>void=()=>{}){
   let frame=newFrame(),sequence=0,frameVersion=0,failure:Error|undefined;
   const pending=new Map<number,{resolve:(r:Reply)=>void;reject:(e:Error)=>void;version:number}>();
@@ -50,6 +50,7 @@ export function createBookClient(onHistory:(ids:string[])=>void,onStorageWarning
   void request('init',{history,bookmarks}).catch(()=>{});
   return {
     setFrame(next:GlobalFrame){frame={...next};frameVersion++;onHistory([]);onNavigation(null);void request('history').catch(()=>{});},
+    async referenceFrame(next:GlobalFrame){return (await request('reference-frame',{frame:next})).frame!;},
     async search(prefix:string){
       const version=frameVersion,reply=await request('search',{prefix});
       if(version!==frameVersion)await request('history');

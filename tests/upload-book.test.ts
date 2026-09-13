@@ -17,7 +17,11 @@ void test('uploaded test books and empty book resolve to exact content after tar
     const text=uploadedContent(input);
     portable.withContext(math=>{
       const index=math.fromDigits(exactOrdinalDigits(text)),address=math.addressFromOrdinal(index);
-      const source={destination:'arrival' as const,sectionOffset:'0',floorOffset:'0',originExact:text.trimEnd()};
+      const source=math.frameForAddress(address);
+      assert.ok(JSON.stringify(source).length<200);assert.equal(source.originExact,undefined);
+      assert.equal(math.frameForAddress(address).originRef,source.originRef);
+      const legacy={destination:'arrival' as const,sectionOffset:'0',floorOffset:'0',originExact:text.trimEnd()};
+      assert.deepEqual(math.referenceFrame(legacy),source);
       const landing=math.targetLanding(address,source);
       const book={frame:landing.frame,level:0,bay:Math.floor(landing.position.x/BAY),side:address.side,row:address.row,book:address.book};
       const resolved=math.bookOrdinal(book);assert.ok(resolved.isEqual(index));

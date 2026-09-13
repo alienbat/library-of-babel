@@ -1,3 +1,4 @@
+import {loadLocations,persistLocations} from './location-store';
 import {bookmarkName,bookmarkPage,upsertBookmark,type Bookmark} from './bookmarks.ts';
 import {matchingOrdinalDigits,uploadedContent,exactOrdinalDigits,MAX_PREFIX,type SearchAddress} from './search.ts';
 import {createPortableBookMath} from './portable-books';
@@ -9,18 +10,20 @@ let records:GlobalBook[]=[],cached:Uint8Array|undefined,cachedExpression='';
 const knownExpressions=new Set<string>();
 let projectionFrame='',projectionDirty=true,projected:string[]=[];
 // Queue requests behind WASM initialization and preserve init/history/page order.
-const ready=createPortableBookMath();
+const ready=Promise.all([createPortableBookMath(),loadLocations().catch(()=>{/* Ordinary library exploration still works if IndexedDB is disabled. */})]).then(([math])=>math);
 // Attach a rejection handler immediately; each request still receives the actual error.
 void ready.catch(()=>{});
 let queue=Promise.resolve();
 self.onmessage=(event:MessageEvent)=>{
   queue=queue.then(async()=>{
-    try{const math=await ready;math.withContext(api=>handle(event,api));}
+    try{const math=await ready;const reply=math.withContext(api=>handle(event,api));await persistLocations();self.postMessage(reply);}
     catch(error){self.postMessage({id:event.data.id,error:error instanceof Error?error.message:'Book generation failed'});}
   });
 };
-function handle(event:MessageEvent,{targetLanding,walk,bookOrdinal,digits,projectBook,fromDigits,addressFromOrdinal,navigation}:Parameters<Parameters<Awaited<ReturnType<typeof createPortableBookMath>>['withContext']>[0]>[0]){
-  const {id,action,book,page,frame,history}=event.data;
+function handle(event:MessageEvent,{referenceFrame,frameForAddress,targetLanding,walk,bookOrdinal,digits,projectBook,fromDigits,addressFromOrdinal,navigation}:Parameters<Parameters<Awaited<ReturnType<typeof createPortableBookMath>>['withContext']>[0]>[0]){
+  const {id,action,page,history}=event.data;
+  const frame=referenceFrame(event.data.frame as GlobalFrame);
+  const book=event.data.book?{...event.data.book,frame:referenceFrame(event.data.book.frame)}:undefined;
   try{
     const journeyWalk=action==='journey-walk'?walk(frame,event.data.position,event.data.direction,event.data.years):undefined;
     let changed=false,bookmarksChanged=false;
@@ -30,7 +33,7 @@ function handle(event:MessageEvent,{targetLanding,walk,bookOrdinal,digits,projec
       if(typeof event.data.text!=='string')throw new RangeError('Invalid text file');
       const content=uploadedContent(event.data.text).trimEnd();
       const index=fromDigits(exactOrdinalDigits(content));
-      targetAddress=addressFromOrdinal(index);targetFrame={destination:'arrival',floorOffset:'0',sectionOffset:'0',originExact:content};foundPrefix='Uploaded book matched exactly.';
+      targetAddress=addressFromOrdinal(index);targetFrame=frameForAddress(targetAddress);foundPrefix='Uploaded book matched exactly.';
     }
     if(action==='search'){
       const prefix=event.data.prefix;
@@ -61,13 +64,13 @@ function handle(event:MessageEvent,{targetLanding,walk,bookOrdinal,digits,projec
       bookmarks=[];
       for(const saved of Array.isArray(event.data.bookmarks)?event.data.bookmarks:[]){
         try{
-          bookOrdinal(saved.book);bookmarkName(saved.name);bookmarkPage(saved.page);
+          saved.book={...saved.book,frame:referenceFrame(saved.book.frame)};bookOrdinal(saved.book);bookmarkName(saved.name);bookmarkPage(saved.page);
           upsertBookmark(bookmarks,saved.book,saved.name,saved.page,(a,b)=>bookOrdinal(a).isEqual(bookOrdinal(b)),bookId(saved.book));
         }catch{/* Ignore malformed saved entries. */}
       }
       bookmarksChanged=true;
       knownExpressions.clear();cachedExpression='';
-      records=(history as GlobalBook[]).filter(record=>{try{bookOrdinal(record);return true;}catch{return false;}});
+      records=[];for(const record of history as GlobalBook[]){try{const normalized={...record,frame:referenceFrame(record.frame)};bookOrdinal(normalized);records.push(normalized);}catch{/* Ignore malformed or unavailable old locations. */}}
       records.forEach(record=>knownExpressions.add(bookId(record)));projectionDirty=true;changed=true;
     }
     let text:string|undefined;
@@ -90,6 +93,6 @@ function handle(event:MessageEvent,{targetLanding,walk,bookOrdinal,digits,projec
       projected=records.map(record=>projectBook(record,frame as GlobalFrame)).filter(b=>b!==null).map(localBookId);
       projectionFrame=frameKey;projectionDirty=false;
     }
-    self.postMessage({id,text,foundPrefix,...(landing?{landing}:{}),...(journeyWalk?{journeyWalk}:{}),...(bookmark!==undefined?{bookmark}:{}),...(bookmarksChanged?{bookmarks}:{}),...(['upload-book','search','history','clear-target','bookmark-track'].includes(action)?{navigation:targetAddress?navigation(targetAddress,frame):null}:{}),opened:projected,...(changed?{history:records}:{})});
-  }catch(error){self.postMessage({id,error:error instanceof Error?error.message:'Book generation failed'});}
+    return {id,text,foundPrefix,...(action==='reference-frame'?{frame}:{}),...(landing?{landing}:{}),...(journeyWalk?{journeyWalk}:{}),...(bookmark!==undefined?{bookmark}:{}),...(bookmarksChanged?{bookmarks}:{}),...(['upload-book','search','history','clear-target','bookmark-track'].includes(action)?{navigation:targetAddress?navigation(targetAddress,frame):null}:{}),opened:projected,...(changed?{history:records}:{})};
+  }catch(error){return {id,error:error instanceof Error?error.message:'Book generation failed'};}
 };
