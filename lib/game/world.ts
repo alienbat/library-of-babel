@@ -203,7 +203,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     for(const entry of bookBatches){
       const {mesh,bay,side,level}=entry;
       if(shelfDistanceSquared(colorEye,entry)>colorRadius**2){
-        if(entry.colored&&mesh.instanceColor){mesh.instanceColor.array.fill(1);mesh.instanceColor.needsUpdate=true;entry.colored=false;}
+        if(entry.colored&&mesh.instanceColor){mesh.instanceColor.array.fill(1);mesh.instanceColor.clearUpdateRanges();mesh.instanceColor.addUpdateRange(0,mesh.instanceColor.array.length);mesh.instanceColor.needsUpdate=true;entry.colored=false;}
         continue;
       }
       for(let row=0;row<ROWS;row++)for(let book=0;book<BOOKS_PER_ROW;book++){
@@ -211,13 +211,18 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         mesh.setColorAt(row*BOOKS_PER_ROW+book,withinColorRange(location)&&opened.has(bookId(location))?openedColor:unreadColor);
       }
       entry.colored=true;
-      if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+      if(mesh.instanceColor){mesh.instanceColor.clearUpdateRanges();mesh.instanceColor.addUpdateRange(0,mesh.instanceColor.array.length);mesh.instanceColor.needsUpdate=true;}
     }
   }
-  function markOpened(location:BookLocation){
+  function markOpened(location:BookLocation,isOpened=true){
     if(!withinColorRange(location))return;
     const found=bookBatches.find(b=>b.level===location.level&&b.bay===location.bay&&b.side===location.side);
-    if(found){found.mesh.setColorAt(location.row*BOOKS_PER_ROW+location.book,openedColor);found.mesh.instanceColor!.needsUpdate=true;found.colored=true;}
+    if(found){
+      const index=location.row*BOOKS_PER_ROW+location.book;
+      found.mesh.setColorAt(index,isOpened?openedColor:unreadColor);
+      found.mesh.instanceColor!.addUpdateRange(index*3,3);
+      found.mesh.instanceColor!.needsUpdate=true;found.colored=true;
+    }
   }
   let detailKey='';
   function updateDetails(eye:T.Vector3){

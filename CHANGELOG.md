@@ -87,3 +87,5 @@ record; older entries are grouped milestones rather than released version number
   unbounded mesh count. Boundary silhouettes and deck overlap were corrected.
 
 - Limit opened-book tint updates to a fixed 24 m radius independently of shelf detail settings, avoiding whole-window colour refreshes at High detail.
+
+- Apply opened-history changes to individual book colours and buffer ranges; unchanged worker replies no longer refresh nearby shelves.

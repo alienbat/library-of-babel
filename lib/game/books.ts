@@ -36,3 +36,17 @@ export function loadOpened(storage:Pick<Storage,'getItem'>):Set<string>{
 
 /** Running title always comes from the opening of page one. */
 export function bookOpeningTitle(opening:string){const first=opening.slice(0,40),period=first.indexOf('.');return period===0?'.':period>0?first.slice(0,period):first;}
+
+/** Diff the worker's local history without scanning shelf instances. */
+export function openedChanges(previous:ReadonlySet<string>,next:ReadonlySet<string>){
+  const changes:{location:BookLocation;opened:boolean}[]=[];
+  function add(id:string,opened:boolean){
+    const match=/^v1\/L(-?\d+)\/([NS])\/S(-?\d+)\/B(\d+)$/.exec(id);if(!match)return;
+    const level=Number(match[1]),shelf=Number(match[3]),book=Number(match[4])-1;
+    if(!Number.isSafeInteger(level)||!Number.isSafeInteger(shelf)||!Number.isInteger(book)||book<0||book>=BOOKS_PER_ROW)return;
+    changes.push({location:{level,side:match[2]==='N'?1:-1,bay:Math.floor(shelf/ROWS),row:mod(shelf,ROWS),book},opened});
+  }
+  for(const id of previous)if(!next.has(id))add(id,false);
+  for(const id of next)if(!previous.has(id))add(id,true);
+  return changes;
+}

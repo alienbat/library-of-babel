@@ -101,6 +101,17 @@ void test('distant cache survives movement, with unchanged book detail and conse
     assert.equal(coloredCount(),0);
     opened.add(bookId(readLocation));world.markOpened(readLocation);
     assert.equal(coloredCount(),1,'only the opened book changes color');
+    const colouredMeshes=scene.getObjectByName('nearby-shelf-details')!.children.filter((o):o is T.InstancedMesh=>o instanceof T.InstancedMesh&&!!o.instanceColor);
+    const versions=new Map(colouredMeshes.map(m=>[m,m.instanceColor!.version]));
+    // Simulate completed uploads before a single status change.
+    for(const mesh of colouredMeshes)mesh.instanceColor!.clearUpdateRanges();
+    world.markOpened(readLocation,false);
+    assert.equal(coloredCount(),0);
+    const changed=colouredMeshes.filter(m=>m.instanceColor!.version!==versions.get(m));
+    assert.equal(changed.length,1,'a status change touches only its shelf buffer');
+    assert.deepEqual(changed[0].instanceColor!.updateRanges,[{start:(readLocation.row*570+readLocation.book)*3,count:3}]);
+    world.markOpened(readLocation);
+    assert.equal(coloredCount(),1);
     const horizon=scene.children[1],cached=horizon.children.slice();
     let books=0;
     scene.traverse(object=>{

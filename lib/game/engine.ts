@@ -22,7 +22,7 @@ import bathroomAssetUrl from '../../models/blender/bathroom/bathroom.glb?url';
 import { createWorld } from './world';
 import { EYE, HEIGHT, INNER,BAY,PERIOD, move, flightVector, flyMove, fallStep, brakeFallStep, type Position, type TravelMode,type WorldLimits } from './physics';
 
-import {bookId,localBookId,bookCenter,pickBook,loadOpened,OPENED_STORAGE_KEY,type BookLocation} from './books';
+import {bookId,localBookId,openedChanges,bookCenter,pickBook,loadOpened,OPENED_STORAGE_KEY,type BookLocation} from './books';
 
 import {createBookClient} from './book-client';
 import {newFrame,shiftFrame,frameLimits,type GlobalFrame} from './global-books';
@@ -49,7 +49,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const journeySeed=restored?.journeySeed??restored?.frame.originSeed??newJourneySeed();
   let globalFrame:GlobalFrame=restored?.frame??{...newFrame(),originSeed:journeySeed};
   let navigationAnchor:NavigationAnchor|null=null;
-  const books=createBookClient(ids=>{opened.clear();ids.forEach(id=>opened.add(id));world.refreshBookColors();},callbacks.onStorageWarning,bookWorkerUrl,anchor=>{navigationAnchor=anchor;emitStats();},callbacks.onBookmarks);
+  const books=createBookClient(ids=>{const next=new Set(ids),changes=openedChanges(opened,next);opened.clear();next.forEach(id=>opened.add(id));for(const change of changes)world.markOpened(change.location,change.opened);},callbacks.onStorageWarning,bookWorkerUrl,anchor=>{navigationAnchor=anchor;emitStats();},callbacks.onBookmarks);
   const highlightGeometry=new T.BoxGeometry(.043,.352,.31);
   const highlightEdges=new T.EdgesGeometry(highlightGeometry);
   const highlightMaterial=new T.LineBasicMaterial({color:'#fff3a8',toneMapped:false});
