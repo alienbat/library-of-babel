@@ -37,7 +37,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   let renderer:T.WebGLRenderer;
   try{renderer=new T.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true,powerPreference:'high-performance'});}
   catch(error){throw new Error(`WebGL initialization failed: ${error instanceof Error?error.message:String(error)}. Check that hardware acceleration is enabled.`);}
-  renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(host.clientWidth,host.clientHeight);
+  renderer.setPixelRatio(window.devicePixelRatio||1);renderer.setSize(host.clientWidth,host.clientHeight);
   renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
   const canvas=renderer.domElement;host.appendChild(canvas);
   const scene=new T.Scene();scene.background=new T.Color('#202825');scene.fog=null;
@@ -201,7 +201,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const focusLost=()=>{clearKeys();dragId=null;if(gameMenu||reading){windSound(0);return;}pause();};
   const visibility=()=>{if(document.hidden)focusLost();};
   const lost=(e:Event)=>{e.preventDefault();pause();callbacks.onError('Graphics were interrupted. Refresh the page to return to the library.');};
-  const resize=()=>{camera.aspect=host.clientWidth/host.clientHeight;camera.updateProjectionMatrix();renderer.setSize(host.clientWidth,host.clientHeight);};
+  const resize=()=>{renderer.setPixelRatio(window.devicePixelRatio||1);camera.aspect=host.clientWidth/host.clientHeight;camera.updateProjectionMatrix();renderer.setSize(host.clientWidth,host.clientHeight);};
   const events:[EventTarget,string,EventListener][]=[
     [window,'mousedown',rightClick as EventListener],[window,'contextmenu',contextmenu],
     [window,'keydown',keydown as EventListener],[window,'keyup',keyup as EventListener],[window,'blur',focusLost],
@@ -211,6 +211,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const observer=new ResizeObserver(resize);observer.observe(host);
   function animate(now:number){
     if(disposed)return;frame=requestAnimationFrame(animate);const dt=Math.min((now-lastTime)/1000,.05);lastTime=now;
+    if(renderer.getPixelRatio()!==(window.devicePixelRatio||1))resize();
     if(reading||gameMenu){windSound(0);return;} // The reader freezes the world; no hidden scene renders are needed.
     if(active&&!reading&&!walkBusy){
       if(keys.has('ArrowLeft'))yaw+=dt*1.4;if(keys.has('ArrowRight'))yaw-=dt*1.4;if(keys.has('ArrowUp'))pitch=Math.min(1.48,pitch+dt);if(keys.has('ArrowDown'))pitch=Math.max(-1.48,pitch-dt);
@@ -264,7 +265,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
       window.location.reload();
     },
     touchMove(direction:string,pressed:boolean){const code=({forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'} as Record<string,string>)[direction];if(pressed)keys.add(code);else keys.delete(code);},
-    configure(next:Settings){config=next;world.setDetail(next.quality);camera.fov=next.fov;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio,next.quality==='low'?1:1.7));renderer.setSize(host.clientWidth,host.clientHeight);if(master&&audio)master.gain.setTargetAtTime(next.sound&&active?.13:0,audio.currentTime,.1);},
+    configure(next:Settings){config=next;world.setDetail(next.quality);camera.fov=next.fov;camera.updateProjectionMatrix();renderer.setPixelRatio(window.devicePixelRatio||1);renderer.setSize(host.clientWidth,host.clientHeight);if(master&&audio)master.gain.setTargetAtTime(next.sound&&active?.13:0,audio.currentTime,.1);},
     dispose(save=true){if(disposed)return;if(save)autoSave();clearInterval(saveTimer);clearInterval(timeTimer);window.removeEventListener('pagehide',autoSave);books.dispose();lifecycle.abort();disposed=true;cancelAnimationFrame(frame);observer.disconnect();events.forEach(([target,name,listener])=>target.removeEventListener(name,listener));if(document.pointerLockElement===canvas)document.exitPointerLock();void audio?.close();world.dispose();highlightGeometry.dispose();highlightEdges.dispose();highlightMaterial.dispose();renderer.dispose();canvas.remove();},
   };
   type ModelContext={registerTool:(tool:{name:string;description:string;inputSchema:object;annotations:{readOnlyHint:boolean};execute:(input:unknown)=>unknown},options:{signal:AbortSignal})=>void|Promise<void>};

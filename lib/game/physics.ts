@@ -22,6 +22,9 @@ export function floorAt(x: number, z: number, previousY: number): number {
 export function allowed(x: number, z: number): boolean {
   const a = Math.abs(z), t = mod(x, PERIOD);
   if (a < INNER + RAIL_OFFSET + .036 + RADIUS || a > OUTER + DORM.depth - .1 - RADIUS) return false;
+  // Include projecting boards and end panels, expanded by the player's radius.
+  const shelfRun=t>=BAY-.0275-RADIUS||t<=.0275+RADIUS;
+  if(shelfRun&&a>OUTER-.29-RADIUS&&a<OUTER+.36+RADIUS)return false;
   // Stairs sit behind the shelves. Their side wall prevents stepping off mid-flight.
   if (a <= OUTER - RADIUS) {
     // Wall-side dispenser and book return leave the gallery aisle clear.

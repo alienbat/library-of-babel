@@ -95,3 +95,5 @@ record; older entries are grouped milestones rather than released version number
 - Show fall speed in km/h with a terminal-velocity indicator, persist Low/High detail preference, and clear all app-owned local-storage keys plus coordinates on Start Over.
 
 - Align shelf uprights with the horizontal board fronts and move guardrails 5 cm onto the deck, including distant rendering and collision clearance.
+
+- Match shelf collision to projecting timber fronts and exposed ends; render at native device pixel ratio on both detail settings, including Retina and display-density changes.
