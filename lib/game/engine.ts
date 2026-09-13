@@ -1,3 +1,4 @@
+import {clearAppStorage} from './preferences';
 // oxlint-disable-next-line import/default
 import light from '../../models/blender/ceiling-light/ceiling-light.glb?url';
 // oxlint-disable-next-line import/default
@@ -10,7 +11,7 @@ import returns from '../../models/blender/library-furnishings/Return.glb?url';
 import bbq from '../../models/blender/library-furnishings/BBQ.glb?url';
 import {clearLocationStorage} from './location-store';
 import {readJourney,newJourneySeed,JOURNEY_STORAGE,libraryTime,bigCount,type Journey,type WalkDirection} from './journey';
-import {BOOKMARK_STORAGE,type Bookmark} from './bookmarks';
+import {type Bookmark} from './bookmarks';
 import {coarseNavigation,type NavigationAnchor,type NavigationHint} from './search';
 import * as T from 'three';
 // oxlint-disable-next-line import/default -- Vite generates the URL export for worker queries.
@@ -22,7 +23,7 @@ import bathroomAssetUrl from '../../models/blender/bathroom/bathroom.glb?url';
 import { createWorld } from './world';
 import { EYE, HEIGHT, INNER,BAY,PERIOD, move, flightVector, flyMove, fallStep, brakeFallStep, type Position, type TravelMode,type WorldLimits } from './physics';
 
-import {bookId,localBookId,openedChanges,bookCenter,pickBook,loadOpened,OPENED_STORAGE_KEY,type BookLocation} from './books';
+import {bookId,localBookId,openedChanges,bookCenter,pickBook,loadOpened,type BookLocation} from './books';
 
 import {createBookClient} from './book-client';
 import {newFrame,shiftFrame,frameLimits,type GlobalFrame} from './global-books';
@@ -256,10 +257,9 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
     start,pause,toggleFlight,openBook,closeBook,toggleMenu,teleport,closeMenu,readPage:(book:BookLocation,page:number)=>books.page(book,page),
     reset(){teleport('arrival');},
     async startOver(){
-      // Clear only this game's progress. Stop autosave and the worker before reload
-      // so pagehide or an outstanding book response cannot restore the old journey.
-      for(const key of [JOURNEY_STORAGE,BOOKMARK_STORAGE,OPENED_STORAGE_KEY,'babel-global-opened-v2'])localStorage.removeItem(key);
+      // Stop all writers before clearing progress, preferences, and legacy keys.
       handle.dispose(false);
+      clearAppStorage(localStorage);
       await clearLocationStorage();
       window.location.reload();
     },

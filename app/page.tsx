@@ -1,4 +1,6 @@
 'use client';
+import {DETAIL_STORAGE,readDetail} from '../lib/game/preferences';
+import {fallSpeedLabel} from '../lib/game/fall-display';
 import {WalkingPanel} from '../components/game/walking-panel';
 import {BookmarkEditor} from '../components/game/bookmark-editor';
 import type {Bookmark} from '../lib/game/bookmarks';
@@ -29,6 +31,7 @@ export default function Home() {
   const [settings,setSettings]=useState(false),[sound,setSound]=useState(true),[motion,setMotion]=useState(false),[fov,setFov]=useState(75),[sensitivity,setSensitivity]=useState(1),[quality,setQuality]=useState('low');
   const [stats,setStats]=useState<GameStats>({floor:'0',distance:'0',mode:'walking',fallSpeed:0}),[drag,setDrag]=useState(false);
   const [target,setTarget]=useState<BookLocation|null>(null),[book,setBook]=useState<BookLocation|null>(null),[page,setPage]=useState(0),[storageWarning,setStorageWarning]=useState(false);
+  function changeDetail(value:string){setQuality(value);try{localStorage.setItem(DETAIL_STORAGE,value);}catch{setStorageWarning(true);}}
   useEffect(()=>{if(book)reader.current?.showModal();},[book]);
   const [opening,setOpening]=useState<{book:BookLocation|null;text:string}>({book:null,text:''});
   useEffect(()=>{let cancelled=false;if(book)void game.current?.readPage(book,0).then(text=>{if(!cancelled)setOpening({book,text});}).catch(()=>{});return ()=>{cancelled=true;};},[book]);
@@ -45,6 +48,7 @@ export default function Home() {
     let disposed=false;
     import('../lib/game/engine').then(({createGame})=>{
       if(disposed||!viewport.current)return;
+      try{setQuality(readDetail(localStorage));}catch{setStorageWarning(true);}
       try {game.current=createGame(viewport.current,{onBookmarks:setBookmarks,onPause:()=>setPlaying(false),onStats:next=>{setStats(next);if(next.savedAt)setEntered(true);},onFallback:()=>setDrag(true),onError:setError,onTarget:setTarget,onBook:b=>{setBook(b);setPage(0);},onPage:delta=>setPage(p=>turnPage(p,delta)),onStorageWarning:()=>setStorageWarning(true),onGameMenu:setMenuOpen,onDebugMenu:setDebugOpen,onDestination:()=>{}});setReady(true);}
       catch(error) {console.error('Library startup failed:',error);setError(error instanceof Error?error.message:'The library could not start. Please reload to try again.');}
     }).catch(()=>setError('The library could not load. Please refresh to try again.'));
@@ -115,13 +119,13 @@ export default function Home() {
       {storageWarning&&<p className="error" role="alert">Browser storage is unavailable or full. Progress and bookmarks may only last for this session.</p>}
       {saveNotice&&<output className="save-notice">{saveNotice}</output>}
       {error&&<p className="error" role="alert">{error}</p>}
-      {settings&&<div className="settings"><label>Field of view <span>{fov}°</span><input type="range" min="55" max="100" value={fov} onChange={e=>setFov(+e.target.value)}/></label><label>Mouse sensitivity <span>{sensitivity.toFixed(1)}</span><input type="range" min="0.3" max="2.5" step="0.1" value={sensitivity} onChange={e=>setSensitivity(+e.target.value)}/></label><label className="inline-label">Gentle walking motion<input type="checkbox" checked={motion} onChange={e=>setMotion(e.target.checked)}/></label><label className="inline-label">Detail<select value={quality} onChange={e=>setQuality(e.target.value)}><option value="low">Low — 32 m</option><option value="high">High — 100 m</option></select></label><button className="danger-button" onClick={()=>{setResetError('');setConfirmReset(true);}}>Start Over</button></div>}
+      {settings&&<div className="settings"><label>Field of view <span>{fov}°</span><input type="range" min="55" max="100" value={fov} onChange={e=>setFov(+e.target.value)}/></label><label>Mouse sensitivity <span>{sensitivity.toFixed(1)}</span><input type="range" min="0.3" max="2.5" step="0.1" value={sensitivity} onChange={e=>setSensitivity(+e.target.value)}/></label><label className="inline-label">Gentle walking motion<input type="checkbox" checked={motion} onChange={e=>setMotion(e.target.checked)}/></label><label className="inline-label">Detail<select value={quality} onChange={e=>changeDetail(e.target.value)}><option value="low">Low — 32 m</option><option value="high">High — 100 m</option></select></label><button className="danger-button" onClick={()=>{setResetError('');setConfirmReset(true);}}>Start Over</button></div>}
       <div className="instructions"><span><kbd>W A S D</kbd> Move</span><span><kbd>MOUSE</kbd> Look</span><span><kbd>SHIFT</kbd> Move faster</span><span><kbd>SPACE</kbd> Toggle flight</span><span><kbd>LEFT CLICK</kbd> Read a book</span><span><kbd>T</kbd> Actions</span><span><kbd>M / ESC</kbd> Game Menu</span></div>
       <p className="mobile-instructions">Use the left pad to move. Drag on the right to look. Tap Fly to take off.</p>
     </section>}
     {confirmReset&&<dialog ref={resetDialog} className="reset-dialog" aria-labelledby="reset-title" aria-describedby="reset-description" onCancel={event=>{event.preventDefault();setConfirmReset(false);}}>
       <h2 id="reset-title">Start over?</h2>
-      <p id="reset-description">This deletes your saved location, journey distance, time in the library, bookmarks, and opened-book history in this browser. A new journey starts at zero. This cannot be undone.</p>
+      <p id="reset-description">This deletes all saved app data in this browser, including your location, journey, bookmarks, opened-book history, and settings. A new journey starts at zero. This cannot be undone.</p>
       {resetError&&<p className="error" role="alert">{resetError}</p>}
       <div className="reset-actions"><button autoFocus onClick={()=>setConfirmReset(false)}>No</button><button className="danger-button" onClick={async()=>{try{await game.current?.startOver();}catch{setResetError('Could not clear progress. Check browser storage permissions and try again.');}}}>Yes</button></div>
     </dialog>}
@@ -177,6 +181,6 @@ export default function Home() {
       <nav className="reader-navigation" aria-label="Book pages"><button disabled={page===0} onClick={()=>setPage(p=>turnPage(p,-1))}>← Previous</button><span aria-live="polite">Page {page+1} of {PAGE_COUNT}</span><button disabled={page===PAGE_COUNT-1} onClick={()=>setPage(p=>turnPage(p,1))}>Next →</button></nav>
       <BookmarkEditor key={bookId(book)} game={game} book={book} page={page} onRestore={restoreBookmarkPage}/>
     </dialog>}
-    <footer><span>{playing?(stats.mode==='flying'?'FLYING':stats.mode==='falling'?`FALLING · ${Math.round(stats.fallSpeed / 0.44704)} MPH`:'WALKING'):''}</span><div><span className="library-clock">{stats.libraryClock}</span><span>LEVEL <b>{stats.floor==='0'?'0':`${stats.floor.startsWith('-')?'':'+'}${stats.floor}`}</b></span><span><b>{stats.distance.toLocaleString()}</b> m travelled total</span></div></footer>
+    <footer><span>{playing?(stats.mode==='flying'?'FLYING':stats.mode==='falling'?fallSpeedLabel(stats.fallSpeed):'WALKING'):''}</span><div><span className="library-clock">{stats.libraryClock}</span><span>LEVEL <b>{stats.floor==='0'?'0':`${stats.floor.startsWith('-')?'':'+'}${stats.floor}`}</b></span><span><b>{stats.distance.toLocaleString()}</b> m travelled total</span></div></footer>
   </main>;
 }
