@@ -5,6 +5,14 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Align gallery door heads with shelf crowns at 3.33 m, and standardize wall
+  sign dimensions, text size and alignment. Mount two lights on the top
+  stairwell ceiling at the usual landing positions and update the static bake.
+
+- Remove the floating fixture beneath the removed top stair landing. Bake the
+  final flight from the top ceiling light, with contact shading from its actual
+  geometry instead of repeating the normal stairwell lighting.
+
 - Use “Eternity can wait.” in the pause menu with more button spacing. Remove
   the interior bathroom sign, conceal shelf backing behind flat bedroom walls,
   and place headboards close to the walls while retaining side access.
@@ -97,3 +105,13 @@ record; older entries are grouped milestones rather than released version number
 - Align shelf uprights with the horizontal board fronts and move guardrails 5 cm onto the deck, including distant rendering and collision clearance.
 
 - Match shelf collision to projecting timber fronts and exposed ends; render at native device pixel ratio on both detail settings, including Retina and display-density changes.
+
+## Modular Blender shelves
+
+- Added repeatable shelf bay, start variant, shared end cap and low-poly rounded-spine books, with editable Blender source and preview.
+- Replaced nearby shelf frame batches with one shared module mesh per bay; preserved all book positions, capacity, interactions, and 24 m opened-book tint.
+- Use rounded books within 24 m and cheaper box books to the existing Low/32 m or High/100 m cutoff. Retain matching textured distant shelves and infinite horizon; no extra lighting or geometry at long range.
+
+- Extend the top and bottom shelf caps to the outer edges of both end panels, removing the stepped corner at exposed shelf ends.
+
+- Remove unused top/bottom stairwell alcoves, seal their gallery entries, remove redundant partitions/landing floors, and mount/rebake the top stairwell ceiling light. Cull shelf bays beyond library ends to remove stray end panels.

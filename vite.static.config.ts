@@ -18,6 +18,7 @@ export default defineConfig({
   build: {
     outDir: fileURLToPath(new URL('./dist/github', import.meta.url)),
     emptyOutDir: true,
+    assetsInlineLimit: 0, // Keep even tiny shared GLBs cacheable as model assets.
     target: 'es2020',
   },
   worker: { format: 'es' },

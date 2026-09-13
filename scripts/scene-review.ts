@@ -5,7 +5,7 @@ const renderer=new T.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true})
 renderer.setSize(1100,720);renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
 document.body.appendChild(renderer.domElement);
 const scene=new T.Scene();scene.background=new T.Color('#202825');
-const world=createWorld(scene,new Set(),'/models/blender/bed/bed.glb','/models/blender/bathroom/bathroom.glb',{board:'/models/blender/library-furnishings/ShelfBoard.glb',upright:'/models/blender/library-furnishings/ShelfUpright.glb',returns:'/models/blender/library-furnishings/Return.glb',bbq:'/models/blender/library-furnishings/BBQ.glb',light:'/models/blender/ceiling-light/ceiling-light.glb'}),camera=new T.PerspectiveCamera(65,1100/720,.1,16000);
+const world=createWorld(scene,new Set(),'/models/blender/bed/bed.glb','/models/blender/bathroom/bathroom.glb',{module:'/models/blender/shelves/ShelfModule.glb',start:'/models/blender/shelves/ShelfModuleStart.glb',book:'/models/blender/shelves/ShelfBook.glb',board:'/models/blender/shelves/ShelfBoard.glb',upright:'/models/blender/shelves/ShelfUpright.glb',returns:'/models/blender/library-furnishings/Return.glb',bbq:'/models/blender/library-furnishings/BBQ.glb',light:'/models/blender/ceiling-light/ceiling-light.glb'}),camera=new T.PerspectiveCamera(65,1100/720,.1,16000);
 let errors=0;
 renderer.debug.onShaderError=(gl,program,vs,fs)=>{errors++;console.error(gl.getProgramInfoLog(program),gl.getShaderInfoLog(vs),gl.getShaderInfoLog(fs));};
 const views={
@@ -15,6 +15,15 @@ const views={
  BathroomLight:{p:[27,2,OUTER+2.7],at:[27,3.53,OUTER+2.7],limits:{}},
  StairLight:{p:[2.5,2,OUTER+2.1],at:[2.5,3.53,OUTER+2.1],limits:{}},
  CeilingLight:{p:[3.81,2,17.1],at:[3.81,3.58,17.0688],limits:{}},
+ TopClosedEntry:{p:[2.5,1.68,OUTER-2],at:[2.5,1.8,OUTER+1],limits:{minX:0,maxY:HEIGHT-.34}},
+ BottomClosedEntry:{p:[13.5,1.68,OUTER-2],at:[13.5,1.8,OUTER+1],limits:{minX:0,minY:0}},
+ AlignedFrontage:{p:[14,1.8,0],at:[14,1.8,OUTER],limits:{}},
+ TopTwoLights:{p:[8,-2,OUTER+2],at:[8,3.6,OUTER+2.1],limits:{maxY:HEIGHT-.34}},
+ FinalStairFlight:{p:[4,-HEIGHT+1.68,OUTER+2],at:[8,3.6,OUTER+2],limits:{maxY:HEIGHT-.34}},
+ TopStairCeiling:{p:[10,1.2,OUTER+2],at:[6,3.6,OUTER+2],limits:{minX:0,maxY:HEIGHT-.34}},
+ ShelfBookClose:{p:[30,1.45,OUTER-.62],at:[30,1.45,OUTER],limits:{}},
+ ShelfModuleJoin:{p:[45,1.68,OUTER-1.1],at:[45.72,2,OUTER],limits:{}},
+ ShelfBookOpposite:{p:[30,1.45,-OUTER+.62],at:[30,1.45,-OUTER],limits:{}},
  ShelfEndFlush:{p:[24,1.68,OUTER-1],at:[22.86,2.6,OUTER-.2],limits:{}},
  RailFooting:{p:[33,1.68,INNER+1],at:[34,0,INNER+.05],limits:{}},
  ShelfRunStart:{p:[9,1.68,OUTER-1.7],at:[26,1.8,OUTER-.15],limits:{}},

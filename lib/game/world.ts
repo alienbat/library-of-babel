@@ -1,14 +1,14 @@
 import {createCeilingLights} from './ceiling-lights.ts';
 import {createShelfFrame} from './shelf-frame.ts';
 import {createBathroomFixtures,BATHROOM_CONTACTS,type BathroomPlacement} from './bathroom-fixtures.ts';
-import {DORM,DORM_BEDS,BATH_SHIFT} from './room-layout.ts';
+import {DORM,DORM_BEDS,BATH_SHIFT,ENTRY_HEIGHT} from './room-layout.ts';
 import {createBeds,createFurniture,type BedPlacement} from './beds.ts';
 import {roomOccluders} from './room-ao.ts';
 import {createStairCulling} from './landing-occlusion.ts';
 import {detailCells,detailRadius,shelfDistanceSquared,shelfLod,type ShelfCell} from './shelf-lod.ts';
 import * as T from 'three';
 import {createWallWriting} from './wall-writing.ts';
-import {ROOM_LIGHTS} from './room-lighting.ts';
+import {roomLights} from './room-lighting.ts';
 import {staircase} from './stairs.ts';
 import {createBoundaryLighting,BOUNDARY_SPAN,BOUNDARY_LIGHT_SPACING,WALL_LIGHT_SPACING} from './boundary-lighting.ts';
 import {createInfiniteHorizon,withHorizonFade} from './horizon.ts';
@@ -18,7 +18,7 @@ import { BAY, HEIGHT, INNER, RAIL_OFFSET, OUTER, PERIOD, mod,type WorldLimits } 
 import {bookId,ROWS,BOOKS_PER_ROW,type BookLocation} from './books.ts';
 
 type Box = [number, number, number, number, number, number];
-export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set(),bedAssetUrl?:string,bathroomAssetUrl?:string,furnishingUrls?:{board:string;upright:string;returns:string;bbq:string;light?:string}) {
+export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set(),bedAssetUrl?:string,bathroomAssetUrl?:string,furnishingUrls?:{board:string;upright:string;returns:string;bbq:string;light?:string;module?:string;start?:string;book?:string}) {
   const group = new T.Group(), distantGroup = new T.Group(); scene.add(group,distantGroup);
   const geometries: T.BufferGeometry[] = [];
   const textures: T.Texture[] = [];
@@ -37,6 +37,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   // Consolidate identical face materials: two draws instead of six per batch.
   const deckGeometry=faces([0,1,3,4,5,2]);deckGeometry.addGroup(0,30,0);deckGeometry.addGroup(30,6,1);
   const bookGeometry=faces([0,1,4,5,2,3]);bookGeometry.addGroup(0,24,0);bookGeometry.addGroup(24,12,1);
+  const roundedBookGeometry=bookGeometry.clone();geometries.push(roundedBookGeometry);
   const baseGeometryCount=geometries.length;
   const dummy = new T.Object3D();
   let seed = 9834;
@@ -78,7 +79,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     rect(0,.03,BAY,.06,'#544b3d');
   });
   const lighting=bakeGalleryLighting(),beds=createBeds(scene,lighting.material,bedAssetUrl),bathrooms=createBathroomFixtures(scene,lighting.material,bathroomAssetUrl),stairCulling=createStairCulling(scene);
-  const shelfFrame=createShelfFrame(furnishingUrls),returns=createFurniture(scene,lighting.material,furnishingUrls?.returns,'return'),bbq=createFurniture(scene,lighting.material,furnishingUrls?.bbq,'bbq');
+  const shelfFrame=createShelfFrame(furnishingUrls,roundedBookGeometry),returns=createFurniture(scene,lighting.material,furnishingUrls?.returns,'return'),bbq=createFurniture(scene,lighting.material,furnishingUrls?.bbq,'bbq');
   let occlusionEnabled=true;
   spines.wrapS=T.RepeatWrapping;
   const boundary=createBoundaryLighting(carpet);
@@ -147,7 +148,12 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     c.fillStyle='rgba(225,206,163,.23)';c.fillRect(8,52,16,4);c.fillRect(8,232,16,4);
   });
   const bookMat=mat({map:binding,roughness:1});
-  const goldMat=mat({color:'#b59b59',roughness:.65,metalness:.35});
+  const pages=texture(64,256,c=>{
+    c.fillStyle='#987953';c.fillRect(0,0,64,256);
+    c.fillStyle='#b59b59';c.fillRect(3,3,58,242);
+    c.fillStyle='rgba(75,60,39,.14)';for(let y=5;y<245;y+=4)c.fillRect(3,y,58,1);
+  });
+  const goldMat=mat({map:pages,roughness:1});
   const screenMat=mat({color:'#b3c9b3',emissive:'#7d9d80',emissiveIntensity:.6});
   goldMat.name='book-edges';
   const distantWallMat=fade(mat({color:'#a8a69a'}));
@@ -165,7 +171,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const baseTextureCount=textures.length,baseMaterialCount=materials.length;
   function batch(boxes:Box[], material:T.Material|T.Material[], target=group,geometry:T.BufferGeometry=boxGeo) {
     const m=new T.InstancedMesh(geometry,material,boxes.length);
-    boxes.forEach((b,i)=>{dummy.position.set(b[0],b[1],b[2]);dummy.rotation.set(0,0,0);dummy.scale.set(b[3],b[4],b[5]);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});
+    boxes.forEach((b,i)=>{dummy.position.set(b[0],b[1],b[2]);dummy.rotation.set(0,geometry===bookGeometry&&b[2]<0?Math.PI:0,0);dummy.scale.set(b[3],b[4],b[5]);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});
     m.computeBoundingSphere();target.add(m);return m;
   }
   const distantBatches:{mesh:T.InstancedMesh;bounds:T.Box3}[]=[];
@@ -239,16 +245,13 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     const existing=new Set(bookBatches.map(id));
     for(const cell of cells)if(!existing.has(id(cell))){
       const {bay,level,side}=cell,x=bay*BAY,y=level*HEIGHT;
-      const boards:Box[]=[],uprights:Box[]=[],books:Box[]=[];
-      for(let row=0;row<ROWS;row++){
-        boards.push([x+BAY/2,y+.11+row*.39,side*(OUTER-.04),BAY,.04,.5]);
-        for(let i=0;i<BOOKS_PER_ROW;i++)books.push([x+(i+.5)*BAY/BOOKS_PER_ROW,y+.30+row*.39,side*(OUTER-.08),.037,.34,.3]);
-      }
-      for(let j=mod(bay,12)===1?1:0;j<8;j++)uprights.push([x+j*BAY/8,y+1.63,side*(OUTER-.04),.055,3.25,.5]);
+      const books:Box[]=[];
+      for(let row=0;row<ROWS;row++)for(let i=0;i<BOOKS_PER_ROW;i++)books.push([x+(i+.5)*BAY/BOOKS_PER_ROW,y+.30+row*.39,side*(OUTER-.08),.037,.34,.3]);
       const mesh=batch(books,[bookMat,goldMat],detailGroup,bookGeometry);
       const backing=batch([[x+BAY/2,y+1.62,side*(OUTER+.22),BAY,3.18,.28]],shelfBackMat,detailGroup);
-      bookBatches.push({...cell,mesh,parts:[mesh,backing,batch(boards,woodMat,detailGroup,shelfFrame.board),batch(uprights,woodMat,detailGroup,shelfFrame.upright)]});
+      bookBatches.push({...cell,mesh,parts:[mesh,backing,batch([[x+BAY/2,y+1.63,side*(OUTER-.04),BAY,3.25,.5]],woodMat,detailGroup,mod(bay,12)===1?shelfFrame.start:shelfFrame.module)]});
     }
+    for(const entry of bookBatches)entry.mesh.geometry=shelfDistanceSquared(snapped,entry)<=24**2?roundedBookGeometry:bookGeometry;
     refreshBookColors();
   }
   // Bounded window of repeated geometry; shifted around the walker, never an end wall.
@@ -276,6 +279,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     for(let f=fy-32;f<=fy+32;f++)for(let b=bx-15;b<=bx+15;b++)for(const side of [-1,1]) {
       const x=b*BAY,y=f*HEIGHT,z=side*(INNER+1.8288), amenity=mod(b,12)===0;
       if(y<(cornerLimits.minY??-Infinity)-.001||y>(cornerLimits.maxY??Infinity)+.001)continue;
+      if(x+BAY<=(cornerLimits.minX??-Infinity)||x>=(cornerLimits.maxX??Infinity))continue;
       // Carpet is the top face of one solid deck, never a second coplanar mesh.
       decks.push([x+BAY/2,y-.17,z,BAY,.34,3.6576]);
       // At the top there is no next floor to supply the gallery ceiling.
@@ -290,9 +294,15 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         if(mod(b,12)===1)shelfEnds.push([x,y+1.63,side*(OUTER-.04),.055,3.25,.5]);
         if(mod(b+1,12)===0)shelfEnds.push([x+BAY,y+1.63,side*(OUTER-.04),.055,3.25,.5]);
         walls.push([x+BAY/2,y+(3.33+HEIGHT-.34)/2,side*(OUTER+.15),BAY,HEIGHT-.34-3.33,.3]);
-        trim.push([x+BAY/2,y+3.28,side*(OUTER-.04),BAY,.10,.5],[x+BAY/2,y+.045,side*(OUTER-.04),BAY,.09,.5]);
+        // End panels straddle the run boundary; the caps cover their outer edge.
+        const leftCap=mod(b,12)===1?.0275:0,rightCap=mod(b+1,12)===0?.0275:0;
+        const trimX=x+(BAY+rightCap-leftCap)/2,trimWidth=BAY+leftCap+rightCap;
+        trim.push([trimX,y+3.28,side*(OUTER-.04),trimWidth,.10,.5],[trimX,y+.045,side*(OUTER-.04),trimWidth,.09,.5]);
       }else {
         walls.push([x+.5,y+1.81,side*(OUTER+.15),1,3.62,.3],[x+15.5,y+1.81,side*(OUTER+.15),1,3.62,.3],[x+17,y+1.81,side*(OUTER+.25),2,3.62,.5],[x+22,y+1.81,side*(OUTER+.25),4,3.62,.5]);
+        // Match the bedroom and stair openings to the shelf crown.
+        const doorLintel=HEIGHT-.34-ENTRY_HEIGHT;
+        walls.push([x+(DORM.doorLeft+DORM.doorRight)/2,y+ENTRY_HEIGHT+doorLintel/2,side*(OUTER+.25),DORM.doorRight-DORM.doorLeft,doorLintel,.5]);
         const stairs=staircase(x,y,side,cornerLimits);
         walls.push(...stairs.walls);floors.push(...stairs.floors);slabs.push(...stairs.steps);
         if(cornerLimits.maxY!==undefined&&Math.abs(y+HEIGHT-.34-cornerLimits.maxY)<.001){
@@ -326,7 +336,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
           [x+17,y+.94,side*(OUTER-.49),.9,.08,1.1]);
         returnPlacements.push({x:x+21.43,y,z:side*(OUTER-.16),side});
         propContacts.push([x+21.43,y+.62,side*(OUTER-.16),.5,1.24,.44]);
-        for(const lamp of ROOM_LIGHTS){
+        for(const lamp of roomLights(cornerLimits.maxY!==undefined&&Math.abs(y+HEIGHT-.34-cornerLimits.maxY)<.001,cornerLimits.minY!==undefined&&Math.abs(y-cornerLimits.minY)<.001,cornerLimits.maxY!==undefined&&Math.abs(y+2*HEIGHT-.34-cornerLimits.maxY)<.001)){
           if(lamp.y>HEIGHT&&cornerLimits.maxY!==undefined&&y+lamp.y>cornerLimits.maxY)continue;
           lamps.push([x+lamp.x,y+lamp.y,side*(OUTER+lamp.z),1.6,.035,.28]);
         }
@@ -344,8 +354,10 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     const normalFloor=Math.max(bottomFloor+2,Math.min(fy,topFloor-2));
     const contacts=(floor:number)=>()=>roomOccluders([decks,slabs,floors,shelves,trim,lamps,walls,dark,screens,tiles,bedContacts,bathroomContacts,propContacts].flat(),new T.Vector3(roomX,floor*HEIGHT,0));
     lighting.bakeRoomContacts(contacts(normalFloor));
-    if(topFloor>=fy-31&&topFloor<=fy+31)
+    if(topFloor>=fy-30&&topFloor<=fy+31){
       lighting.bakeRoomContacts(contacts(topFloor),true);
+      lighting.bakeRoomContacts(contacts(topFloor-1),'final');
+    }
     // This periodic horizon never needs to be regenerated when walking. Moving its
     // origin by whole bays/floors preserves the same shelf and lamp alignment.
     distantGroup.position.set(bx*BAY,fy*HEIGHT,0);

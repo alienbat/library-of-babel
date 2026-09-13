@@ -1,10 +1,16 @@
+// oxlint-disable-next-line import/default
+import shelfModule from '../../models/blender/shelves/ShelfModule.glb?url';
+// oxlint-disable-next-line import/default
+import shelfStart from '../../models/blender/shelves/ShelfModuleStart.glb?url';
+// oxlint-disable-next-line import/default
+import shelfBook from '../../models/blender/shelves/ShelfBook.glb?url';
 import {clearAppStorage} from './preferences';
 // oxlint-disable-next-line import/default
 import light from '../../models/blender/ceiling-light/ceiling-light.glb?url';
 // oxlint-disable-next-line import/default
-import board from '../../models/blender/library-furnishings/ShelfBoard.glb?url';
+import board from '../../models/blender/shelves/ShelfBoard.glb?url';
 // oxlint-disable-next-line import/default
-import upright from '../../models/blender/library-furnishings/ShelfUpright.glb?url';
+import upright from '../../models/blender/shelves/ShelfUpright.glb?url';
 // oxlint-disable-next-line import/default
 import returns from '../../models/blender/library-furnishings/Return.glb?url';
 // oxlint-disable-next-line import/default
@@ -44,7 +50,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const camera=new T.PerspectiveCamera(75,host.clientWidth/host.clientHeight,.1,16000);camera.rotation.order='YXZ';
   let opened=new Set<string>();
   try{opened=loadOpened(localStorage);}catch{/* Session history still works without storage. */}
-  const world=createWorld(scene,opened,bedAssetUrl,bathroomAssetUrl,{board,upright,returns,bbq,light});
+  const world=createWorld(scene,opened,bedAssetUrl,bathroomAssetUrl,{board,upright,returns,bbq,light,module:shelfModule,start:shelfStart,book:shelfBook});
   let restored:Journey|null=null;
   try{restored=readJourney(localStorage);}catch{callbacks.onStorageWarning();}
   const journeySeed=restored?.journeySeed??restored?.frame.originSeed??newJourneySeed();

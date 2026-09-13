@@ -1,4 +1,4 @@
-import {DORM,DORM_BEDS,BATH_SHIFT,showerFloorHeight} from './room-layout.ts';
+import {ENTRY_HEIGHT,DORM,DORM_BEDS,BATH_SHIFT,showerFloorHeight} from './room-layout.ts';
 // Project dimensions in metres; see README.md for literary inspiration and choices.
 export const GAP = 30.48;
 export const INNER = GAP / 2;
@@ -65,9 +65,9 @@ export function withinLimits(p:Position,limits:WorldLimits={}){
 }
 function terminalStairWall(p:Position,limits:WorldLimits){
   const a=Math.abs(p.z),t=mod(p.x,PERIOD);
-  if(a<OUTER+.3-RADIUS||a>OUTER+3.8+RADIUS)return false;
+  if(a<OUTER-RADIUS||a>OUTER+.3+RADIUS)return false;
   const top=limits.maxY===undefined?undefined:limits.maxY-HEIGHT+.34;
-  return [[top,4],[limits.minY,12]].some(([floor,x])=>floor!==undefined&&x!==undefined&&Math.abs(t-x)<.08+RADIUS&&p.y+EYE+.12>floor-.34&&p.y<floor+HEIGHT-.34);
+  return [[top,1,4],[limits.minY,12,15]].some(([floor,left,right])=>floor!==undefined&&left!==undefined&&right!==undefined&&t>left-RADIUS&&t<right+RADIUS&&p.y+BODY_HEIGHT>floor-.34&&p.y<floor+HEIGHT-.34);
 }
 function walkable(x:number,z:number,y:number,limits:WorldLimits){
   return !terminalStairWall({x,y,z},limits)&&(allowed(x,z)||(limits.minY!==undefined&&Math.abs(y-limits.minY)<.001&&Math.abs(z)<INNER-RADIUS-.04));
@@ -110,11 +110,13 @@ export function flightVector(yaw:number,pitch:number,forward:number,right:number
 }
 
 /** Highest actual walking surface below the feet; the chasm has no support. */
-export function supportBelow(p:Position):number|null {
+export function supportBelow(p:Position,limits:WorldLimits={}):number|null {
   if(!allowed(p.x,p.z))return null;
   const t=mod(p.x,PERIOD);
   const ramp=Math.abs(p.z)>OUTER+.48&&t>=4&&t<=12?(t-4)/8*HEIGHT:showerFloorHeight(t,Math.abs(p.z)-OUTER);
-  return Math.floor((p.y-ramp+1e-8)/HEIGHT)*HEIGHT+ramp;
+  const support=Math.floor((p.y-ramp+1e-8)/HEIGHT)*HEIGHT+ramp;
+  const top=limits.maxY===undefined?Infinity:limits.maxY-HEIGHT+.34;
+  return t>1&&t<4&&Math.abs(p.z)>OUTER+.3&&support>=top-.001?top-HEIGHT:support;
 }
 
 export function airClear(p:Position):boolean {
@@ -127,7 +129,8 @@ export function airClear(p:Position):boolean {
   const level=Math.floor((p.y-ramp+1e-8)/HEIGHT)*HEIGHT+ramp;
   const height=p.y-level;
   const inDoor=(t>1&&t<4)||(t>12&&t<15);
-  if(inDoor&&a>OUTER+.4-RADIUS&&a<OUTER+.56+RADIUS&&height+BODY_HEIGHT>2.6)return false;
+  if(t>DORM.doorLeft&&t<DORM.doorRight&&a>OUTER-RADIUS&&a<OUTER+.5+RADIUS&&height+BODY_HEIGHT>ENTRY_HEIGHT)return false;
+  if(inDoor&&a>OUTER-RADIUS&&a<OUTER+.3+RADIUS&&height+BODY_HEIGHT>ENTRY_HEIGHT)return false;
   // A full body must fit between the deck and the ceiling. Crossing above the
   // 4-foot rail is possible, but passing through a deck or shelving is not.
   if(height<showerFloorHeight(t,a-OUTER)-1e-7||height+BODY_HEIGHT>HEIGHT-.34)return false;
@@ -161,7 +164,7 @@ export function fallStep(p:Position,speed:number,dt:number,limits:WorldLimits={}
     const logCosh=(x:number)=>x+Math.log1p(Math.exp(-2*x))-Math.LN2;
     drop=TERMINAL_SPEED**2/GRAVITY*(logCosh(b)-logCosh(a));
   }
-  const support=supportBelow(p);
+  const support=supportBelow(p,limits);
   const surface=limits.minY===undefined?support:Math.max(support??-Infinity,limits.minY);
   if(surface!==null&&p.y-drop<=surface)return {position:{...p,y:surface},speed:0,landed:true};
   return {position:{...p,y:p.y-drop},speed:nextSpeed,landed:false};
@@ -171,7 +174,7 @@ export function fallStep(p:Position,speed:number,dt:number,limits:WorldLimits={}
 export function brakeFallStep(p:Position,speed:number,dt:number,limits:WorldLimits={}) {
   const v=Math.max(0,speed),a=5*GRAVITY,t=Math.min(Math.max(0,dt),v/a);
   const drop=v*t-.5*a*t*t;
-  const support=supportBelow(p);
+  const support=supportBelow(p,limits);
   const surface=limits.minY===undefined?support:Math.max(support??-Infinity,limits.minY);
   if(surface!==null&&p.y-drop<=surface)return {position:{...p,y:surface},speed:0,landed:true};
   return {position:{...p,y:p.y-drop},speed:Math.max(0,v-a*t),landed:false};

@@ -8,7 +8,8 @@ await build({input:'scripts/scene-review.ts',output:{file:'work/scene-check/revi
 const html='<!doctype html><html><body style="margin:0;background:#222;color:white;font:16px sans-serif"><div id="buttons"></div><div id="status"></div><script type="module" src="review.js"></script></body></html>';
 const port=Number(process.env.SCENE_PORT??8765);
 createServer(async(req,res)=>{
-  if(req.url==='/models/blender/ceiling-light/ceiling-light.glb'){res.setHeader('Content-Type','model/gltf-binary');res.end(await readFile(req.url.slice(1)));}
+  if(/^\/models\/blender\/shelves\/(ShelfBoard|ShelfUpright|ShelfModule|ShelfModuleStart|ShelfBook)\.glb$/.test(req.url)){res.setHeader('Content-Type','model/gltf-binary');res.end(await readFile(req.url.slice(1)));}
+  else if(req.url==='/models/blender/ceiling-light/ceiling-light.glb'){res.setHeader('Content-Type','model/gltf-binary');res.end(await readFile(req.url.slice(1)));}
   else if(/^\/models\/blender\/library-furnishings\/(ShelfBoard|ShelfUpright|Return|BBQ)\.glb$/.test(req.url)){res.setHeader('Content-Type','model/gltf-binary');res.end(await readFile(req.url.slice(1)));}
   else if(req.url==='/models/blender/bathroom/bathroom.glb'){res.setHeader('Content-Type','model/gltf-binary');res.end(await readFile('models/blender/bathroom/bathroom.glb'));}
   else if(req.url==='/models/blender/bed/bed.glb'){res.setHeader('Content-Type','model/gltf-binary');res.end(await readFile('models/blender/bed/bed.glb'));}
