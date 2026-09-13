@@ -7,7 +7,7 @@ void test('baked volume is bounded, filtered, periodic and brighter beneath fixt
   try{
     const {data,width,height,depth}=bake.positive.image;
     assert.ok(data);assert.ok(bake.negative.image.data);
-    assert.equal(data.byteLength+bake.negative.image.data.byteLength,192*1024);
+    assert.equal(data.byteLength+bake.negative.image.data.byteLength,width*height*depth*8);
     assert.equal(bake.positive.wrapS,T.RepeatWrapping);
     assert.equal(bake.positive.minFilter,T.LinearFilter);
     const sample=(x:number,y:number,z:number,axis:number)=>data[((z*height+y)*width+x)*4+axis];

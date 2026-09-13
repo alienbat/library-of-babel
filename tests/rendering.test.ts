@@ -147,7 +147,7 @@ void test('distant cache survives movement, with unchanged book detail and conse
     let baked=0;
     scene.traverse(object=>{if(object instanceof T.Mesh)for(const material of Array.isArray(object.material)?object.material:[object.material]){
       assert.ok(material instanceof T.MeshBasicMaterial||object.name==='infinite-gallery-horizon','scene uses unlit materials');
-      if(material.customProgramCacheKey()==='baked-gallery-volume-v1'){
+      if(material.customProgramCacheKey()==='cycles-directional-field-v1'){
         const shader={uniforms:{},vertexShader:T.ShaderLib.basic.vertexShader,fragmentShader:T.ShaderLib.basic.fragmentShader} as T.WebGLProgramParametersWithUniforms;
         material.onBeforeCompile(shader,{} as T.WebGLRenderer);
         assert.ok(shader.fragmentShader.includes('texture(bakedPositive,uvw)'));

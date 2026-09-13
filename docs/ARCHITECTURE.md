@@ -17,7 +17,7 @@ See [static hosting](GITHUB_PAGES.md). The production renderer is Three.js. The 
 | Shelf selection and distant appearance  | `lib/game/shelf-lod.ts`                                                          |
 | Global book identity and search         | `lib/game/global-books.ts`, `lib/game/search.ts`, `lib/game/portable-books.ts`   |
 | Compact persistent address references   | `lib/game/location-store.ts`                                                     |
-| Gallery/room/boundary light baking      | `lib/game/lighting.ts`, `room-lighting.ts`, `room-ao.ts`, `boundary-lighting.ts` |
+| Gallery/room/boundary light baking      | `lib/game/lighting.ts`, `room-lighting.ts`, `baked-light-field.ts`, `boundary-lighting.ts` |
 | Distant horizon                         | `lib/game/horizon.ts`                                                            |
 | Stair visibility                        | `lib/game/landing-occlusion.ts`                                                  |
 
@@ -131,13 +131,15 @@ geometry without changing visible pixels in the tested views.
 ## Static lighting and sound
 
 MeshBasicMaterial with custom shader hooks samples precomputed diffuse irradiance.
-A reusable 192 KiB gallery volume encodes six directional lobes. Rooms have separate
-fields, including a top-stair variant without an imaginary upper flight. Local
-room AO is baked from geometry into those existing textures once per variant;
-it adds no per-frame samples or GPU textures. See [the AO port notes](static-room-ao.md).
+Offline Blender Cycles bakes six directional luminance lobes with six diffuse
+bounces and zero world illumination. Gallery and room fields use separate repeating
+cells, including top, bottom and final-flight stair variants. No room AO multiplier
+is applied over the Cycles results. See [the bake workflow](CYCLES_LIGHTING.md) for
+resolution, transport approximations and regeneration instructions.
 
-Boundary lamps use nearby instanced housings/lenses and a repeated 64 × 64 baked
-pattern at distance. Wall directions and instructions share an atlas projected
+Boundary lamps use nearby instanced housings/lenses and a repeated 32 × 32 field
+with separate floor, ceiling and wall channels. Wall directions and instructions
+share an atlas projected
 onto wall faces. Fixtures remain self-lit. There are no real-time scene lights,
 moving shadows or screen-space AO passes.
 

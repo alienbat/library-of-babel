@@ -1,9 +1,8 @@
 import {createCeilingLights} from './ceiling-lights.ts';
 import {createShelfFrame} from './shelf-frame.ts';
-import {createBathroomFixtures,BATHROOM_CONTACTS,type BathroomPlacement} from './bathroom-fixtures.ts';
+import {createBathroomFixtures,type BathroomPlacement} from './bathroom-fixtures.ts';
 import {DORM,DORM_BEDS,BATH_SHIFT,ENTRY_HEIGHT} from './room-layout.ts';
 import {createBeds,createFurniture,type BedPlacement} from './beds.ts';
-import {roomOccluders} from './room-ao.ts';
 import {createStairCulling} from './landing-occlusion.ts';
 import {detailCells,detailRadius,shelfDistanceSquared,shelfLod,type ShelfCell} from './shelf-lod.ts';
 import * as T from 'three';
@@ -13,7 +12,7 @@ import {staircase} from './stairs.ts';
 import {createBoundaryLighting,BOUNDARY_SPAN,BOUNDARY_LIGHT_SPACING,WALL_LIGHT_SPACING} from './boundary-lighting.ts';
 import {createInfiniteHorizon,withHorizonFade} from './horizon.ts';
 import {bakeGalleryLighting} from './lighting.ts';
-import { BAY, HEIGHT, INNER, RAIL_OFFSET, OUTER, PERIOD, mod,type WorldLimits } from './physics.ts';
+import { BAY, HEIGHT, INNER, RAIL_OFFSET, OUTER, mod,type WorldLimits } from './physics.ts';
 
 import {bookId,ROWS,BOOKS_PER_ROW,type BookLocation} from './books.ts';
 
@@ -93,7 +92,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const endWall=new T.Mesh(endGeometry,boundaryWallFade),endCap=new T.Mesh(capGeometry,boundaryFloorFade);
   boundaryGroup.add(endWall,endCap);endWall.visible=endCap.visible=false;
   let cornerLimits:WorldLimits={},fixtureX=Infinity,fixtureY=Infinity;
-  const frameMaterial=new T.MeshBasicMaterial({color:'#353c38'}),lensMaterial=new T.MeshBasicMaterial({color:new T.Color('#fff0c9').multiplyScalar(2.2)});materials.push(frameMaterial,lensMaterial);
+  const frameMaterial=boundary.frame,lensMaterial=new T.MeshBasicMaterial({color:new T.Color('#fff0c9').multiplyScalar(2.2)});materials.push(lensMaterial);
   const frames=new T.InstancedMesh(boxGeo,frameMaterial,144),lenses=new T.InstancedMesh(boxGeo,lensMaterial,144);boundaryGroup.add(frames,lenses);frames.count=lenses.count=0;
   function updateFixtures(px:number,py:number){
     const bx=Math.floor(px/BOUNDARY_LIGHT_SPACING),by=Math.floor(py/WALL_LIGHT_SPACING);
@@ -273,7 +272,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     while(textures.length>baseTextureCount)textures.pop()!.dispose();
     while(materials.length>baseMaterialCount)materials.pop()!.dispose();
     while(geometries.length>baseGeometryCount)geometries.pop()!.dispose();
-    const returnPlacements:BedPlacement[]=[],bbqPlacements:BedPlacement[]=[],propContacts:Box[]=[],bedPlacements:BedPlacement[]=[],bedContacts:Box[]=[],bathroomPlacements:BathroomPlacement[]=[],bathroomContacts:Box[]=[];
+    const returnPlacements:BedPlacement[]=[],bbqPlacements:BedPlacement[]=[],bedPlacements:BedPlacement[]=[],bathroomPlacements:BathroomPlacement[]=[];
     const decks:Box[]=[], slabs:Box[]=[], floors:Box[]=[], shelves:Box[]=[], trim:Box[]=[], rails:Box[]=[], lamps:Box[]=[], walls:Box[]=[], dark:Box[]=[], screens:Box[]=[];
     const tiles:Box[]=[],shelfEnds:Box[]=[];
     for(let f=fy-32;f<=fy+32;f++)for(let b=bx-15;b<=bx+15;b++)for(const side of [-1,1]) {
@@ -320,7 +319,6 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         for(const bed of DORM_BEDS) {
           const xx=x+bed.x,zz=side*(OUTER+bed.depth),head=side*bed.head;
           bedPlacements.push({x:xx,y,z:zz,side:head});
-          bedContacts.push([xx,y+.515,zz,.922,.215,1.688],[xx,y+.79,zz+head*.855,.94,.32,.055]);
         }
         // Bathroom attached to the sleeping room; an open doorway meets its aisle.
         tiles.push([x+25+BATH_SHIFT,y-.18,side*(OUTER+2.5),6,.36,5]);
@@ -329,13 +327,8 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
           [x+28+BATH_SHIFT,y+1.81,side*(OUTER+2.5),.2,3.62,5]);
 
         bathroomPlacements.push({x:x+25+BATH_SHIFT,y,z:side*(OUTER+2.5),side});
-        for(const [dx,dy,dz,w,h,d] of BATHROOM_CONTACTS)
-          bathroomContacts.push([x+25+BATH_SHIFT+dx,y+dy,side*(OUTER+2.5+dz),w,h,d]);
         bbqPlacements.push({x:x+17,y,z:side*(OUTER-.49),side});
-        propContacts.push([x+17,y+.46,side*(OUTER-.49),.74,.85,.87],
-          [x+17,y+.94,side*(OUTER-.49),.9,.08,1.1]);
         returnPlacements.push({x:x+21.43,y,z:side*(OUTER-.16),side});
-        propContacts.push([x+21.43,y+.62,side*(OUTER-.16),.5,1.24,.44]);
         for(const lamp of roomLights(cornerLimits.maxY!==undefined&&Math.abs(y+HEIGHT-.34-cornerLimits.maxY)<.001,cornerLimits.minY!==undefined&&Math.abs(y-cornerLimits.minY)<.001,cornerLimits.maxY!==undefined&&Math.abs(y+2*HEIGHT-.34-cornerLimits.maxY)<.001)){
           if(lamp.y>HEIGHT&&cornerLimits.maxY!==undefined&&y+lamp.y>cornerLimits.maxY)continue;
           lamps.push([x+lamp.x,y+lamp.y,side*(OUTER+lamp.z),1.6,.035,.28]);
@@ -346,18 +339,6 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     batch(tiles,[slabMat,tileMat],group,deckGeometry);
     const deckMaterials=[slabMat,floorMat];
     batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,[slabMat,floorMat],group,deckGeometry);batch(shelves,shelfMat,group,distantShelfGeometry);batch(shelfEnds,woodMat,group,shelfFrame.upright);batch(trim,woodMat);pipes(rails);ceilingLights.set(lamps);batch(walls,wallMat);batch(dark,darkMat);batch(screens,screenMat);
-    // Capture the actual room geometry once per lighting variant. Sample a complete
-    // amenity cell near this window, even after random starts or origin shifts.
-    const roomX=Math.round(bx/12)*PERIOD;
-    const topFloor=cornerLimits.maxY===undefined?Infinity:Math.round((cornerLimits.maxY-HEIGHT+.34)/HEIGHT);
-    const bottomFloor=cornerLimits.minY===undefined?-Infinity:Math.round(cornerLimits.minY/HEIGHT);
-    const normalFloor=Math.max(bottomFloor+2,Math.min(fy,topFloor-2));
-    const contacts=(floor:number)=>()=>roomOccluders([decks,slabs,floors,shelves,trim,lamps,walls,dark,screens,tiles,bedContacts,bathroomContacts,propContacts].flat(),new T.Vector3(roomX,floor*HEIGHT,0));
-    lighting.bakeRoomContacts(contacts(normalFloor));
-    if(topFloor>=fy-30&&topFloor<=fy+31){
-      lighting.bakeRoomContacts(contacts(topFloor),true);
-      lighting.bakeRoomContacts(contacts(topFloor-1),'final');
-    }
     // This periodic horizon never needs to be regenerated when walking. Moving its
     // origin by whole bays/floors preserves the same shelf and lamp alignment.
     distantGroup.position.set(bx*BAY,fy*HEIGHT,0);

@@ -5,6 +5,11 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Replace ambient offsets and startup room AO with offline Cycles diffuse
+  irradiance fields. Preserve shelf models, book interactions and LODs; use
+  separate terminal stairwell/boundary bakes and shared periodic sample planes.
+  See [baking workflow and limitations](docs/CYCLES_LIGHTING.md).
+
 - Align gallery door heads with shelf crowns at 3.33 m, and standardize wall
   sign dimensions, text size and alignment. Mount two lights on the top
   stairwell ceiling at the usual landing positions and update the static bake.

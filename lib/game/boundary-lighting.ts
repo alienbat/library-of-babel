@@ -1,8 +1,12 @@
+import floorField from './baked/boundaryFloor.json' with {type:'json'};
+import ceilingField from './baked/boundaryCeiling.json' with {type:'json'};
+import wallField from './baked/boundaryWall.json' with {type:'json'};
 import * as T from 'three';
 import {BAY,HEIGHT,INNER,OUTER} from './physics.ts';
 export const BOUNDARY_LIGHT_SPACING=15.24,WALL_LIGHT_SPACING=HEIGHT*4;
 export const BOUNDARY_GLSL=`
  uniform sampler2D boundaryCarpet,boundaryLight;
+ uniform vec3 boundaryLightMean;
  uniform vec3 boundaryFloorColor,boundaryCeilingColor,boundaryWallColor;
  float boundaryBand(float p,float width,float footprint){
    // Periodic averaging must not subtract huge, almost equal world coordinates.
@@ -14,8 +18,9 @@ export const BOUNDARY_GLSL=`
  vec3 boundaryShade(vec3 p,float kind){
    vec2 cell=kind>1.5?p.yz/vec2(${WALL_LIGHT_SPACING},${BOUNDARY_LIGHT_SPACING}):p.xz/${BOUNDARY_LIGHT_SPACING};
    vec2 footprint=fwidth(cell);
-   float light=texture2D(boundaryLight,cell).r*2.0;
-   light=mix(light,.78,smoothstep(.2,1.0,max(footprint.x,footprint.y)));
+   vec3 illumination=texture2D(boundaryLight,vec2(cell.x,abs(p.z)/${BOUNDARY_LIGHT_SPACING})).rgb*4.0;
+   illumination=mix(illumination,boundaryLightMean,smoothstep(.2,1.0,max(footprint.x,footprint.y)));
+   float light=kind>1.5?illumination.b:kind<.5?illumination.r:illumination.g;
    vec3 base=kind>1.5?boundaryWallColor:boundaryCeilingColor;
    if(kind<.5)base=boundaryFloorColor*texture2D(boundaryCarpet,vec2(p.x/${BAY}*12.0,p.z/${OUTER-INNER}*2.0)).rgb;
    vec3 result=base*light*vec3(1.0,.97,.89);
@@ -23,19 +28,21 @@ export const BOUNDARY_GLSL=`
    float period=kind>1.5?${WALL_LIGHT_SPACING}:${BOUNDARY_LIGHT_SPACING};
    float frame=boundaryBand(cell.x-.5+1.8/(period*2.0),1.8/period,footprint.x)*boundaryBand(cell.y-.5+.38/${BOUNDARY_LIGHT_SPACING*2},.38/${BOUNDARY_LIGHT_SPACING},footprint.y);
    float lens=boundaryBand(cell.x-.5+1.6/(period*2.0),1.6/period,footprint.x)*boundaryBand(cell.y-.5+.20/${BOUNDARY_LIGHT_SPACING*2},.20/${BOUNDARY_LIGHT_SPACING},footprint.y);
-   result=mix(result,vec3(.07,.08,.075),frame);
+   result=mix(result,vec3(.07,.08,.075)*light,frame);
    return mix(result,vec3(2.0,1.8,1.35),lens);
  }
 `;
-export function createBoundaryLighting(carpet:T.Texture){
-  const size=64,data=new Uint8Array(size*size*4);
-  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
-    const dx=((x+.5)/size-.5)*BOUNDARY_LIGHT_SPACING,dz=((y+.5)/size-.5)*BOUNDARY_LIGHT_SPACING;
-    const light=.76+.70*Math.exp(-(dx*dx*.35+dz*dz*.7));
-    const i=(y*size+x)*4;data[i]=data[i+1]=data[i+2]=Math.round(light/2*255);data[i+3]=255;
-  }
+export function createBoundaryLighting(carpet:T.Texture,lightStrength=1){
+  const size=32,data=new Uint8Array(size*size*4),mean=new T.Vector3();
+  const fields=[floorField,ceilingField,wallField];
+  fields.forEach((field,c)=>{
+    const bytes=atob(c===1?field.negative:field.positive),axis=c===2?0:1;
+    let sum=0;
+    for(let i=0;i<size*size;i++){const value=Math.min(255,Math.round(bytes.charCodeAt(i*4+axis)*Math.max(0,lightStrength)));data[i*4+c]=value;data[i*4+3]=255;sum+=value*4/255;}
+    mean.setComponent(c,sum/(size*size));
+  });
   const light=new T.DataTexture(data,size,size);light.wrapS=light.wrapT=T.RepeatWrapping;light.minFilter=T.LinearMipmapLinearFilter;light.magFilter=T.LinearFilter;light.generateMipmaps=true;light.needsUpdate=true;
-  const uniforms={boundaryCarpet:{value:carpet},boundaryLight:{value:light},boundaryFloorColor:{value:new T.Color('#b1b1a7')},boundaryCeilingColor:{value:new T.Color('#aaa99c')},boundaryWallColor:{value:new T.Color('#a8a69a')}};
+  const uniforms={boundaryLightMean:{value:mean},boundaryCarpet:{value:carpet},boundaryLight:{value:light},boundaryFloorColor:{value:new T.Color('#b1b1a7')},boundaryCeilingColor:{value:new T.Color('#aaa99c')},boundaryWallColor:{value:new T.Color('#a8a69a')}};
   function material(kind:number){
     const m=new T.MeshBasicMaterial({side:T.DoubleSide});m.name=['boundary-floor','boundary-ceiling','boundary-wall'][kind];
     m.onBeforeCompile=shader=>{
@@ -47,7 +54,9 @@ export function createBoundaryLighting(carpet:T.Texture){
     };
     m.customProgramCacheKey=()=>`boundary-baked-v1-${kind}`;return m;
   }
+  // Frames sit directly in the local fixture pool; lenses remain emissive.
+  const frame=new T.MeshBasicMaterial({color:new T.Color('#353c38').multiplyScalar((mean.x+mean.y+mean.z)/3)});
   const floor=material(0),ceiling=material(1),wall=material(2);
-  return {uniforms,floor,ceiling,wall,dispose(){light.dispose();floor.dispose();ceiling.dispose();wall.dispose();}};
+  return {uniforms,floor,ceiling,wall,frame,dispose(){frame.dispose();light.dispose();floor.dispose();ceiling.dispose();wall.dispose();}};
 }
 export const BOUNDARY_SPAN=INNER*2-.004;
