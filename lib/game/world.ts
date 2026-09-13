@@ -293,7 +293,10 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         if(mod(b,12)===1)shelfEnds.push([x,y+1.63,side*(OUTER-.04),.055,3.25,.5]);
         if(mod(b+1,12)===0)shelfEnds.push([x+BAY,y+1.63,side*(OUTER-.04),.055,3.25,.5]);
         walls.push([x+BAY/2,y+(3.33+HEIGHT-.34)/2,side*(OUTER+.15),BAY,HEIGHT-.34-3.33,.3]);
-        trim.push([x+BAY/2,y+3.28,side*(OUTER-.04),BAY,.10,.5],[x+BAY/2,y+.045,side*(OUTER-.04),BAY,.09,.5]);
+        // End panels straddle the run boundary; the caps cover their outer edge.
+        const leftCap=mod(b,12)===1?.0275:0,rightCap=mod(b+1,12)===0?.0275:0;
+        const trimX=x+(BAY+rightCap-leftCap)/2,trimWidth=BAY+leftCap+rightCap;
+        trim.push([trimX,y+3.28,side*(OUTER-.04),trimWidth,.10,.5],[trimX,y+.045,side*(OUTER-.04),trimWidth,.09,.5]);
       }else {
         walls.push([x+.5,y+1.81,side*(OUTER+.15),1,3.62,.3],[x+15.5,y+1.81,side*(OUTER+.15),1,3.62,.3],[x+17,y+1.81,side*(OUTER+.25),2,3.62,.5],[x+22,y+1.81,side*(OUTER+.25),4,3.62,.5]);
         const stairs=staircase(x,y,side,cornerLimits);

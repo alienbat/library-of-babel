@@ -68,7 +68,7 @@ for row in range(8):
         o=book.copy();scene.collection.objects.link(o);o.hide_render=False;o.location=(-22.86/2+(n+.5)*22.86/570,.04,.30+row*.39)
 # Top and bottom continuous rails match the runtime trim.
 for z,h in [(3.28,.10),(.045,.09)]:
-    o=board('Continuous trim',22.86);o.scale.z=h/.04;o.location.z=z
+    o=board('Continuous trim',2*22.86+.055);o.scale.z=h/.04;o.location=(22.86/2,0,z)
 bpy.ops.object.camera_add(location=(-7,7,3.2));cam=bpy.context.object;cam.rotation_euler=(Vector((-9,0,1.6))-cam.location).to_track_quat('-Z','Y').to_euler();cam.data.type='ORTHO';cam.data.ortho_scale=4.8;scene.camera=cam
 for pos in [(-9,3,5),(-5,0,4)]:
     bpy.ops.object.light_add(type='AREA',location=pos);o=bpy.context.object;o.data.energy=250;o.data.size=5;o.rotation_euler=(Vector((-9,0,1.6))-o.location).to_track_quat('-Z','Y').to_euler()
