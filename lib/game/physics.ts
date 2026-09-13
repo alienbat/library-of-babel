@@ -2,6 +2,7 @@ import {DORM,DORM_BEDS,BATH_SHIFT,showerFloorHeight} from './room-layout.ts';
 // Project dimensions in metres; see README.md for literary inspiration and choices.
 export const GAP = 30.48;
 export const INNER = GAP / 2;
+export const RAIL_OFFSET = .05;
 export const OUTER = INNER + 3.6576;
 export const HEIGHT = 3.96;
 export const BAY = 22.86;
@@ -20,7 +21,7 @@ export function floorAt(x: number, z: number, previousY: number): number {
 }
 export function allowed(x: number, z: number): boolean {
   const a = Math.abs(z), t = mod(x, PERIOD);
-  if (a < INNER + RADIUS || a > OUTER + DORM.depth - .1 - RADIUS) return false;
+  if (a < INNER + RAIL_OFFSET + .036 + RADIUS || a > OUTER + DORM.depth - .1 - RADIUS) return false;
   // Stairs sit behind the shelves. Their side wall prevents stepping off mid-flight.
   if (a <= OUTER - RADIUS) {
     // Wall-side dispenser and book return leave the gallery aisle clear.
@@ -116,7 +117,7 @@ export function supportBelow(p:Position):number|null {
 export function airClear(p:Position):boolean {
   const a=Math.abs(p.z);
   if(a<INNER-RADIUS-.04)return true;
-  const inRail=a<INNER+RADIUS+.04;
+  const inRail=a<INNER+RAIL_OFFSET+RADIUS+.04;
   if(!inRail&&!allowed(p.x,p.z))return false;
   const t=mod(p.x,PERIOD);
   const ramp=a>OUTER+.48&&t>=4&&t<=12?(t-4)/8*HEIGHT:0;

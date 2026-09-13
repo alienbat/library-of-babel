@@ -13,7 +13,7 @@ import {staircase} from './stairs.ts';
 import {createBoundaryLighting,BOUNDARY_SPAN,BOUNDARY_LIGHT_SPACING,WALL_LIGHT_SPACING} from './boundary-lighting.ts';
 import {createInfiniteHorizon,withHorizonFade} from './horizon.ts';
 import {bakeGalleryLighting} from './lighting.ts';
-import { BAY, HEIGHT, INNER, OUTER, PERIOD, mod,type WorldLimits } from './physics.ts';
+import { BAY, HEIGHT, INNER, RAIL_OFFSET, OUTER, PERIOD, mod,type WorldLimits } from './physics.ts';
 
 import {bookId,ROWS,BOOKS_PER_ROW,type BookLocation} from './books.ts';
 
@@ -244,7 +244,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         boards.push([x+BAY/2,y+.11+row*.39,side*(OUTER-.04),BAY,.04,.5]);
         for(let i=0;i<BOOKS_PER_ROW;i++)books.push([x+(i+.5)*BAY/BOOKS_PER_ROW,y+.30+row*.39,side*(OUTER-.08),.037,.34,.3]);
       }
-      for(let j=mod(bay,12)===1?1:0;j<8;j++)uprights.push([x+j*BAY/8,y+1.63,side*(OUTER-.03),.055,3.25,.46]);
+      for(let j=mod(bay,12)===1?1:0;j<8;j++)uprights.push([x+j*BAY/8,y+1.63,side*(OUTER-.04),.055,3.25,.5]);
       const mesh=batch(books,[bookMat,goldMat],detailGroup,bookGeometry);
       const backing=batch([[x+BAY/2,y+1.62,side*(OUTER+.22),BAY,3.18,.28]],shelfBackMat,detailGroup);
       bookBatches.push({...cell,mesh,parts:[mesh,backing,batch(boards,woodMat,detailGroup,shelfFrame.board),batch(uprights,woodMat,detailGroup,shelfFrame.upright)]});
@@ -281,14 +281,14 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
       // At the top there is no next floor to supply the gallery ceiling.
       if(cornerLimits.maxY!==undefined&&Math.abs(y+HEIGHT-.34-cornerLimits.maxY)<.001)
         slabs.push([x+BAY/2,y+HEIGHT-.17,z,BAY,.34,3.6576]);
-      rails.push([x+BAY/2,y+1.2192,side*INNER,BAY,0,0],[x+BAY/2,y+.55,side*INNER,BAY,0,0]);
-      for(let j=0;j<6;j++)rails.push([x+j*BAY/6,y+.6,side*INNER,0,1.2,0]);
+      rails.push([x+BAY/2,y+1.2192,side*(INNER+RAIL_OFFSET),BAY,0,0],[x+BAY/2,y+.55,side*(INNER+RAIL_OFFSET),BAY,0,0]);
+      for(let j=0;j<6;j++)rails.push([x+j*BAY/6,y+.6,side*(INNER+RAIL_OFFSET),0,1.2,0]);
       for(let j=0;j<3;j++)lamps.push([x+3.81+j*7.62,y+HEIGHT-.38,z,1.6,.035,.28]);
       if(!amenity) {
-        shelves.push([x+BAY/2,y+1.62,side*(OUTER+.035),BAY,3.18,.59]);
+        shelves.push([x+BAY/2,y+1.62,side*(OUTER+.02),BAY,3.18,.62]);
         // Solid timber ends survive both detail levels; never map book spines onto them.
-        if(mod(b,12)===1)shelfEnds.push([x,y+1.63,side*(OUTER-.03),.055,3.25,.46]);
-        if(mod(b+1,12)===0)shelfEnds.push([x+BAY,y+1.63,side*(OUTER-.03),.055,3.25,.46]);
+        if(mod(b,12)===1)shelfEnds.push([x,y+1.63,side*(OUTER-.04),.055,3.25,.5]);
+        if(mod(b+1,12)===0)shelfEnds.push([x+BAY,y+1.63,side*(OUTER-.04),.055,3.25,.5]);
         walls.push([x+BAY/2,y+(3.33+HEIGHT-.34)/2,side*(OUTER+.15),BAY,HEIGHT-.34-3.33,.3]);
         trim.push([x+BAY/2,y+3.28,side*(OUTER-.04),BAY,.10,.5],[x+BAY/2,y+.045,side*(OUTER-.04),BAY,.09,.5]);
       }else {
@@ -361,9 +361,9 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         const width=strip.count*BAY,x=(strip.start+strip.count/2)*BAY,y=f*HEIGHT,z=side*(INNER+1.8288);
         farHeaders.push([x,y+(3.33+HEIGHT-.34)/2,side*(OUTER+.15),width,HEIGHT-.34-3.33,.3]);
         farSlabs.push([x,y-.17,z,width,.34,3.6576]);
-        farShelves[strip.material].push([x,y+1.62,side*(OUTER+.035),width,3.18,.59]);
+        farShelves[strip.material].push([x,y+1.62,side*(OUTER+.02),width,3.18,.62]);
         farLamps[strip.material].push([x,y+HEIGHT-.38,z,width,.035,.28]);
-        farRails.push([x,y+1.2192,side*INNER,width,.07,.07],[x,y+.55,side*INNER,width,.07,.07]);
+        farRails.push([x,y+1.2192,side*(INNER+RAIL_OFFSET),width,.07,.07],[x,y+.55,side*(INNER+RAIL_OFFSET),width,.07,.07]);
       }
     }
     batchDistant(farHeaders,distantWallMat,distantShelfGeometry);

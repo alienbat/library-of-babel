@@ -86,7 +86,7 @@ void test('distant cache survives movement, with unchanged book detail and conse
         if(Math.abs(scale.x-.055)<1e-5&&Math.abs(scale.y-3.25)<1e-5)uprights++;
         if(material.name==='shelf-facade'){
           facades++;
-          assert.ok(Math.abs(Math.abs(position.z)-scale.z/2-(OUTER-.26))<1e-5,'LOD face aligns with the front of the solid timber end');
+          assert.ok(Math.abs(Math.abs(position.z)-scale.z/2-(OUTER-.29))<1e-5,'LOD face aligns with the front of the solid timber end');
         }
       }
     });

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as T from 'three';
 import {traceProfile,bakeProfile,profileSlope,PROFILE_SIZE} from '../lib/game/horizon-profile.ts';
-import {HEIGHT} from '../lib/game/physics.ts';
+import {HEIGHT,RAIL_OFFSET} from '../lib/game/physics.ts';
 void test('periodic profile preserves first-hit occlusion and actual rail normals',()=>{
   assert.equal(traceProfile(1.68,0).kind,'shelf');
   assert.equal(traceProfile(HEIGHT-.17,0).kind,'deck');
@@ -30,9 +30,9 @@ void test('small directional lookup agrees with a denser phase integration',()=>
 void test('periodic solver agrees with actual Three.js deck and six-sided rail intersections',()=>{
   const shapes:T.Mesh[]=[],geometries:T.BufferGeometry[]=[],material=new T.MeshBasicMaterial();
   const deck=new T.BoxGeometry(30,.34,3.6576),pipe=new T.CylinderGeometry(.036,.036,30,6);pipe.rotateZ(Math.PI/2);geometries.push(deck,pipe);
-  for(let f=-8;f<=8;f++){
+  for(let f=-64;f<=64;f++){
     const slab=new T.Mesh(deck,material);slab.position.set(0,f*HEIGHT-.17,15.24+3.6576/2);slab.name='deck';shapes.push(slab);
-    for(const y of [.55,1.2192]){const rail=new T.Mesh(pipe,material);rail.position.set(0,f*HEIGHT+y,15.24);rail.name='rail';shapes.push(rail);}
+    for(const y of [.55,1.2192]){const rail=new T.Mesh(pipe,material);rail.position.set(0,f*HEIGHT+y,15.24+RAIL_OFFSET);rail.name='rail';shapes.push(rail);}
   }
   shapes.forEach(m=>m.updateMatrixWorld());const caster=new T.Raycaster();
   for(const slope of [-1000,-100,-10,-1,0,1,10,100,1000])for(let i=0;i<40;i++){

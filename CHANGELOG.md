@@ -93,3 +93,5 @@ record; older entries are grouped milestones rather than released version number
 - Improve shelf impostor matching with recessed-gap/contact shading, independently filtered board silhouettes, and continuous texture coordinates at bay boundaries. Geometry counts and detail radii remain unchanged.
 
 - Show fall speed in km/h with a terminal-velocity indicator, persist Low/High detail preference, and clear all app-owned local-storage keys plus coordinates on Start Over.
+
+- Align shelf uprights with the horizontal board fronts and move guardrails 5 cm onto the deck, including distant rendering and collision clearance.

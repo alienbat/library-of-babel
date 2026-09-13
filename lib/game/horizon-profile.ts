@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {HEIGHT,INNER,OUTER} from './physics.ts';
+import {HEIGHT,INNER,RAIL_OFFSET,OUTER} from './physics.ts';
 export type ProfileHit={kind:'rail'|'deck'|'shelf';y:number;z:number;ny:number;nz:number};
 const R=.036,DEPTH=OUTER-INNER;
 /** First visible face of an infinitely repeated gallery cross-section.
@@ -25,7 +25,7 @@ export function traceProfile(phase:number,slope:number):ProfileHit{
   edge(R,-.34,R+DEPTH,-.34,'deck',-1,0);
   for(const center of [.55,1.2192])for(let i=0;i<6;i++){
     const a=i*Math.PI/3,b=(i+1)*Math.PI/3,m=(a+b)/2;
-    edge(R+R*Math.cos(a),center+R*Math.sin(a),R+R*Math.cos(b),center+R*Math.sin(b),'rail',Math.sin(m),Math.cos(m));
+    edge(R+RAIL_OFFSET+R*Math.cos(a),center+R*Math.sin(a),R+RAIL_OFFSET+R*Math.cos(b),center+R*Math.sin(b),'rail',Math.sin(m),Math.cos(m));
   }
   return hit;
 }

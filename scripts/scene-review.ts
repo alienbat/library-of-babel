@@ -1,6 +1,6 @@
 import * as T from 'three';
 import {createWorld} from '../lib/game/world.ts';
-import {OUTER,HEIGHT,PERIOD} from '../lib/game/physics.ts';
+import {OUTER,INNER,HEIGHT,PERIOD} from '../lib/game/physics.ts';
 const renderer=new T.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true});
 renderer.setSize(1100,720);renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
 document.body.appendChild(renderer.domElement);
@@ -15,6 +15,8 @@ const views={
  BathroomLight:{p:[27,2,OUTER+2.7],at:[27,3.53,OUTER+2.7],limits:{}},
  StairLight:{p:[2.5,2,OUTER+2.1],at:[2.5,3.53,OUTER+2.1],limits:{}},
  CeilingLight:{p:[3.81,2,17.1],at:[3.81,3.58,17.0688],limits:{}},
+ ShelfEndFlush:{p:[24,1.68,OUTER-1],at:[22.86,2.6,OUTER-.2],limits:{}},
+ RailFooting:{p:[33,1.68,INNER+1],at:[34,0,INNER+.05],limits:{}},
  ShelfRunStart:{p:[9,1.68,OUTER-1.7],at:[26,1.8,OUTER-.15],limits:{}},
  ShelfRunEnd:{p:[PERIOD+9,1.68,OUTER-1.7],at:[PERIOD-3,1.8,OUTER-.15],limits:{}},
  AmenitySigns:{p:[20,1.68,OUTER-5],at:[20,1.7,OUTER],limits:{}},
