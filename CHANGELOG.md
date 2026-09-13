@@ -5,6 +5,10 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Use “Eternity can wait.” in the pause menu with more button spacing. Remove
+  the interior bathroom sign, conceal shelf backing behind flat bedroom walls,
+  and place headboards close to the walls while retaining side access.
+
 - Move bathroom toilets back to the wall and extend shower floors to the walls
   and divider edge, with matching walking surfaces, LODs and contact shading.
 

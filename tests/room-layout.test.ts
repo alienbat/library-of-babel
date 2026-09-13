@@ -18,3 +18,11 @@ void test('both sides of all seven beds are reachable from the gallery',()=>{
   assert.ok(bed.depth-.9>.37&&bed.depth+.9<DORM.depth-.1);
  }
 });
+
+void test('headboards sit close to both bedroom walls without intersecting them',()=>{
+ for(const bed of DORM_BEDS){
+   const head=bed.depth+bed.head*.89;
+   const gap=bed.head>0?DORM.depth-.1-head:head-.5;
+   assert.ok(gap>=0&&gap<.02);
+ }
+});

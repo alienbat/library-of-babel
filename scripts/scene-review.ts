@@ -9,6 +9,8 @@ const world=createWorld(scene,new Set(),'/models/blender/bed/bed.glb','/models/b
 let errors=0;
 renderer.debug.onShaderError=(gl,program,vs,fs)=>{errors++;console.error(gl.getProgramInfoLog(program),gl.getShaderInfoLog(vs),gl.getShaderInfoLog(fs));};
 const views={
+ BedroomFrontWall:{p:[20,1.68,OUTER+3.5],at:[23,2.3,OUTER+.4],limits:{}},
+ BedroomFrontWallOpposite:{p:[20,1.68,-OUTER-3.5],at:[23,2.3,-OUTER-.4],limits:{}},
  BedroomLight:{p:[18,2,OUTER+3.15],at:[18,3.53,OUTER+3.15],limits:{}},
  BathroomLight:{p:[27,2,OUTER+2.7],at:[27,3.53,OUTER+2.7],limits:{}},
  StairLight:{p:[2.5,2,OUTER+2.1],at:[2.5,3.53,OUTER+2.1],limits:{}},

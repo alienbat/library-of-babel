@@ -62,4 +62,4 @@
 .project-credit a { color: inherit; text-underline-offset: .15em; }
 
 /* Keep breathing room when the pause menu omits its introductory paragraph. */
-.menu h1 + .menu-actions{margin-top:24px}
+.menu h1 + .menu-actions{margin-top:36px}

@@ -265,7 +265,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         walls.push([x+BAY/2,y+(3.33+HEIGHT-.34)/2,side*(OUTER+.15),BAY,HEIGHT-.34-3.33,.3]);
         trim.push([x+BAY/2,y+3.28,side*(OUTER-.04),BAY,.10,.5],[x+BAY/2,y+.045,side*(OUTER-.04),BAY,.09,.5]);
       }else {
-        walls.push([x+.5,y+1.81,side*(OUTER+.15),1,3.62,.3],[x+15.5,y+1.81,side*(OUTER+.15),1,3.62,.3],[x+17,y+1.81,side*(OUTER+.15),2,3.62,.3],[x+22,y+1.81,side*(OUTER+.15),4,3.62,.3]);
+        walls.push([x+.5,y+1.81,side*(OUTER+.15),1,3.62,.3],[x+15.5,y+1.81,side*(OUTER+.15),1,3.62,.3],[x+17,y+1.81,side*(OUTER+.25),2,3.62,.5],[x+22,y+1.81,side*(OUTER+.25),4,3.62,.5]);
         const stairs=staircase(x,y,side,cornerLimits);
         walls.push(...stairs.walls);floors.push(...stairs.floors);slabs.push(...stairs.steps);
         if(cornerLimits.maxY!==undefined&&Math.abs(y+HEIGHT-.34-cornerLimits.maxY)<.001){

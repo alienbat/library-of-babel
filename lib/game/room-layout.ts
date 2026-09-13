@@ -11,8 +11,8 @@ export const DORM = {
 export const BATH_SHIFT = 2;
 export const ROOM_VOLUME = { width: 32, depth: 6.5 };
 export const DORM_BEDS = [
-  ...[17.2, 19, 20.8, 22.6].map((x) => ({ x, depth: 5.1, head: 1 })),
-  ...[17.2, 21, 22.8].map((x) => ({ x, depth: 1.7, head: -1 })),
+  ...[17.2, 19, 20.8, 22.6].map((x) => ({ x, depth: 5.299, head: 1 })),
+  ...[17.2, 21, 22.8].map((x) => ({ x, depth: 1.401, head: -1 })),
 ];
 
 /** Top surface rings match the Blender shower tray; height is above the tiled deck. */

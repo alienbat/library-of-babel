@@ -4,7 +4,7 @@ import {HEIGHT,OUTER,PERIOD,type WorldLimits} from './physics.ts';
 export function createWallWriting(){
   const canvas=document.createElement('canvas');canvas.width=2048;canvas.height=1536;
   const c=canvas.getContext('2d')!;
-  const labels=['STAIRS\nUP →     ← DOWN','STAIRS\nUP ONLY','STAIRS\nDOWN ONLY','REST AREA\n7 BEDS · BATH →\nFOOD DISPENSER ↓','Find and deposit\nyour biography\nhere to exit','BATHROOM\nSHOWERS · WC','← EAST     WEST →','← WEST     EAST →','REST AREA\n← 7 BEDS · BATH\nFOOD DISPENSER ↓'];
+  const labels=['STAIRS\nUP →     ← DOWN','STAIRS\nUP ONLY','STAIRS\nDOWN ONLY','REST AREA\n7 BEDS · BATH →\nFOOD DISPENSER ↓','Find and deposit\nyour biography\nhere to exit','','← EAST     WEST →','← WEST     EAST →','REST AREA\n← 7 BEDS · BATH\nFOOD DISPENSER ↓'];
   labels.forEach((label,i)=>{
     c.save();c.translate((i%4)*512,Math.floor(i/4)*512);c.scale(1,2);
     c.fillStyle='#dad8c7';c.fillRect(0,0,512,256);c.strokeStyle='#7b7667';c.lineWidth=5;c.strokeRect(10,10,492,236);
@@ -47,8 +47,7 @@ export function createWallWriting(){
               ink=mix(ink,compass,compass.a);
             }else ink=writingSample(vec2(21.43+(wx-21.43)*orientation,wy),vec2(21.43,2.1),vec2(1.8,.75),4.0);
           }
-        }else if(facing>.9&&abs(wz-.5)<.012){
-          ink=writingSample(vec2(24.6-(wx-24.6)*orientation,wy),vec2(24.6,2.8),vec2(1.5,.75),5.0);
+
         }
         diffuseColor.rgb=mix(diffuseColor.rgb,ink.rgb,ink.a);
       `);
