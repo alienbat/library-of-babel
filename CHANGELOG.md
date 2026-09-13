@@ -7,8 +7,9 @@ record; older entries are grouped milestones rather than released version number
 
 - Remove constant ambient illumination from gallery, room and boundary bakes.
   Distant boundary shading now uses the measured fixture-light average rather
-  than a fixed brightness floor. This direct-light preview leaves unlit faces
-  dark; it does not introduce simulated indirect bounce lighting.
+  than a fixed brightness floor. A coarse first-bounce surface bake softens
+  unlit faces using fixture energy and material reflectance, without uniform
+  ambient fill or additional per-frame lighting work.
 
 - Align gallery door heads with shelf crowns at 3.33 m, and standardize wall
   sign dimensions, text size and alignment. Mount two lights on the top

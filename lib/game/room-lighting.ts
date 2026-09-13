@@ -1,3 +1,4 @@
+import {bakeBouncePatches} from './bounce-lighting.ts';
 import {DORM,BATH_SHIFT,ROOM_VOLUME} from './room-layout.ts';
 import * as T from 'three';
 import {HEIGHT} from './physics.ts';
@@ -19,6 +20,14 @@ const RANGE=4;
 const ramp=(x:number)=>x<=4?0:x>=12?HEIGHT:(x-4)/8*HEIGHT;
 /** Room-specific diffuse irradiance, baked once. Walls isolate each room's lights. */
 export function bakeRoomLighting(top=false,finalFlight=false,lightStrength=1){
+  const terminal=top||finalFlight;
+  const sources=roomLights(terminal);
+  const bounces=[0,1,2].map(room=>{
+    const floor=room===0?(x:number)=>terminal?(x<12?ramp(x)-HEIGHT:0):ramp(x):()=>0;
+    const ceiling=room===0&&!terminal?(x:number)=>ramp(x)+HEIGHT-.34:()=>HEIGHT-.34;
+    return bakeBouncePatches({left:room===0?1:room===1?16:24.1,right:room===0?15:room===1?DORM.right:29.9,front:.5,back:room===0?3.7:room===1?DORM.depth-.1:4.9,floor,ceiling,floorReflectance:room===2?.55:.14,wallReflectance:.65,occlude:room===0},
+      sources.filter(l=>l.room===room).flatMap(l=>[-.5,.5].map(end=>({x:l.x+end,y:l.y+(room===0&&!terminal&&l.x>=12?HEIGHT:0),z:l.z,power:lightStrength*2.4,falloff:.42,softening:.12}))));
+  });
   const [nx,ny,nz]=ROOM_GRID;
   const positive=new Uint8Array(nx*ny*nz*4),negative=new Uint8Array(positive.length);
   for(let z=0;z<nz;z++)for(let y=0;y<ny;y++)for(let x=0;x<nx;x++){
@@ -39,6 +48,7 @@ export function bakeRoomLighting(top=false,finalFlight=false,lightStrength=1){
         }
       }
     }
+    bounces[room](lobes,px,room===0?(finalFlight?py-HEIGHT:top?py:py-floor):py,pz);
     // Baked contact shade along walls and floor junctions, not a live shadow map.
     const floorY=room===0?py-(top?(px<12?ramp(px)-HEIGHT:0):floor+ramp(px)):py;
     const wallDistance=Math.min(Math.max(0,pz-.5),Math.max(0,(room===0?3.7:room===1?DORM.depth-.1:5)-pz));

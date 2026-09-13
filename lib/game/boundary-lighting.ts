@@ -1,3 +1,4 @@
+import {bakeBouncePatches} from './bounce-lighting.ts';
 import * as T from 'three';
 import {BAY,HEIGHT,INNER,OUTER} from './physics.ts';
 export const BOUNDARY_LIGHT_SPACING=15.24,WALL_LIGHT_SPACING=HEIGHT*4;
@@ -15,7 +16,7 @@ export const BOUNDARY_GLSL=`
  vec3 boundaryShade(vec3 p,float kind){
    vec2 cell=kind>1.5?p.yz/vec2(${WALL_LIGHT_SPACING},${BOUNDARY_LIGHT_SPACING}):p.xz/${BOUNDARY_LIGHT_SPACING};
    vec2 footprint=fwidth(cell);
-   float light=texture2D(boundaryLight,cell).r*2.0;
+   float light=texture2D(boundaryLight,vec2(cell.x,abs(p.z)/${BOUNDARY_LIGHT_SPACING})).r*2.0;
    light=mix(light,boundaryLightMean,smoothstep(.2,1.0,max(footprint.x,footprint.y)));
    vec3 base=kind>1.5?boundaryWallColor:boundaryCeilingColor;
    if(kind<.5)base=boundaryFloorColor*texture2D(boundaryCarpet,vec2(p.x/${BAY}*12.0,p.z/${OUTER-INNER}*2.0)).rgb;
@@ -30,10 +31,15 @@ export const BOUNDARY_GLSL=`
 `;
 export function createBoundaryLighting(carpet:T.Texture,lightStrength=1){
   const size=64,data=new Uint8Array(size*size*4);
+  // Side galleries reflect the boundary fixtures back onto the terminal plane.
+  // Mirror the sampled half-chasm in the shader so both galleries match.
+  const bounce=bakeBouncePatches({left:0,right:BOUNDARY_LIGHT_SPACING,front:-INNER,back:INNER,floor:()=>0,ceiling:()=>WALL_LIGHT_SPACING,floorReflectance:0,wallReflectance:.32,periodic:BOUNDARY_LIGHT_SPACING},
+    [-1,0,1].flatMap(i=>[-.5,.5].map(z=>({x:(i+.5)*BOUNDARY_LIGHT_SPACING,y:.05,z:z*BOUNDARY_LIGHT_SPACING,power:lightStrength*3.2,falloff:.35,softening:.16}))));
   let lightSum=0;
   for(let y=0;y<size;y++)for(let x=0;x<size;x++){
     const dx=((x+.5)/size-.5)*BOUNDARY_LIGHT_SPACING,dz=((y+.5)/size-.5)*BOUNDARY_LIGHT_SPACING;
-    const light=lightStrength*.70*Math.exp(-(dx*dx*.35+dz*dz*.7));
+    const reflected=[0,0,0,0,0,0];bounce(reflected,(x+.5)/size*BOUNDARY_LIGHT_SPACING,.015,(y+.5)/size*BOUNDARY_LIGHT_SPACING);
+    const light=lightStrength*.70*Math.exp(-(dx*dx*.35+dz*dz*.7))+reflected[1];
     const i=(y*size+x)*4;data[i]=data[i+1]=data[i+2]=Math.round(light/2*255);data[i+3]=255;lightSum+=data[i]/255*2;
   }
   const light=new T.DataTexture(data,size,size);light.wrapS=light.wrapT=T.RepeatWrapping;light.minFilter=T.LinearMipmapLinearFilter;light.magFilter=T.LinearFilter;light.generateMipmaps=true;light.needsUpdate=true;

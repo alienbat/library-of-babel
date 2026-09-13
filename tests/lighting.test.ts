@@ -71,3 +71,19 @@ void test('bakes contain no illumination when fixture strength is zero',async()=
     for(let i=0;i<pixels.length;i++)if(i%4!==3)assert.equal(pixels[i],0);
   }finally{gallery.dispose();rooms.forEach(b=>b.dispose());boundary.dispose();carpet.dispose();}
 });
+
+void test('surface bounce lights faces away from fixtures and scales with reflectance',async()=>{
+  const {bakeBouncePatches}=await import('../lib/game/bounce-lighting.ts');
+  const shell={left:0,right:4,front:0,back:4,floor:()=>0,ceiling:()=>3,floorReflectance:.5,wallReflectance:.5};
+  const lamp={x:2,y:2.9,z:2,power:3,falloff:.4,softening:.12};
+  const sample=(reflectance:number,power:number)=>{
+    const lobes=[0,0,0,0,0,0];
+    bakeBouncePatches({...shell,floorReflectance:reflectance,wallReflectance:reflectance},[{...lamp,power}])(lobes,2,2.8,2);
+    return lobes;
+  };
+  const lit=sample(.5,3),dim=sample(.25,3);
+  assert.ok(lit[4]>0,'floor and walls illuminate the downward-facing ceiling');
+  for(let i=0;i<6;i++)assert.ok(Math.abs(dim[i]*2-lit[i])<1e-10);
+  assert.deepEqual(sample(0,3),[0,0,0,0,0,0]);
+  assert.deepEqual(sample(.5,0),[0,0,0,0,0,0]);
+});

@@ -1,3 +1,4 @@
+import {bakeBouncePatches} from './bounce-lighting.ts';
 import {DORM} from './room-layout.ts';
 import {bakeRoomAO,applyRoomAO} from './room-ao.ts';
 import {bakeRoomLighting,ROOM_WIDTH,ROOM_DEPTH,ROOM_GRID} from './room-lighting.ts';
@@ -7,6 +8,8 @@ export const LIGHT_PERIOD=7.62;
 const NX=48,NY=32,NZ=16,RANGE=4;
 /** Bake six directional diffuse irradiance lobes once for one repeating gallery cell. */
 export function bakeGalleryLighting(lightStrength=1){
+  const bounce=bakeBouncePatches({left:0,right:LIGHT_PERIOD,front:INNER,back:OUTER,floor:()=>0,ceiling:()=>HEIGHT-.34,floorReflectance:.14,wallReflectance:.32,openFront:true,periodic:LIGHT_PERIOD},
+    Array.from({length:7},(_,i)=>({x:(i-3)*LIGHT_PERIOD+3.81,y:HEIGHT-.38,z:INNER+1.8288,power:lightStrength*3.2,falloff:.32,softening:.16})));
   const positive=new Uint8Array(NX*NY*NZ*4),negative=new Uint8Array(positive.length);
   for(let z=0;z<NZ;z++)for(let y=0;y<NY;y++)for(let x=0;x<NX;x++){
     const px=(x+.5)/NX*LIGHT_PERIOD,py=y/(NY-1)*HEIGHT,pz=INNER+z/(NZ-1)*(OUTER-INNER);
@@ -20,6 +23,7 @@ export function bakeGalleryLighting(lightStrength=1){
         lobes[axis+3]+=energy*Math.max(0,-direction);
       }
     }
+    bounce(lobes,px,py,pz);
     // Soft contact darkening at the shelf base, identical on every floor.
     const contact=1-.16*Math.exp(-py*3)*Math.pow(z/(NZ-1),4);
     const offset=((z*NY+y)*NX+x)*4;
@@ -72,7 +76,8 @@ export function bakeGalleryLighting(lightStrength=1){
         vec3 n=normalize(vBakedNormal);n.z*=sign(vBakedPosition.z);
         vec3 positive,negative;
         float roomX=mod(vBakedPosition.x,${PERIOD});
-        bool inRoom=abs(vBakedPosition.z)>${OUTER+.4};
+        // The inward face of the thin stair frontage also belongs to the room.
+        bool inRoom=abs(vBakedPosition.z)>${OUTER+.4}||(roomX<${ROOM_WIDTH.toFixed(1)}&&abs(vBakedPosition.z)>${OUTER+.01}&&vBakedNormal.z*sign(vBakedPosition.z)>.5);
         if(inRoom){
           vec3 roomUv=(vec3(clamp(roomX/${ROOM_WIDTH.toFixed(1)},0.0,1.0),cellY/${HEIGHT},clamp((abs(vBakedPosition.z)-${OUTER})/${ROOM_DEPTH},0.0,1.0))*vec3(${ROOM_GRID[0]-1}.0,${ROOM_GRID[1]-1}.0,${ROOM_GRID[2]-1}.0)+.5)/vec3(${ROOM_GRID[0]}.0,${ROOM_GRID[1]}.0,${ROOM_GRID[2]}.0);
           bool topRoom=vBakedPosition.y>=roomTop-.001;
