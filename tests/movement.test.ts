@@ -29,8 +29,8 @@ void test('dormitory doorway is accessible and bed furniture blocks walking',()=
     assert.equal(allowed(17.2,side*(OUTER+5.1)),false);
   }
 });
-void test('food kiosk is solid and can be passed on the shelf side',()=>{
-  assert.equal(allowed(17.8,INNER+.7),false);assert.equal(allowed(17.8,INNER+2),true);
+void test('food dispenser is solid and can be passed on the rail side',()=>{
+  assert.equal(allowed(17,OUTER-.8),false);assert.equal(allowed(17,OUTER-1.5),true);
 });
 
 void test('bathrooms connect to dormitories on both sides and repeated floors',()=>{

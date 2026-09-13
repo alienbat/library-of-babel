@@ -2,13 +2,13 @@ import * as T from 'three';
 import {HEIGHT,OUTER,PERIOD,type WorldLimits} from './physics.ts';
 /** One reusable atlas, projected onto existing wall faces; no separate sign meshes. */
 export function createWallWriting(){
-  const canvas=document.createElement('canvas');canvas.width=2048;canvas.height=1024;
+  const canvas=document.createElement('canvas');canvas.width=2048;canvas.height=1536;
   const c=canvas.getContext('2d')!;
-  const labels=['STAIRS\nUP →     ← DOWN','STAIRS\nUP ONLY','STAIRS\nDOWN ONLY','REST AREA\n7 BEDS · BATH →','LIBRARY\nExplore the shelves.\nChoose your own search.','BATHROOM\nSHOWERS · WC','← EAST     WEST →','← WEST     EAST →'];
+  const labels=['STAIRS\nUP →     ← DOWN','STAIRS\nUP ONLY','STAIRS\nDOWN ONLY','REST AREA\n7 BEDS · BATH →\nFOOD DISPENSER ↓','Find and deposit\nyour biography\nhere to exit','BATHROOM\nSHOWERS · WC','← EAST     WEST →','← WEST     EAST →','REST AREA\n← 7 BEDS · BATH\nFOOD DISPENSER ↓'];
   labels.forEach((label,i)=>{
     c.save();c.translate((i%4)*512,Math.floor(i/4)*512);c.scale(1,2);
     c.fillStyle='#dad8c7';c.fillRect(0,0,512,256);c.strokeStyle='#7b7667';c.lineWidth=5;c.strokeRect(10,10,492,236);
-    c.fillStyle='#353b36';c.textAlign='center';c.font=i>=6?'bold 38px sans-serif':'22px sans-serif';label.split('\n').forEach((line,row)=>c.fillText(line,256,i>=6?140:62+row*44));c.restore();
+    c.fillStyle='#353b36';c.textAlign='center';c.font=(i===6||i===7)?'bold 38px sans-serif':'22px sans-serif';label.split('\n').forEach((line,row)=>c.fillText(line,256,(i===6||i===7)?140:62+row*44));c.restore();
   });
   const atlas=new T.CanvasTexture(canvas);atlas.colorSpace=T.SRGBColorSpace;atlas.anisotropy=4;
   const uniforms={wallWriting:{value:atlas},writingBottom:{value:-1e20},writingTop:{value:1e20}};
@@ -22,8 +22,8 @@ export function createWallWriting(){
           vec2 uv=(p-center)/size+.5;
           if(any(lessThan(uv,vec2(0.0)))||any(greaterThan(uv,vec2(1.0))))return vec4(0.0);
           // Canvas rows run downwards, texture UVs upwards. Inset prevents tile bleed.
-          vec2 cell=vec2(mod(tile,4.0),1.0-floor(tile/4.0));
-          return texture2D(wallWriting,(cell+clamp(uv,vec2(.002),vec2(.998)))/vec2(4.0,2.0));
+          vec2 cell=vec2(mod(tile,4.0),2.0-floor(tile/4.0));
+          return texture2D(wallWriting,(cell+clamp(uv,vec2(.002),vec2(.998)))/vec2(4.0,3.0));
         }
       `+shader.fragmentShader;
       shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
@@ -42,10 +42,10 @@ export function createWallWriting(){
           }
           if(abs(wz-.07)<.012){
             if(wx<18.0){
-              ink=writingSample(vec2(17.0+(wx-17.0)*orientation,wy),vec2(17.0,2.2),vec2(1.2,.6),3.0);
+              ink=writingSample(vec2(17.0+(wx-17.0)*orientation,wy),vec2(17.0,2.15),vec2(1.6,.8),vBakedPosition.z>0.0?8.0:3.0);
               vec4 compass=writingSample(vec2(17.0+(wx-17.0)*orientation,wy),vec2(17.0,3.0),vec2(1.6,.5),vBakedPosition.z>0.0?6.0:7.0);
               ink=mix(ink,compass,compass.a);
-            }else ink=writingSample(vec2(21.0+(wx-21.0)*orientation,wy),vec2(21.0,2.1),vec2(1.5,.75),4.0);
+            }else ink=writingSample(vec2(21.43+(wx-21.43)*orientation,wy),vec2(21.43,2.1),vec2(1.8,.75),4.0);
           }
         }else if(facing>.9&&abs(wz-.5)<.012){
           ink=writingSample(vec2(24.6-(wx-24.6)*orientation,wy),vec2(24.6,2.8),vec2(1.5,.75),5.0);
@@ -53,7 +53,7 @@ export function createWallWriting(){
         diffuseColor.rgb=mix(diffuseColor.rgb,ink.rgb,ink.a);
       `);
     };
-    material.customProgramCacheKey=()=> 'baked-wall-writing-v1';
+    material.customProgramCacheKey=()=> 'baked-wall-writing-v2';
   }
   return {apply,setLimits(limits:WorldLimits){uniforms.writingBottom.value=limits.minY??-1e20;uniforms.writingTop.value=limits.maxY===undefined?1e20:limits.maxY-HEIGHT+.34;},dispose(){atlas.dispose();}};
 }

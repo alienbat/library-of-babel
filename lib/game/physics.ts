@@ -23,9 +23,9 @@ export function allowed(x: number, z: number): boolean {
   if (a < INNER + RADIUS || a > OUTER + DORM.depth - .1 - RADIUS) return false;
   // Stairs sit behind the shelves. Their side wall prevents stepping off mid-flight.
   if (a <= OUTER - RADIUS) {
-    // Food kiosk, set back from the rail.
-    return !(t > 17.4 - RADIUS && t < 18.3 + RADIUS && a < INNER + 1.3 + RADIUS)
-      && !(t > 22.25 - RADIUS && t < 22.75 + RADIUS && a > OUTER - .46 - RADIUS);
+    // Wall-side dispenser and book return leave the gallery aisle clear.
+    return !(t > 16.55 - RADIUS && t < 17.45 + RADIUS && a > OUTER - 1.04 - RADIUS)
+      && !(t > 21.18 - RADIUS && t < 21.68 + RADIUS && a > OUTER - .46 - RADIUS);
   }
   if (t > 1 + RADIUS && t < 15 - RADIUS) {
     if (a > OUTER + 3.7 - RADIUS) return false;

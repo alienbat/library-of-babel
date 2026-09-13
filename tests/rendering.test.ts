@@ -147,7 +147,7 @@ void test('distant cache survives movement, with unchanged book detail and conse
     assert.ok(cap.position.y>0&&cap.position.y<.01);
     const fixtureFrames=boundaries.children[2] as T.InstancedMesh;
     assert.ok(fixtureFrames.count>0&&fixtureFrames.count<=108,'bounded instanced fixture window');
-    const wall=(scene.children[0].children.find(object=>object instanceof T.InstancedMesh&&!Array.isArray(object.material)&&object.material.customProgramCacheKey()==='baked-wall-writing-v1') as T.InstancedMesh).material as T.MeshBasicMaterial;
+    const wall=(scene.children[0].children.find(object=>object instanceof T.InstancedMesh&&!Array.isArray(object.material)&&object.material.customProgramCacheKey()==='baked-wall-writing-v2') as T.InstancedMesh).material as T.MeshBasicMaterial;
     const writtenShader={uniforms:{},vertexShader:T.ShaderLib.basic.vertexShader,fragmentShader:T.ShaderLib.basic.fragmentShader} as T.WebGLProgramParametersWithUniforms;
     wall.onBeforeCompile(writtenShader,{} as T.WebGLRenderer);
     assert.equal(writtenShader.uniforms.writingBottom.value,0);

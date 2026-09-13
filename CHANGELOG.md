@@ -5,6 +5,10 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Centre the book return beneath the biography exit sign, remove the old fountain,
+  and move the food dispenser against the wall. Correct rest-area arrows on both
+  galleries and add the food label, with matching collisions and contact shading.
+
 - Add bevelled Blender shelf boards with unchanged dimensions and book capacity,
   an after-hours book-return cabinet, and a park-style BBQ food dispenser. Reuse
   shared spatial LODs and static lighting, with matching return collision bounds.

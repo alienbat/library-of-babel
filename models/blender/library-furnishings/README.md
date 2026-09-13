@@ -17,8 +17,9 @@ visibility to inspect them. They are centred at the origin for runtime instancin
   unchanged. The Blender exports replace only nearby frame geometry.
 
 `Return.glb` is a 0.50 m wide cabinet with a hood, inset slot, flap, service panel
-and book-return lettering. It stands beside the rest-area exit. `BBQ.glb` replaces
-the old kiosk within its original 0.90 × 1.10 m footprint, with a flat hotplate,
+and book-return lettering. It stands centred beneath the biography/exit sign beside the rest-area exit. `BBQ.glb` replaces
+the old kiosk with the same 0.90 × 1.10 m footprint, now against the wall beneath
+the rest-area/food label, with a flat hotplate,
 grease channel, satin surround and simple controls. These remain scenery.
 
 The game shares instanced geometry and baked lighting materials, with simplified

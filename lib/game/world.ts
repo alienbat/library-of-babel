@@ -264,7 +264,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
           slabs.push([x+20,y+HEIGHT-.18,side*(OUTER+DORM.depth/2),8,.36,DORM.depth],
             [x+25+BATH_SHIFT,y+HEIGHT-.18,side*(OUTER+2.5),6,.36,5]);
         }
-        // Dormitory, seven beds, fountain and an inert food kiosk.
+        // Dormitory, seven beds, book return and food dispenser.
         // Each room deck also forms the ceiling below; never overlap two slabs.
         floors.push([x+20,y-.18,side*(OUTER+DORM.depth/2),8,.36,DORM.depth]);
         walls.push([x+20,y+1.8,side*(OUTER+DORM.depth),8,3.6,.2],
@@ -286,11 +286,11 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         bathroomPlacements.push({x:x+25+BATH_SHIFT,y,z:side*(OUTER+2.5),side});
         for(const [dx,dy,dz,w,h,d] of BATHROOM_CONTACTS)
           bathroomContacts.push([x+25+BATH_SHIFT+dx,y+dy,side*(OUTER+2.5+dz),w,h,d]);
-        bbqPlacements.push({x:x+17.85,y,z:side*(INNER+.72),side:-side});
-        propContacts.push([x+17.85,y+.46,side*(INNER+.72),.74,.85,.87]);
-        returnPlacements.push({x:x+22.5,y,z:side*(OUTER-.16),side});
-        propContacts.push([x+22.5,y+.62,side*(OUTER-.16),.5,1.24,.44]);
-        dark.push([x+20.6,y+.83,side*(OUTER-.24),.5,.22,.5],[x+20.6,y+.45,side*(OUTER-.05),.25,.8,.2]);
+        bbqPlacements.push({x:x+17,y,z:side*(OUTER-.49),side});
+        propContacts.push([x+17,y+.46,side*(OUTER-.49),.74,.85,.87],
+          [x+17,y+.94,side*(OUTER-.49),.9,.08,1.1]);
+        returnPlacements.push({x:x+21.43,y,z:side*(OUTER-.16),side});
+        propContacts.push([x+21.43,y+.62,side*(OUTER-.16),.5,1.24,.44]);
         for(const lamp of ROOM_LIGHTS){
           if(lamp.y>HEIGHT&&cornerLimits.maxY!==undefined&&y+lamp.y>cornerLimits.maxY)continue;
           lamps.push([x+lamp.x,y+lamp.y,side*(OUTER+lamp.z),1.6,.035,.28]);

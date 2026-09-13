@@ -68,8 +68,18 @@ void test('furnishings remain compact shared meshes with no runtime lights or ex
 void test('book returns block their footprint without obstructing the gallery aisle on either side', () => {
   for (const side of [-1, 1])
     for (const offset of [-PERIOD, 0, PERIOD]) {
-      assert.equal(allowed(offset + 22.5, side * (OUTER - 0.4)), false);
-      assert.equal(allowed(offset + 22.5, side * (OUTER - 1)), true);
-      assert.equal(allowed(offset + 21.8, side * (OUTER - 0.4)), true);
+      assert.equal(allowed(offset + 21.43, side * (OUTER - 0.4)), false);
+      assert.equal(allowed(offset + 21.43, side * (OUTER - 1)), true);
+      assert.equal(allowed(offset + 20.6, side * (OUTER - 0.4)), true);
     }
+});
+
+void test('wall-side food dispenser leaves its former rail-side footprint and bedroom entrance clear',()=>{
+  for(const side of [-1,1])for(const offset of [-PERIOD,0,PERIOD]){
+    assert.equal(allowed(offset+17,side*(OUTER-.8)),false);
+    assert.equal(allowed(offset+17,side*(OUTER-1.5)),true);
+    assert.equal(allowed(offset+17.85,side*16),true);
+    assert.equal(allowed(offset+19,side*(OUTER-.3)),true);
+    assert.equal(allowed(offset+20.6,side*(OUTER-.3)),true);
+  }
 });
