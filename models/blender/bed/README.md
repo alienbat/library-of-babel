@@ -4,11 +4,11 @@ An original, clean, stylized furniture design inspired by simple Scandinavian
 flat-pack furniture. It does not reproduce a particular IKEA product or use its
 branding or assets.
 
-- `bed.blend`: editable source with 30 separate bed objects, packed textures and
+- `bed.blend`: editable source with 28 separate bed objects, packed textures and
   a separate preview studio collection.
 - `bed-preview.png`: CPU Cycles preview.
-- `bed.glb`: portable export, combined into six material batches; studio lights,
-  ground and camera excluded. Approximately 586 KiB and 10,524 triangles.
+- `bed.glb`: portable export, combined into five material batches; studio lights,
+  ground and camera excluded. Approximately 568 KiB and 9,852 triangles.
 - `create_bed.py`: reproducible geometry, textures, render and export.
 
 The frame keeps the current game's **1.00 × 1.80 m** footprint. Overall height is
@@ -31,10 +31,10 @@ Regenerate from the repository root (overwrites these outputs):
 
 Validated by rendering and inspecting the preview, reopening the source in a
 fresh Blender process, checking footprint and packed textures, and reimporting
-the GLB to check its six mesh batches and exclusion of studio objects.
+the GLB to check its five mesh batches and exclusion of studio objects.
 
 The game loads this GLB through Vite's asset pipeline. `lib/game/beds.ts` shares
-its six mesh/material batches across beds within 14 m of the camera, including
+its five mesh/material batches across beds within 14 m of the camera, including
 adjacent floors. Three coarse instanced batches provide the distant version and
 a fallback during loading or asset failure. World-window translation and boundary
 rebuilds update both versions. Textures and geometry are disposed with the world.

@@ -33,8 +33,8 @@ void test('bed GLB remains self-contained with bounded shared mesh batches', () 
   );
   assert.equal(b.toString('ascii', 0, 4), 'glTF');
   const g = JSON.parse(b.toString('utf8', 20, 20 + b.readUInt32LE(12)));
-  assert.equal(g.meshes.length, 6);
-  assert.equal(g.materials.length, 6);
+  assert.equal(g.meshes.length, 5);
+  assert.equal(g.materials.length, 5);
   assert.ok(
     g.images.every(
       (i: { bufferView?: number; uri?: string }) =>

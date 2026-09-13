@@ -58,7 +58,6 @@ linen=mat('Warm ivory linen',(.84,.81,.71),cloth_tex)
 duvet=mat('Sage woven duvet',(.32,.40,.35),cloth_tex)
 foldmat=mat('Duvet turnback',(.43,.50,.43),cloth_tex)
 stitch=mat('Linen piping',(.71,.68,.59))
-thread=mat('Sage edge binding',(.27,.34,.29))
 
 def finish(obj,name,m):
     obj.name=name;move_to(obj,asset);obj.data.materials.append(m)
@@ -147,7 +146,6 @@ o=bpy.data.objects.new('Sage duvet • broad soft folds',mesh);asset.objects.lin
 for p in mesh.polygons:p.use_smooth=True
 solid=o.modifiers.new('Quilt thickness','SOLIDIFY');solid.thickness=.013
 bevel=o.modifiers.new('Soft bound edge','BEVEL');bevel.width=.005;bevel.segments=2
-for u in [-.97,.97]:line('Duvet side stitched hem',[tuple(Vector(quilt_point(u,j/ny))+Vector((0,0,.003))) for j in range(ny+1)],thread,.002)
 # Turned-down lip is a rounded band rather than a sharp rectangular strip.
 box('Soft duvet turnback',(0,.29,.669),(.854,.16,.036),foldmat,.017,4)
 
@@ -184,7 +182,7 @@ for o in asset.objects:o.select_set(True)
 bpy.context.view_layer.objects.active=next(o for o in asset.objects if o.type=='MESH')
 bpy.ops.object.convert(target='MESH')
 # Merge by material in the export copy; retain separate editable objects in .blend.
-for material in [wood,linen,duvet,foldmat,stitch,thread]:
+for material in [wood,linen,duvet,foldmat,stitch]:
     bpy.ops.object.select_all(action='DESELECT')
     parts=[o for o in asset.objects if o.type=='MESH' and o.data.materials[0]==material]
     for o in parts:o.select_set(True)
