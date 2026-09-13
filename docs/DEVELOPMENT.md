@@ -10,6 +10,7 @@ npm test
 npx tsc --noEmit
 npm run lint
 npm run build
+npm run build:github
 ```
 
 The build checks that the production book-worker URL resolves correctly. Full lint
@@ -37,7 +38,11 @@ rate. Do not generalize a single-device result into an engine-wide speed claim.
 `npm run dev` starts the development server. `npm run build` produces the application
 and worker output. `npm run start` runs Wrangler against the built server config.
 Hosting configuration lives in `.openai/hosting.json` and the build/tooling files;
-merging a PR does not itself establish that a production deployment happened.
+this hosting target is separate from GitHub Pages.
+
+For GitHub Pages, use `npm run build:github`, `npm run preview:github` and
+`npm run deploy:github`. The Pages workflow validates PRs and deploys successful
+`main` builds. See [GitHub Pages hosting](GITHUB_PAGES.md) for setup and details.
 
 ## Optional browser integration
 

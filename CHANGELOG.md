@@ -5,6 +5,9 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Add a standalone static build for GitHub Pages with subpath-aware assets and book workers.
+- Add `deploy:github`, PR build checks and automatic Pages deployment from `main`.
+
 - Standardize The Library of Babel across the game, metadata and documentation.
 - Replace the accumulated development README with a project overview, implemented
   dimensions, controls, setup, contribution links and MIT licensing.

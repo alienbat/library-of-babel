@@ -1,7 +1,9 @@
 # Architecture
 
 The Library of Babel uses Three.js for rendering, React for the interface and Vinext
-for the application build. The production renderer is Three.js. The separate
+for the existing application build. A separate Vite static entry in `static/` reuses
+the same game for GitHub Pages, including its module worker; no server is required.
+See [static hosting](GITHUB_PAGES.md). The production renderer is Three.js. The separate
 `prototype/babylon-renderer` branch is an unmerged experiment, not a runtime option.
 
 ## Source map
