@@ -12,9 +12,12 @@
     "lint": "oxlint",
     "format": "oxfmt",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
-    "test:scene": "node scripts/serve-scene-review.mjs"
+    "test:scene": "node scripts/serve-scene-review.mjs",
+    "prototype:babylon": "node scripts/serve-babylon-prototype.mjs",
+    "check:babylon": "tsc -p prototype/tsconfig.json && oxlint --tsconfig prototype/tsconfig.json prototype scripts/serve-babylon-prototype.mjs"
   },
   "dependencies": {
+    "@babylonjs/core": "^9.26.0",
     "@base-ui/react": "1.7.0",
     "@shadcn/react": "0.3.0",
     "class-variance-authority": "0.7.1",
