@@ -1,5 +1,8 @@
 # Blender source models
 
+The first furniture model is the [Scandinavian-style bed](bed/README.md), with
+editable source, a portable GLB export and rendered preview.
+
 `shelf-test.blend` is a small workflow specimen created with Blender 5.2 LTS:
 three rows of books, supporting shelf boards, a plain backing, materials, a
 preview camera and studio lights. Units are metres. It is an original project
