@@ -34,10 +34,8 @@ export function shelfLod(material:T.MeshBasicMaterial,eye:T.IUniform<T.Vector3>,
       // A 3 cm relief layer: boards in front, book spines behind. Check the
       // swept ray against periodic board strips rather than marching geometry.
       float relief=1.0-smoothstep(450.0,${SHELF_RELIEF_RADIUS}.0,length(vBakedPosition-cameraPosition));
-      // Let the mip-filtered face take over once individual board edges become
-      // subpixel; hard analytical edges would shimmer at grazing angles.
-      float boardFootprint=max(fwidth(vBakedPosition.x)/.055,fwidth(vBakedPosition.y)/.04);
-      relief*=1.0-smoothstep(.5,2.0,boardFootprint);
+      // Filter each board direction independently. A foreshortened horizontal
+      // edge must not erase the vertical timber's silhouette (or vice versa).
       if(relief>0.0&&abs(vBakedNormal.z)>.5){
         vec3 ray=vBakedPosition-cameraPosition;
         vec2 shift=ray.xy/max(abs(ray.z),.0001)*.03;
@@ -45,15 +43,24 @@ export function shelfLod(material:T.MeshBasicMaterial,eye:T.IUniform<T.Vector3>,
         vec2 q=p+shift;
         vec2 period=vec2(${BAY/8},.39),width=vec2(.055,.04);
         vec2 start=vec2(-.0275,.09);
-        vec2 lo=min(p,q)-start,hi=max(p,q)-start;
-        vec2 next=floor(lo/period)*period;
-        vec2 hit=step(lo,next+width)+step(next+period,hi);
-        bool wood=hit.x>0.0||(hit.y>0.0&&min(p.y,q.y)<2.86)||min(p.y,q.y)<.09;
-        vec2 uv=vec2(fract((vBakedPosition.z>0.0?-q.x:q.x)/${BAY}),(q.y-.03)/3.18);
-        vec3 reliefColor=wood?vec3(${new T.Color('#544b3d').toArray().join(',')}):texture2D(map,uv).rgb;
+        vec2 footprint=max(fwidth(p),vec2(.00001));
+        vec2 swept=abs(q-p);
+        vec2 coverageWidth=min(width+swept,period);
+        vec2 centre=start+width*.5-(q-p)*.5;
+        vec2 distanceToBoard=abs(mod(p-centre+period*.5,period)-period*.5);
+        vec2 coverage=clamp((coverageWidth*.5+footprint*.5-distanceToBoard)/footprint,0.0,1.0);
+        // At minification converge to actual area coverage rather than dropping boards.
+        coverage=mix(coverage,coverageWidth/period,smoothstep(period*.5,period,footprint));
+        coverage.y*=1.0-step(2.86,min(p.y,q.y));
+        float wood=max(coverage.x,coverage.y);
+        wood=max(wood,1.0-smoothstep(.09-footprint.y*.5,.09+footprint.y*.5,min(p.y,q.y)));
+        // Derivatives from continuous coordinates avoid false coarse mip levels
+        // at bay boundaries. The texture itself supplies RepeatWrapping.
+        vec2 uv=vec2((vBakedPosition.z>0.0?-q.x:q.x)/${BAY},(q.y-.03)/3.18);
+        vec3 reliefColor=mix(texture2D(map,uv).rgb,vec3(${new T.Color('#544b3d').toArray().join(',')}),wood);
         diffuseColor.rgb=mix(diffuseColor.rgb,reliefColor,relief);
       }
     `);
   };
-  material.customProgramCacheKey=()=>key+'-shelf-distance-relief-v1';return material;
+  material.customProgramCacheKey=()=>key+'-shelf-distance-relief-v2';return material;
 }

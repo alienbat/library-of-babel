@@ -57,7 +57,9 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     const rect=(x:number,y:number,w:number,h:number,color:string)=>{
       c.fillStyle=color;c.fillRect(x*sx,(3.21-y-h)*sy,w*sx,h*sy);
     };
-    rect(0,.03,BAY,3.18,'#a8a69a');
+    // Recessed wall is mostly occluded by the deep shelf boards at viewing angles.
+    // Bake the cavity shading into the impostor, not the actual wall material.
+    rect(0,.03,BAY,3.18,'#514c40');
     for(let row=0;row<ROWS;row++){
       const bottom=.13+row*.39;
       for(let book=0;book<BOOKS_PER_ROW;book++){
@@ -67,6 +69,9 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         rect(x+.037/4,bottom+.34*(1-56/256),.037/2,.34*4/256,'rgba(225,206,163,.23)');
         rect(x+.037/4,bottom+.34*(1-236/256),.037/2,.34*4/256,'rgba(225,206,163,.23)');
       }
+      // Small contact shadows preserve the separation of books and timber.
+      rect(0,bottom,BAY,.012,'rgba(35,29,20,.22)');
+      rect(0,bottom+.328,BAY,.012,'rgba(35,29,20,.18)');
       rect(0,bottom-.04,BAY,.04,'#544b3d');
     }
     for(let j=0;j<=8;j++)rect(j*BAY/8-.055/2,.03,.055,3.18,'#544b3d');
