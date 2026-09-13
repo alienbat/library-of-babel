@@ -40,7 +40,7 @@ void test('horizon averages energy in linear light and grazing decks occlude she
   assert.equal(horizontalCoverage(1,0),1-.34/HEIGHT);
   assert.equal(horizontalCoverage(-1,0),horizontalCoverage(1,0));
   const bake=bakeGalleryLighting(),averages=galleryAverages(new T.Texture(),bake.negative,bake.positive);
-  for(const value of Object.values(averages))assert.ok([value.r,value.g,value.b].every(v=>Number.isFinite(v)&&v>0));
+  for(const value of Object.values(averages))assert.ok([value.r,value.g,value.b].every(v=>Number.isFinite(v)&&v>=0));
   assert.notDeepEqual(averages.ceiling,averages.floor);
   bake.dispose();
 });

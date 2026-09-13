@@ -18,21 +18,21 @@ export const ROOM_GRID=[120,32,24] as const;
 const RANGE=4;
 const ramp=(x:number)=>x<=4?0:x>=12?HEIGHT:(x-4)/8*HEIGHT;
 /** Room-specific diffuse irradiance, baked once. Walls isolate each room's lights. */
-export function bakeRoomLighting(top=false,finalFlight=false){
+export function bakeRoomLighting(top=false,finalFlight=false,lightStrength=1){
   const [nx,ny,nz]=ROOM_GRID;
   const positive=new Uint8Array(nx*ny*nz*4),negative=new Uint8Array(positive.length);
   for(let z=0;z<nz;z++)for(let y=0;y<ny;y++)for(let x=0;x<nx;x++){
     const px=x/(nx-1)*ROOM_WIDTH,py=y/(ny-1)*HEIGHT,pz=z/(nz-1)*ROOM_DEPTH;
     const room=px<15.5?0:px<DORM.right?1:2;
     const floor=room===0&&!top?Math.floor((py-ramp(px)+.001)/HEIGHT)*HEIGHT:0;
-    const lobes=[.18,.36,.20,.18,.14,.20];
+    const lobes=[0,0,0,0,0,0];
     for(const lamp of roomLights(top||finalFlight)){
       if(lamp.room!==room)continue;
       // Landings belong to the same stair passage as the sampled step.
       const ly=lamp.y+(room===0?(finalFlight?HEIGHT:!top?floor+(lamp.x>=12?HEIGHT:0):0):0);
       for(const end of [-.5,.5]){
         const dx=lamp.x+end-px,dy=ly-py,dz=lamp.z-pz;
-        const r=Math.sqrt(dx*dx+dy*dy+dz*dz+.12),energy=2.4/(1+r*r*.42);
+        const r=Math.sqrt(dx*dx+dy*dy+dz*dz+.12),energy=lightStrength*2.4/(1+r*r*.42);
         for(let axis=0;axis<3;axis++){
           const d=[dx,dy,dz][axis]/r;
           lobes[axis]+=energy*Math.max(0,d);lobes[axis+3]+=energy*Math.max(0,-d);

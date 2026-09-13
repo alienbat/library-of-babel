@@ -93,7 +93,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const endWall=new T.Mesh(endGeometry,boundaryWallFade),endCap=new T.Mesh(capGeometry,boundaryFloorFade);
   boundaryGroup.add(endWall,endCap);endWall.visible=endCap.visible=false;
   let cornerLimits:WorldLimits={},fixtureX=Infinity,fixtureY=Infinity;
-  const frameMaterial=new T.MeshBasicMaterial({color:'#353c38'}),lensMaterial=new T.MeshBasicMaterial({color:new T.Color('#fff0c9').multiplyScalar(2.2)});materials.push(frameMaterial,lensMaterial);
+  const frameMaterial=boundary.frame,lensMaterial=new T.MeshBasicMaterial({color:new T.Color('#fff0c9').multiplyScalar(2.2)});materials.push(lensMaterial);
   const frames=new T.InstancedMesh(boxGeo,frameMaterial,144),lenses=new T.InstancedMesh(boxGeo,lensMaterial,144);boundaryGroup.add(frames,lenses);frames.count=lenses.count=0;
   function updateFixtures(px:number,py:number){
     const bx=Math.floor(px/BOUNDARY_LIGHT_SPACING),by=Math.floor(py/WALL_LIGHT_SPACING);

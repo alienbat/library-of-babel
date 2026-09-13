@@ -54,3 +54,20 @@ void test('top stair bake omits the imaginary flight and its contact shadow',asy
     assert.equal(sample(top,25,1),sample(normal,25,1),'bathroom bake stays unchanged');
   }finally{normal.dispose();top.dispose();}
 });
+
+void test('bakes contain no illumination when fixture strength is zero',async()=>{
+  const {bakeRoomLighting}=await import('../lib/game/room-lighting.ts');
+  const {createBoundaryLighting}=await import('../lib/game/boundary-lighting.ts');
+  const gallery=bakeGalleryLighting(0),rooms=[bakeRoomLighting(false,false,0),bakeRoomLighting(true,false,0),bakeRoomLighting(false,true,0)];
+  const carpet=new T.Texture(),boundary=createBoundaryLighting(carpet,0);
+  try{
+    for(const bake of [gallery,...rooms])for(const key of ['positive','negative'] as const){
+      const pixels=bake[key].image.data!;
+      for(let i=0;i<pixels.length;i++)if(i%4!==3)assert.equal(pixels[i],0);
+    }
+    assert.equal(boundary.uniforms.boundaryLightMean.value,0);
+    assert.equal(boundary.frame.color.getHex(),0);
+    const pixels=boundary.uniforms.boundaryLight.value.image.data!;
+    for(let i=0;i<pixels.length;i++)if(i%4!==3)assert.equal(pixels[i],0);
+  }finally{gallery.dispose();rooms.forEach(b=>b.dispose());boundary.dispose();carpet.dispose();}
+});

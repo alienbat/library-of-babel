@@ -6,14 +6,14 @@ import {HEIGHT,INNER,OUTER,PERIOD,type WorldLimits} from './physics.ts';
 export const LIGHT_PERIOD=7.62;
 const NX=48,NY=32,NZ=16,RANGE=4;
 /** Bake six directional diffuse irradiance lobes once for one repeating gallery cell. */
-export function bakeGalleryLighting(){
+export function bakeGalleryLighting(lightStrength=1){
   const positive=new Uint8Array(NX*NY*NZ*4),negative=new Uint8Array(positive.length);
   for(let z=0;z<NZ;z++)for(let y=0;y<NY;y++)for(let x=0;x<NX;x++){
     const px=(x+.5)/NX*LIGHT_PERIOD,py=y/(NY-1)*HEIGHT,pz=INNER+z/(NZ-1)*(OUTER-INNER);
-    const lobes=[.66,1.05,.72,.66,.40,.72];
+    const lobes=[0,0,0,0,0,0];
     for(let lamp=-3;lamp<=3;lamp++){
       const dx=lamp*LIGHT_PERIOD+3.81-px,dy=HEIGHT-.38-py,dz=INNER+1.8288-pz;
-      const r=Math.sqrt(dx*dx+dy*dy+dz*dz+.16),energy=3.2/(1+r*r*.32);
+      const r=Math.sqrt(dx*dx+dy*dy+dz*dz+.16),energy=lightStrength*3.2/(1+r*r*.32);
       for(let axis=0;axis<3;axis++){
         const direction=[dx,dy,dz][axis]/r;
         lobes[axis]+=energy*Math.max(0,direction);
@@ -33,7 +33,7 @@ export function bakeGalleryLighting(){
     const t=new T.Data3DTexture(data,NX,NY,NZ);t.format=T.RGBAFormat;t.type=T.UnsignedByteType;
     t.minFilter=t.magFilter=T.LinearFilter;t.wrapS=T.RepeatWrapping;t.wrapT=t.wrapR=T.ClampToEdgeWrapping;t.unpackAlignment=1;t.needsUpdate=true;return t;
   };
-  const pos=texture(positive),neg=texture(negative),rooms=bakeRoomLighting(),topRooms=bakeRoomLighting(true),finalRooms=bakeRoomLighting(false,true);
+  const pos=texture(positive),neg=texture(negative),rooms=bakeRoomLighting(false,false,lightStrength),topRooms=bakeRoomLighting(true,false,lightStrength),finalRooms=bakeRoomLighting(false,true,lightStrength);
   const roomTop={value:1e20};
   const aoBaked=new Set<boolean|string>();
   function bakeRoomContacts(occluders:()=>T.Box3[],top:boolean|'final'=false){
