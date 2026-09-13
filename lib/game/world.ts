@@ -333,7 +333,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
           [x+17,y+.94,side*(OUTER-.49),.9,.08,1.1]);
         returnPlacements.push({x:x+21.43,y,z:side*(OUTER-.16),side});
         propContacts.push([x+21.43,y+.62,side*(OUTER-.16),.5,1.24,.44]);
-        for(const lamp of roomLights(cornerLimits.maxY!==undefined&&Math.abs(y+HEIGHT-.34-cornerLimits.maxY)<.001,cornerLimits.minY!==undefined&&Math.abs(y-cornerLimits.minY)<.001)){
+        for(const lamp of roomLights(cornerLimits.maxY!==undefined&&Math.abs(y+HEIGHT-.34-cornerLimits.maxY)<.001,cornerLimits.minY!==undefined&&Math.abs(y-cornerLimits.minY)<.001,cornerLimits.maxY!==undefined&&Math.abs(y+2*HEIGHT-.34-cornerLimits.maxY)<.001)){
           if(lamp.y>HEIGHT&&cornerLimits.maxY!==undefined&&y+lamp.y>cornerLimits.maxY)continue;
           lamps.push([x+lamp.x,y+lamp.y,side*(OUTER+lamp.z),1.6,.035,.28]);
         }
@@ -351,8 +351,10 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     const normalFloor=Math.max(bottomFloor+2,Math.min(fy,topFloor-2));
     const contacts=(floor:number)=>()=>roomOccluders([decks,slabs,floors,shelves,trim,lamps,walls,dark,screens,tiles,bedContacts,bathroomContacts,propContacts].flat(),new T.Vector3(roomX,floor*HEIGHT,0));
     lighting.bakeRoomContacts(contacts(normalFloor));
-    if(topFloor>=fy-31&&topFloor<=fy+31)
+    if(topFloor>=fy-30&&topFloor<=fy+31){
       lighting.bakeRoomContacts(contacts(topFloor),true);
+      lighting.bakeRoomContacts(contacts(topFloor-1),'final');
+    }
     // This periodic horizon never needs to be regenerated when walking. Moving its
     // origin by whole bays/floors preserves the same shelf and lamp alignment.
     distantGroup.position.set(bx*BAY,fy*HEIGHT,0);

@@ -10,15 +10,15 @@ export const ROOM_LIGHTS=[
   // Center of the bathroom interior: x 24.1–29.9, depth .5–4.9.
   {x:25+BATH_SHIFT,y:HEIGHT-.43,z:2.7,room:2},
 ];
-export function roomLights(top=false,bottom=false){
+export function roomLights(top=false,bottom=false,belowTop=false){
   if(top)return [...ROOM_LIGHTS.filter(l=>l.room!==0),{x:8,y:HEIGHT-.34-.035/2,z:2.1,room:0}];
-  return bottom?ROOM_LIGHTS.filter(l=>l.x!==13.5):ROOM_LIGHTS;
+  return ROOM_LIGHTS.filter(l=>(!bottom||l.x!==13.5)&&(!belowTop||l.x!==2.5));
 }
 export const ROOM_GRID=[120,32,24] as const;
 const RANGE=4;
 const ramp=(x:number)=>x<=4?0:x>=12?HEIGHT:(x-4)/8*HEIGHT;
 /** Room-specific diffuse irradiance, baked once. Walls isolate each room's lights. */
-export function bakeRoomLighting(top=false){
+export function bakeRoomLighting(top=false,finalFlight=false){
   const [nx,ny,nz]=ROOM_GRID;
   const positive=new Uint8Array(nx*ny*nz*4),negative=new Uint8Array(positive.length);
   for(let z=0;z<nz;z++)for(let y=0;y<ny;y++)for(let x=0;x<nx;x++){
@@ -26,10 +26,10 @@ export function bakeRoomLighting(top=false){
     const room=px<15.5?0:px<DORM.right?1:2;
     const floor=room===0&&!top?Math.floor((py-ramp(px)+.001)/HEIGHT)*HEIGHT:0;
     const lobes=[.18,.36,.20,.18,.14,.20];
-    for(const lamp of roomLights(top)){
+    for(const lamp of roomLights(top||finalFlight)){
       if(lamp.room!==room)continue;
       // Landings belong to the same stair passage as the sampled step.
-      const ly=lamp.y+(room===0&&!top?floor+(lamp.x>=12?HEIGHT:0):0);
+      const ly=lamp.y+(room===0?(finalFlight?HEIGHT:!top?floor+(lamp.x>=12?HEIGHT:0):0):0);
       for(const end of [-.5,.5]){
         const dx=lamp.x+end-px,dy=ly-py,dz=lamp.z-pz;
         const r=Math.sqrt(dx*dx+dy*dy+dz*dz+.12),energy=2.4/(1+r*r*.42);

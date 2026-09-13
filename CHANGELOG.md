@@ -5,6 +5,10 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Remove the floating fixture beneath the removed top stair landing. Bake the
+  final flight from the top ceiling light, with contact shading from its actual
+  geometry instead of repeating the normal stairwell lighting.
+
 - Use “Eternity can wait.” in the pause menu with more button spacing. Remove
   the interior bathroom sign, conceal shelf backing behind flat bedroom walls,
   and place headboards close to the walls while retaining side access.

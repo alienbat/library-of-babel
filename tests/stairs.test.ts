@@ -67,3 +67,20 @@ void test('terminal stairwell alcoves are removed, with ceiling-mounted top ligh
   assert.ok(!roomLights(false,true).some(l=>l.x===13.5));
   assert.ok(Math.abs(supportBelow({x:2.5,y:.2,z:OUTER+2},{maxY:HEIGHT-.34})!+HEIGHT)<1e-8);
 });
+
+void test('final stair flight has no lamp beneath the removed top landing',async()=>{
+  const {roomLights,bakeRoomLighting,ROOM_GRID}=await import('../lib/game/room-lighting.ts');
+  const lamps=roomLights(false,false,true).filter(l=>l.room===0);
+  assert.deepEqual(lamps.map(l=>l.x),[13.5]);
+  const normal=bakeRoomLighting(),final=bakeRoomLighting(false,true),top=bakeRoomLighting(true);
+  const [nx,ny,nz]=ROOM_GRID;
+  // Both sides of the top-level boundary sample the same ceiling light.
+  const x=30,z=8;
+  for(const key of ['positive','negative'] as const){
+    const lower=final[key].image.data as Uint8Array,upper=top[key].image.data as Uint8Array;
+    for(let c=0;c<3;c++)assert.ok(Math.abs(lower[((z*ny+ny-1)*nx+x)*4+c]-upper[(z*ny*nx+x)*4+c])<=1);
+  }
+  assert.notDeepEqual(final.positive.image.data,normal.positive.image.data);
+  assert.equal(final.positive.image.depth,nz);
+  normal.dispose();final.dispose();top.dispose();
+});

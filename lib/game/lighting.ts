@@ -33,13 +33,13 @@ export function bakeGalleryLighting(){
     const t=new T.Data3DTexture(data,NX,NY,NZ);t.format=T.RGBAFormat;t.type=T.UnsignedByteType;
     t.minFilter=t.magFilter=T.LinearFilter;t.wrapS=T.RepeatWrapping;t.wrapT=t.wrapR=T.ClampToEdgeWrapping;t.unpackAlignment=1;t.needsUpdate=true;return t;
   };
-  const pos=texture(positive),neg=texture(negative),rooms=bakeRoomLighting(),topRooms=bakeRoomLighting(true);
+  const pos=texture(positive),neg=texture(negative),rooms=bakeRoomLighting(),topRooms=bakeRoomLighting(true),finalRooms=bakeRoomLighting(false,true);
   const roomTop={value:1e20};
-  const aoBaked=new Set<boolean>();
-  function bakeRoomContacts(occluders:()=>T.Box3[],top=false){
+  const aoBaked=new Set<boolean|string>();
+  function bakeRoomContacts(occluders:()=>T.Box3[],top:boolean|'final'=false){
     if(aoBaked.has(top))return;
     const ao=bakeRoomAO(occluders());
-    const target=top?topRooms:rooms;
+    const target=top==='final'?finalRooms:top?topRooms:rooms;
     applyRoomAO(target.positive,ao);applyRoomAO(target.negative,ao);
     aoBaked.add(top);
   }
@@ -48,6 +48,7 @@ export function bakeGalleryLighting(){
     const luminous=(params.emissiveIntensity??0)>.5;
     if(luminous){m.color.multiplyScalar(1+(params.emissiveIntensity??0));return m;}
     m.onBeforeCompile=shader=>{
+      shader.uniforms.finalRoomPositive={value:finalRooms.positive};shader.uniforms.finalRoomNegative={value:finalRooms.negative};
       shader.uniforms.roomTop=roomTop;shader.uniforms.topRoomPositive={value:topRooms.positive};shader.uniforms.topRoomNegative={value:topRooms.negative};
       shader.uniforms.roomPositive={value:rooms.positive};shader.uniforms.roomNegative={value:rooms.negative};
       shader.uniforms.bakedPositive={value:pos};shader.uniforms.bakedNegative={value:neg};
@@ -62,7 +63,7 @@ export function bakeGalleryLighting(){
         vBakedPosition=(modelMatrix*bakedPoint).xyz;
         vBakedNormal=normalize(mat3(modelMatrix)*bakedNormal);
       `);
-      shader.fragmentShader='uniform float roomTop;\nuniform highp sampler3D topRoomPositive,topRoomNegative;\nuniform highp sampler3D roomPositive,roomNegative;\n uniform highp sampler3D bakedPositive;\nuniform highp sampler3D bakedNegative;\nvarying vec3 vBakedPosition;\nvarying vec3 vBakedNormal;\n'+shader.fragmentShader;
+      shader.fragmentShader='uniform highp sampler3D finalRoomPositive,finalRoomNegative;\nuniform float roomTop;\nuniform highp sampler3D topRoomPositive,topRoomNegative;\nuniform highp sampler3D roomPositive,roomNegative;\n uniform highp sampler3D bakedPositive;\nuniform highp sampler3D bakedNegative;\nvarying vec3 vBakedPosition;\nvarying vec3 vBakedNormal;\n'+shader.fragmentShader;
       shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
         float cellY=mod(vBakedPosition.y,${HEIGHT});
         // Choose the cell on the visible side of a floor/ceiling boundary.
@@ -77,6 +78,14 @@ export function bakeGalleryLighting(){
           bool topRoom=vBakedPosition.y>=roomTop-.001;
           positive=(topRoom?texture(topRoomPositive,roomUv):texture(roomPositive,roomUv)).rgb*${RANGE}.0;
           negative=(topRoom?texture(topRoomNegative,roomUv):texture(roomNegative,roomUv)).rgb*${RANGE}.0;
+          // The final flight opens into the top room: its light is one storey
+          // above, and the removed left landing no longer supports a fixture.
+          float finalFloor=roomTop-${HEIGHT};
+          float stairRise=clamp((roomX-4.0)/8.0,0.0,1.0)*${HEIGHT};
+          if(roomX<15.5&&!topRoom&&vBakedPosition.y>=finalFloor+stairRise-.002){
+            positive=texture(finalRoomPositive,roomUv).rgb*${RANGE}.0;
+            negative=texture(finalRoomNegative,roomUv).rgb*${RANGE}.0;
+          }
         }else{
           positive=texture(bakedPositive,uvw).rgb*${RANGE}.0;
           negative=texture(bakedNegative,uvw).rgb*${RANGE}.0;
@@ -88,5 +97,5 @@ export function bakeGalleryLighting(){
     };
     m.customProgramCacheKey=()=> 'baked-gallery-volume-v1';return m;
   }
-  return {material,bakeRoomContacts,positive:pos,negative:neg,setLimits(limits:WorldLimits){roomTop.value=limits.maxY===undefined?1e20:limits.maxY-HEIGHT+.34;},dispose(){pos.dispose();neg.dispose();rooms.dispose();topRooms.dispose();}};
+  return {material,bakeRoomContacts,positive:pos,negative:neg,setLimits(limits:WorldLimits){roomTop.value=limits.maxY===undefined?1e20:limits.maxY-HEIGHT+.34;},dispose(){pos.dispose();neg.dispose();rooms.dispose();topRooms.dispose();finalRooms.dispose();}};
 }
