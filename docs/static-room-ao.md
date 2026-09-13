@@ -1,3 +1,5 @@
+> Historical implementation: production Cycles fields replace this AO pass. See [Cycles lighting](CYCLES_LIGHTING.md).
+
 # Static room AO port from the Babylon prototype
 
 The original Three.js renderer now includes short-range baked room contact shading.

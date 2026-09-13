@@ -1,3 +1,4 @@
+import {GALLERY_LIGHT_LENGTH,GALLERY_LIGHT_PERIOD} from './gallery-fixtures.ts';
 import * as T from 'three';
 import {bakeProfile} from './horizon-profile.ts';
 import {HEIGHT,INNER,OUTER} from './physics.ts';
@@ -30,7 +31,7 @@ export function galleryAverages(spines:T.Texture,negative:T.Data3DTexture,positi
   const ceiling=lit(new T.Color('#aaa99c'),irradiance(negative,1,(HEIGHT-.40)/HEIGHT,(HEIGHT-.30)/HEIGHT,0,1,.4));
   const floor=lit(new T.Color('#b1b1a7').multiply(carpet?textureMean(carpet,'#6b6c66'):new T.Color('#6b6c66')),irradiance(positive,1,0,0,0,1,1.05));
   // Real underside fixture area, not a glowing screen-space horizon stripe.
-  const lampArea=1.6*.28/(7.62*(OUTER-INNER));
+  const lampArea=GALLERY_LIGHT_LENGTH*.28/(GALLERY_LIGHT_PERIOD*(OUTER-INNER));
   ceiling.lerp(new T.Color().setRGB(2,1.8,1.35),lampArea);
   const face=lit(new T.Color('#a8a69a'),irradiance(negative,2,3.33/HEIGHT,(HEIGHT-.34)/HEIGHT,1,1,.85)).multiplyScalar(1-3.18/HEIGHT-.34/HEIGHT);
   face.add(lit(shelf,shelfLight).multiplyScalar(3.18/HEIGHT)).add(edge.clone().multiplyScalar(.34/HEIGHT));
@@ -71,7 +72,7 @@ export function galleryProfile(spines:T.Texture,negative:T.Data3DTexture,positiv
     const base=hit.kind==='rail'?rail:hit.kind==='deck'?(hit.ny>0?floor:slab):y>=3.33?new T.Color('#a8a69a'):shelf;
     const color=base.clone().multiply(tint).multiplyScalar(light);
     // Unresolved ceiling luminaires retain their true plan-area contribution.
-    if(hit.kind==='deck'&&hit.ny<0)color.lerp(new T.Color().setRGB(2,1.8,1.35),1.6*.28/(7.62*(OUTER-INNER)));
+    if(hit.kind==='deck'&&hit.ny<0)color.lerp(new T.Color().setRGB(2,1.8,1.35),GALLERY_LIGHT_LENGTH*.28/(GALLERY_LIGHT_PERIOD*(OUTER-INNER)));
     return color;
   });
 }

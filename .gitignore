@@ -38,3 +38,8 @@ next-env.d.ts
 /work/
 
 *.tsbuildinfo
+
+# Offline lighting authoring intermediates
+/scripts/lighting/generated/
+
+/scripts/lighting/__pycache__/

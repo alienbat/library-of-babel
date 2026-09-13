@@ -1,21 +1,21 @@
+import {GALLERY_LIGHT_COUNT,GALLERY_LIGHT_LENGTH,GALLERY_LIGHT_PERIOD} from './gallery-fixtures.ts';
 import {createCeilingLights} from './ceiling-lights.ts';
 import {createShelfFrame} from './shelf-frame.ts';
-import {createBathroomFixtures,BATHROOM_CONTACTS,type BathroomPlacement} from './bathroom-fixtures.ts';
+import {createBathroomFixtures,type BathroomPlacement} from './bathroom-fixtures.ts';
 import {DORM,DORM_BEDS,BATH_SHIFT,ENTRY_HEIGHT} from './room-layout.ts';
 import {createBeds,createFurniture,type BedPlacement} from './beds.ts';
-import {roomOccluders} from './room-ao.ts';
 import {createStairCulling} from './landing-occlusion.ts';
 import {detailCells,detailRadius,shelfDistanceSquared,shelfLod,type ShelfCell} from './shelf-lod.ts';
 import * as T from 'three';
 import {createWallWriting} from './wall-writing.ts';
 import {roomLights} from './room-lighting.ts';
 import {staircase} from './stairs.ts';
-import {createBoundaryLighting,BOUNDARY_SPAN,BOUNDARY_LIGHT_SPACING,WALL_LIGHT_SPACING} from './boundary-lighting.ts';
+import {createBoundaryLighting,BOUNDARY_SPAN} from './boundary-lighting.ts';
 import {createInfiniteHorizon,withHorizonFade} from './horizon.ts';
 import {bakeGalleryLighting} from './lighting.ts';
-import { BAY, HEIGHT, INNER, RAIL_OFFSET, OUTER, PERIOD, mod,type WorldLimits } from './physics.ts';
+import { BAY, HEIGHT, INNER, RAIL_OFFSET, OUTER, mod,type WorldLimits } from './physics.ts';
 
-import {bookId,ROWS,BOOKS_PER_ROW,type BookLocation} from './books.ts';
+import {bookSlot,bookId,ROWS,BOOKS_PER_ROW,type BookLocation} from './books.ts';
 
 type Box = [number, number, number, number, number, number];
 export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set(),bedAssetUrl?:string,bathroomAssetUrl?:string,furnishingUrls?:{board:string;upright:string;returns:string;bbq:string;light?:string;module?:string;start?:string;book?:string}) {
@@ -64,11 +64,11 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     for(let row=0;row<ROWS;row++){
       const bottom=.13+row*.39;
       for(let book=0;book<BOOKS_PER_ROW;book++){
-        const x=(book+.5)*BAY/BOOKS_PER_ROW-.037/2;
-        rect(x,bottom,.037,.34,'#987953');
-        rect(x,bottom,.037/4,.34,'rgba(0,0,0,.25)');
-        rect(x+.037/4,bottom+.34*(1-56/256),.037/2,.34*4/256,'rgba(225,206,163,.23)');
-        rect(x+.037/4,bottom+.34*(1-236/256),.037/2,.34*4/256,'rgba(225,206,163,.23)');
+        const slot=bookSlot(book),w=slot.width,x=slot.x-w/2;
+        rect(x,bottom,w,.34,'#987953');
+        rect(x,bottom,w/4,.34,'rgba(0,0,0,.25)');
+        rect(x+w/4,bottom+.34*(1-56/256),w/2,.34*4/256,'rgba(225,206,163,.23)');
+        rect(x+w/4,bottom+.34*(1-236/256),w/2,.34*4/256,'rgba(225,206,163,.23)');
       }
       // Small contact shadows preserve the separation of books and timber.
       rect(0,bottom,BAY,.012,'rgba(35,29,20,.22)');
@@ -92,26 +92,9 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   materials.push(boundaryWallFade,boundaryFloorFade,boundaryCeilingFade);
   const endWall=new T.Mesh(endGeometry,boundaryWallFade),endCap=new T.Mesh(capGeometry,boundaryFloorFade);
   boundaryGroup.add(endWall,endCap);endWall.visible=endCap.visible=false;
-  let cornerLimits:WorldLimits={},fixtureX=Infinity,fixtureY=Infinity;
-  const frameMaterial=new T.MeshBasicMaterial({color:'#353c38'}),lensMaterial=new T.MeshBasicMaterial({color:new T.Color('#fff0c9').multiplyScalar(2.2)});materials.push(frameMaterial,lensMaterial);
-  const frames=new T.InstancedMesh(boxGeo,frameMaterial,144),lenses=new T.InstancedMesh(boxGeo,lensMaterial,144);boundaryGroup.add(frames,lenses);frames.count=lenses.count=0;
-  function updateFixtures(px:number,py:number){
-    const bx=Math.floor(px/BOUNDARY_LIGHT_SPACING),by=Math.floor(py/WALL_LIGHT_SPACING);
-    if(bx===fixtureX&&by===fixtureY)return;fixtureX=bx;fixtureY=by;
-    let count=0;
-    const put=(x:number,y:number,z:number,wall:boolean)=>{
-      if(x<(cornerLimits.minX??-Infinity)||x>(cornerLimits.maxX??Infinity)||y<(cornerLimits.minY??-Infinity)||y>(cornerLimits.maxY??Infinity))return;
-      dummy.rotation.set(0,0,0);dummy.position.set(x,y,z);dummy.scale.set(wall?.08:1.8,wall?1.8:.04,.38);dummy.updateMatrix();frames.setMatrixAt(count,dummy.matrix);
-      dummy.position.x+=wall?(cornerLimits.minX!==undefined?.05:-.05):0;
-      dummy.position.y+=wall?0:cornerLimits.minY!==undefined?.026:-.026;
-      dummy.scale.set(wall?.025:1.6,wall?1.6:.012,.20);dummy.updateMatrix();lenses.setMatrixAt(count++,dummy.matrix);
-    };
-    if(endCap.visible)for(let i=bx-16;i<=bx+16;i++)for(let k=-1;k<=0;k++)put((i+.5)*BOUNDARY_LIGHT_SPACING,endCap.position.y+(cornerLimits.minY!==undefined?.025:-.025),(k+.5)*BOUNDARY_LIGHT_SPACING,false);
-    if(endWall.visible)for(let i=by-10;i<=by+10;i++)for(let k=-1;k<=0;k++)put(endWall.position.x+(cornerLimits.minX!==undefined?.045:-.045),(i+.5)*WALL_LIGHT_SPACING,(k+.5)*BOUNDARY_LIGHT_SPACING,true);
-    for(const mesh of [frames,lenses]){mesh.count=count;mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();}
-  }
+  let cornerLimits:WorldLimits={};
   function setLimits(next:WorldLimits){
-    lighting.setLimits(next);wallWriting.setLimits(next);cornerLimits=next;detailKey='';fixtureX=fixtureY=Infinity;centerX=Infinity;
+    lighting.setLimits(next);wallWriting.setLimits(next);cornerLimits=next;detailKey='';centerX=Infinity;
     endCap.material=next.minY!==undefined?boundaryFloorFade:boundaryCeilingFade;
     horizon.setLimits(next);
     endWall.visible=next.minX!==undefined||next.maxX!==undefined;
@@ -164,8 +147,8 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     return fade(shelfLod(mat({map:t}),detailEye,bookRadius));
   });
   const farLampMaterials=[841,405].map(repeats=>{
-    const t=texture(128,8,c=>{c.fillStyle='#fff0c9';c.fillRect(51,0,27,8);});
-    t.wrapS=T.RepeatWrapping;t.repeat.set(repeats*3,1);
+    const t=texture(128,8,c=>{c.fillStyle='#fff0c9';const w=128*GALLERY_LIGHT_LENGTH/GALLERY_LIGHT_PERIOD;c.fillRect((128-w)/2,0,w,8);});
+    t.wrapS=T.RepeatWrapping;t.repeat.set(repeats*GALLERY_LIGHT_COUNT,1);
     const m=new T.MeshBasicMaterial({map:t,color:'#fff0c9',transparent:true,depthWrite:false});materials.push(m);return fade(m);
   });
   const baseTextureCount=textures.length,baseMaterialCount=materials.length;
@@ -206,7 +189,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   // Opened-book tint is independent of the geometry quality setting.
   const colorRadius=24,colorEye=new T.Vector3();
   function withinColorRange(location:BookLocation){
-    const x=location.bay*BAY+(location.book+.5)*BAY/BOOKS_PER_ROW;
+    const x=location.bay*BAY+bookSlot(location.book).x;
     const y=location.level*HEIGHT+.30+location.row*.39,z=location.side*(OUTER-.08);
     return (x-colorEye.x)**2+(y-colorEye.y)**2+(z-colorEye.z)**2<=colorRadius**2;
   }
@@ -246,7 +229,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     for(const cell of cells)if(!existing.has(id(cell))){
       const {bay,level,side}=cell,x=bay*BAY,y=level*HEIGHT;
       const books:Box[]=[];
-      for(let row=0;row<ROWS;row++)for(let i=0;i<BOOKS_PER_ROW;i++)books.push([x+(i+.5)*BAY/BOOKS_PER_ROW,y+.30+row*.39,side*(OUTER-.08),.037,.34,.3]);
+      for(let row=0;row<ROWS;row++)for(let i=0;i<BOOKS_PER_ROW;i++)books.push([x+bookSlot(i).x,y+.30+row*.39,side*(OUTER-.08),bookSlot(i).width,.34,.3]);
       const mesh=batch(books,[bookMat,goldMat],detailGroup,bookGeometry);
       const backing=batch([[x+BAY/2,y+1.62,side*(OUTER+.22),BAY,3.18,.28]],shelfBackMat,detailGroup);
       bookBatches.push({...cell,mesh,parts:[mesh,backing,batch([[x+BAY/2,y+1.63,side*(OUTER-.04),BAY,3.25,.5]],woodMat,detailGroup,mod(bay,12)===1?shelfFrame.start:shelfFrame.module)]});
@@ -273,7 +256,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     while(textures.length>baseTextureCount)textures.pop()!.dispose();
     while(materials.length>baseMaterialCount)materials.pop()!.dispose();
     while(geometries.length>baseGeometryCount)geometries.pop()!.dispose();
-    const returnPlacements:BedPlacement[]=[],bbqPlacements:BedPlacement[]=[],propContacts:Box[]=[],bedPlacements:BedPlacement[]=[],bedContacts:Box[]=[],bathroomPlacements:BathroomPlacement[]=[],bathroomContacts:Box[]=[];
+    const returnPlacements:BedPlacement[]=[],bbqPlacements:BedPlacement[]=[],bedPlacements:BedPlacement[]=[],bathroomPlacements:BathroomPlacement[]=[];
     const decks:Box[]=[], slabs:Box[]=[], floors:Box[]=[], shelves:Box[]=[], trim:Box[]=[], rails:Box[]=[], lamps:Box[]=[], walls:Box[]=[], dark:Box[]=[], screens:Box[]=[];
     const tiles:Box[]=[],shelfEnds:Box[]=[];
     for(let f=fy-32;f<=fy+32;f++)for(let b=bx-15;b<=bx+15;b++)for(const side of [-1,1]) {
@@ -287,7 +270,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         slabs.push([x+BAY/2,y+HEIGHT-.17,z,BAY,.34,3.6576]);
       rails.push([x+BAY/2,y+1.2192,side*(INNER+RAIL_OFFSET),BAY,0,0],[x+BAY/2,y+.55,side*(INNER+RAIL_OFFSET),BAY,0,0]);
       for(let j=0;j<6;j++)rails.push([x+j*BAY/6,y+.6,side*(INNER+RAIL_OFFSET),0,1.2,0]);
-      for(let j=0;j<3;j++)lamps.push([x+3.81+j*7.62,y+HEIGHT-.38,z,1.6,.035,.28]);
+      for(let j=0;j<GALLERY_LIGHT_COUNT;j++)lamps.push([x+(j+.5)*GALLERY_LIGHT_PERIOD,y+HEIGHT-.38,z,GALLERY_LIGHT_LENGTH,.035,.28]);
       if(!amenity) {
         shelves.push([x+BAY/2,y+1.62,side*(OUTER+.02),BAY,3.18,.62]);
         // Solid timber ends survive both detail levels; never map book spines onto them.
@@ -320,7 +303,6 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         for(const bed of DORM_BEDS) {
           const xx=x+bed.x,zz=side*(OUTER+bed.depth),head=side*bed.head;
           bedPlacements.push({x:xx,y,z:zz,side:head});
-          bedContacts.push([xx,y+.515,zz,.922,.215,1.688],[xx,y+.79,zz+head*.855,.94,.32,.055]);
         }
         // Bathroom attached to the sleeping room; an open doorway meets its aisle.
         tiles.push([x+25+BATH_SHIFT,y-.18,side*(OUTER+2.5),6,.36,5]);
@@ -329,13 +311,8 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
           [x+28+BATH_SHIFT,y+1.81,side*(OUTER+2.5),.2,3.62,5]);
 
         bathroomPlacements.push({x:x+25+BATH_SHIFT,y,z:side*(OUTER+2.5),side});
-        for(const [dx,dy,dz,w,h,d] of BATHROOM_CONTACTS)
-          bathroomContacts.push([x+25+BATH_SHIFT+dx,y+dy,side*(OUTER+2.5+dz),w,h,d]);
         bbqPlacements.push({x:x+17,y,z:side*(OUTER-.49),side});
-        propContacts.push([x+17,y+.46,side*(OUTER-.49),.74,.85,.87],
-          [x+17,y+.94,side*(OUTER-.49),.9,.08,1.1]);
         returnPlacements.push({x:x+21.43,y,z:side*(OUTER-.16),side});
-        propContacts.push([x+21.43,y+.62,side*(OUTER-.16),.5,1.24,.44]);
         for(const lamp of roomLights(cornerLimits.maxY!==undefined&&Math.abs(y+HEIGHT-.34-cornerLimits.maxY)<.001,cornerLimits.minY!==undefined&&Math.abs(y-cornerLimits.minY)<.001,cornerLimits.maxY!==undefined&&Math.abs(y+2*HEIGHT-.34-cornerLimits.maxY)<.001)){
           if(lamp.y>HEIGHT&&cornerLimits.maxY!==undefined&&y+lamp.y>cornerLimits.maxY)continue;
           lamps.push([x+lamp.x,y+lamp.y,side*(OUTER+lamp.z),1.6,.035,.28]);
@@ -346,18 +323,6 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     batch(tiles,[slabMat,tileMat],group,deckGeometry);
     const deckMaterials=[slabMat,floorMat];
     batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,[slabMat,floorMat],group,deckGeometry);batch(shelves,shelfMat,group,distantShelfGeometry);batch(shelfEnds,woodMat,group,shelfFrame.upright);batch(trim,woodMat);pipes(rails);ceilingLights.set(lamps);batch(walls,wallMat);batch(dark,darkMat);batch(screens,screenMat);
-    // Capture the actual room geometry once per lighting variant. Sample a complete
-    // amenity cell near this window, even after random starts or origin shifts.
-    const roomX=Math.round(bx/12)*PERIOD;
-    const topFloor=cornerLimits.maxY===undefined?Infinity:Math.round((cornerLimits.maxY-HEIGHT+.34)/HEIGHT);
-    const bottomFloor=cornerLimits.minY===undefined?-Infinity:Math.round(cornerLimits.minY/HEIGHT);
-    const normalFloor=Math.max(bottomFloor+2,Math.min(fy,topFloor-2));
-    const contacts=(floor:number)=>()=>roomOccluders([decks,slabs,floors,shelves,trim,lamps,walls,dark,screens,tiles,bedContacts,bathroomContacts,propContacts].flat(),new T.Vector3(roomX,floor*HEIGHT,0));
-    lighting.bakeRoomContacts(contacts(normalFloor));
-    if(topFloor>=fy-30&&topFloor<=fy+31){
-      lighting.bakeRoomContacts(contacts(topFloor),true);
-      lighting.bakeRoomContacts(contacts(topFloor-1),'final');
-    }
     // This periodic horizon never needs to be regenerated when walking. Moving its
     // origin by whole bays/floors preserves the same shelf and lamp alignment.
     distantGroup.position.set(bx*BAY,fy*HEIGHT,0);
@@ -391,12 +356,12 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     beds.update(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7),group.position.y);
     ceilingLights.update(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7),group.position.y,bookRadius.value);
     updateDetails(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7));
-    endWall.position.y=py;endCap.position.x=px;updateFixtures(px,py);
+    endWall.position.y=py;endCap.position.x=px;
     if(!camera)return;
     camera.updateMatrixWorld();horizon.update(camera);clipMatrix.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);
     frustum.setFromProjectionMatrix(clipMatrix);
     stairCulling.update(group,camera,frustum,cornerLimits,occlusionEnabled);
     for(const {mesh,bounds} of distantBatches){worldBounds.copy(bounds).translate(distantGroup.position);mesh.visible=frustum.intersectsBox(worldBounds);}
   }
-  return { setDetail(quality:string){const next=detailRadius(quality);if(next!==bookRadius.value){bookRadius.value=next;detailKey='';}},setOcclusionEnabled(enabled:boolean){occlusionEnabled=enabled;},update, markOpened,setLimits,refreshBookColors, dispose(){ceilingLights.dispose();shelfFrame.dispose();returns.dispose();bbq.dispose();bathrooms.dispose();beds.dispose();stairCulling.dispose();wallWriting.dispose();boundary.dispose();frames.dispose();lenses.dispose();scene.remove(boundaryGroup);endGeometry.dispose();capGeometry.dispose();horizon.dispose();lighting.dispose();scene.remove(group,distantGroup,detailGroup);for(const root of [group,distantGroup,detailGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
+  return { setDetail(quality:string){const next=detailRadius(quality);if(next!==bookRadius.value){bookRadius.value=next;detailKey='';}},setOcclusionEnabled(enabled:boolean){occlusionEnabled=enabled;},update, markOpened,setLimits,refreshBookColors, dispose(){ceilingLights.dispose();shelfFrame.dispose();returns.dispose();bbq.dispose();bathrooms.dispose();beds.dispose();stairCulling.dispose();wallWriting.dispose();boundary.dispose();scene.remove(boundaryGroup);endGeometry.dispose();capGeometry.dispose();horizon.dispose();lighting.dispose();scene.remove(group,distantGroup,detailGroup);for(const root of [group,distantGroup,detailGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
 }

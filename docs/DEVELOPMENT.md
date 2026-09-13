@@ -54,3 +54,8 @@ integration has not been comprehensively verified.
 
 See [CHANGELOG.md](../CHANGELOG.md) for curated milestones and Git history for exact
 changes. The Babylon experiment remains isolated on `prototype/babylon-renderer`.
+
+## Ray-traced lighting workflow
+
+See the [baking developer guide](RAYTRACE_BAKING_GUIDE.md) for scene export,
+Cycles settings, artifact diagnosis, asset sealing, validation and deployment.

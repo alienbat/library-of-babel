@@ -12,6 +12,8 @@ const views={
  BedroomFrontWall:{p:[20,1.68,OUTER+3.5],at:[23,2.3,OUTER+.4],limits:{}},
  BedroomFrontWallOpposite:{p:[20,1.68,-OUTER-3.5],at:[23,2.3,-OUTER-.4],limits:{}},
  BedroomLight:{p:[18,2,OUTER+3.15],at:[18,3.53,OUTER+3.15],limits:{}},
+ EndWallBottom:{p:[4,1.68,INNER-1],at:[0,2.6,17.5],limits:{minX:0,minY:0}},
+ EndWallTop:{p:[4,1.68,INNER-1],at:[0,2.6,17.5],limits:{minX:0,maxY:HEIGHT-.34}},
  BathroomLight:{p:[27,2,OUTER+2.7],at:[27,3.53,OUTER+2.7],limits:{}},
  StairLight:{p:[2.5,2,OUTER+2.1],at:[2.5,3.53,OUTER+2.1],limits:{}},
  CeilingLight:{p:[3.81,2,17.1],at:[3.81,3.58,17.0688],limits:{}},

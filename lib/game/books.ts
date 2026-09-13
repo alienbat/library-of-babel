@@ -9,7 +9,14 @@ export function bookId(b:BookLocation){
 }
 /** Display only: the full identity remains available to storage and book generation. */
 export function bookDisplayId(b:BookLocation){const id=bookId(b);return id.length>120?`${id.slice(0,28)}…${id.slice(-80)} (abbreviated)`:id;}
-export function bookCenter(b:BookLocation):Position{return {x:b.bay*BAY+(b.book+.5)*BAY/BOOKS_PER_ROW,y:b.level*HEIGHT+.30+b.row*.39,z:b.side*(OUTER-.08)};}
+/** Preserve all 570 ordinal slots, packing each compartment between its uprights. */
+export function bookSlot(book:number){
+  const unit=BAY/8,compartment=Math.floor(book*8/BOOKS_PER_ROW);
+  const first=Math.ceil(compartment*BOOKS_PER_ROW/8),end=Math.ceil((compartment+1)*BOOKS_PER_ROW/8);
+  const margin=.055/2+.006,pitch=(unit-2*margin)/(end-first);
+  return {x:compartment*unit+margin+(book-first+.5)*pitch,width:Math.min(.037,pitch*.92)};
+}
+export function bookCenter(b:BookLocation):Position{return {x:b.bay*BAY+bookSlot(b.book).x,y:b.level*HEIGHT+.30+b.row*.39,z:b.side*(OUTER-.08)};}
 export function turnPage(page:number,delta:number){return Math.max(0,Math.min(PAGE_COUNT-1,page+delta));}
 /** Constant-time picking on the exposed book spines, including gaps and trim. */
 export function pickBook(origin:Position,direction:Position,level:number,reach=2.2):BookLocation|null {
@@ -20,11 +27,15 @@ export function pickBook(origin:Position,direction:Position,level:number,reach=2
   if(distance<0||distance>reach)return null;
   const x=origin.x+direction.x*distance,y=origin.y+direction.y*distance;
   const bay=Math.floor(x/BAY);if(mod(bay,12)===0)return null;
-  const local=x-bay*BAY,book=Math.floor(local/BAY*BOOKS_PER_ROW);
+  const local=x-bay*BAY,unit=BAY/8,compartment=Math.floor(local/unit);
+  const first=Math.ceil(compartment*BOOKS_PER_ROW/8),end=Math.ceil((compartment+1)*BOOKS_PER_ROW/8);
+  const pitch=(unit-.067)/(end-first);
+  const book=first+Math.floor((local-compartment*unit-.0335)/pitch);
+  if(book<first||book>=end)return null;
   const row=Math.round((y-level*HEIGHT-.30)/.39);
   if(row<0||row>=ROWS||book<0||book>=BOOKS_PER_ROW)return null;
   const candidate:BookLocation={level,side,bay,row,book},center=bookCenter(candidate);
-  if(Math.abs(x-center.x)>.037/2||Math.abs(y-center.y)>.34/2)return null;
+  if(Math.abs(x-center.x)>bookSlot(book).width/2||Math.abs(y-center.y)>.34/2)return null;
   // Uprights protrude beyond the spines; do not select through them.
   if(Math.abs(local-Math.round(local/(BAY/8))*(BAY/8))<.055/2)return null;
   return candidate;
