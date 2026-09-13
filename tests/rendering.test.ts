@@ -53,12 +53,29 @@ void test('distant cache survives movement, with unchanged book detail and conse
           if(position.z*side<0)continue;
           const depth=Math.abs(position.z)-OUTER;
           if(Math.abs(position.x-27)<scale.x/2&&Math.abs(depth-2.8)<scale.z/2&&Math.abs(position.y+scale.y/2)<1e-5)floorSurfaces++;
-          if(Math.abs(position.y-1.8)<.001&&Math.abs(position.x-27)<.001&&depth<1&&standard.color.getHexString()==='a8a69a')liningDepth=depth+scale.z/2;
+          if(Math.abs(position.y-1.81)<.001&&Math.abs(position.x-27)<.001&&depth<1&&standard.color.getHexString()==='a8a69a')liningDepth=depth+scale.z/2;
           if(Math.abs(position.y-1.62)<.001&&position.x-scale.x/2<30&&position.x+scale.x/2>25&&(standard.name==='shelf-backing'||standard.name==='shelf-facade'))shelfDepth=Math.max(shelfDepth,depth+scale.z/2);
         }
       });
       assert.equal(floorSurfaces,1,'bathroom has exactly one exposed floor surface, including the ceiling below');
       assert.ok(shelfDepth>0&&liningDepth>shelfDepth+.05,'solid inner wall conceals the gallery shelf backs');
+    }
+    for(const side of [-1,1]){
+      let sealedHeader=false;
+      scene.children[0].traverse(object=>{
+        if(!(object instanceof T.InstancedMesh)||Array.isArray(object.material))return;
+        if((object.material as T.MeshBasicMaterial).color.getHexString()!=='a8a69a')return;
+        for(let i=0;i<object.count;i++){
+          object.getMatrixAt(i,matrix);matrix.decompose(position,rotation,scale);
+          if(position.z*side<0||Math.abs(position.x-34.29)>.001)continue;
+          if(Math.abs(position.y-scale.y/2-3.33)<.001){
+            assert.ok(Math.abs(position.y+scale.y/2-3.62)<.001);
+            assert.ok(Math.abs(Math.abs(position.z)-scale.z/2-OUTER)<.001);
+            sealedHeader=true;
+          }
+        }
+      });
+      assert.ok(sealedHeader,'opaque white shelf header reaches the ceiling on both galleries');
     }
     let uprights=0,facades=0;
     scene.children[0].traverse(object=>{

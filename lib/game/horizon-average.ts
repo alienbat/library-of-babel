@@ -32,7 +32,7 @@ export function galleryAverages(spines:T.Texture,negative:T.Data3DTexture,positi
   // Real underside fixture area, not a glowing screen-space horizon stripe.
   const lampArea=1.6*.28/(7.62*(OUTER-INNER));
   ceiling.lerp(new T.Color().setRGB(2,1.8,1.35),lampArea);
-  const face=new T.Color().setRGB(.07,.073,.064).multiplyScalar(1-3.18/HEIGHT-.34/HEIGHT);
+  const face=lit(new T.Color('#a8a69a'),irradiance(negative,2,3.33/HEIGHT,(HEIGHT-.34)/HEIGHT,1,1,.85)).multiplyScalar(1-3.18/HEIGHT-.34/HEIGHT);
   face.add(lit(shelf,shelfLight).multiplyScalar(3.18/HEIGHT)).add(edge.clone().multiplyScalar(.34/HEIGHT));
   const rail=new T.Color('#854a3d');
   const railFront=lit(rail,irradiance(negative,2,.5/HEIGHT,1.3/HEIGHT,0,0,.72));
@@ -68,7 +68,7 @@ export function galleryProfile(spines:T.Texture,negative:T.Data3DTexture,positiv
   return bakeProfile(hit=>{
     const y=((hit.y+(hit.kind==='deck'?hit.ny*.002:0))%HEIGHT+HEIGHT)%HEIGHT;
     const light=hit.ny*hit.ny*sample(hit.ny>0?pos:neg,y,hit.z,1,hit.ny>0?1.05:.4)+hit.nz*hit.nz*sample(neg,y,hit.z,2,.72);
-    const base=hit.kind==='rail'?rail:hit.kind==='deck'?(hit.ny>0?floor:slab):shelf;
+    const base=hit.kind==='rail'?rail:hit.kind==='deck'?(hit.ny>0?floor:slab):y>=3.33?new T.Color('#a8a69a'):shelf;
     const color=base.clone().multiply(tint).multiplyScalar(light);
     // Unresolved ceiling luminaires retain their true plan-area contribution.
     if(hit.kind==='deck'&&hit.ny<0)color.lerp(new T.Color().setRGB(2,1.8,1.35),1.6*.28/(7.62*(OUTER-INNER)));

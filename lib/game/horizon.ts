@@ -63,13 +63,10 @@ export function createInfiniteHorizon(scene:T.Scene,spines:T.Texture,negative:T.
         vec3 lookup=vec3(hit.x/${LIGHT_PERIOD},(fract(phase.y)*31.0+.5)/32.0,15.5/16.0);
         float light=texture(bakedNegative,lookup).b*4.0;
         light=mix(light,.85,unresolved);
-        vec3 color=vec3(.07,.073,.064);
+        vec3 color=vec3(${new T.Color('#a8a69a').toArray().join(',')})*light*vec3(1.0,.97,.89);
         color=mix(color,grain*light*vec3(1.0,.97,.89),shelf);
         color=mix(color,slabColor*.58*vec3(1.0,.97,.89),deck);
-        // Ceiling strips occupy only their true fraction of a pixel at infinity.
-        float lamp=band(phase.y,(${HEIGHT}-.40)/${HEIGHT},.04/${HEIGHT},footprint.y)
-          *band(hit.x/${LIGHT_PERIOD},(3.81-.8)/${LIGHT_PERIOD},1.6/${LIGHT_PERIOD},fwidth(hit.x/${LIGHT_PERIOD}));
-        color=mix(color,vec3(2.0,1.8,1.35),lamp);
+        // Ceiling luminaires belong to deck surfaces, never the opaque wall header.
         // Four cheap quadrature samples integrate the pixel straddling ray.z == 0.
         // The exactly empty parallel ray has zero area, so it creates no black stripe.
         vec3 pixelMean=(distantMean(ray+.288675*(rx+ry))+distantMean(ray+.288675*(rx-ry))

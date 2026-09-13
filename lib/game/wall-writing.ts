@@ -35,12 +35,12 @@ export function createWallWriting(){
         // Reverse the horizontal atlas direction on the opposite gallery.
         float orientation=-sign(vBakedPosition.z);
         if(facing<-.9){
-          if(abs(wz-.4)<.012){
+          if(abs(wz)<.012&&wx>=1.0&&wx<=15.0){
             float floorY=vBakedPosition.y-wy;
             float tile=abs(floorY-writingTop)<.01?2.0:abs(floorY-writingBottom)<.01?1.0:0.0;
             ink=writingSample(vec2(8.0+(wx-8.0)*orientation,wy),vec2(8.0,2.2),vec2(2.6,1.3),tile);
           }
-          if(abs(wz-.07)<.012){
+          if(abs(wz)<.012&&wx>15.0){
             if(wx<18.0){
               ink=writingSample(vec2(17.0+(wx-17.0)*orientation,wy),vec2(17.0,2.15),vec2(1.6,.8),vBakedPosition.z>0.0?8.0:3.0);
               vec4 compass=writingSample(vec2(17.0+(wx-17.0)*orientation,wy),vec2(17.0,3.0),vec2(1.6,.5),vBakedPosition.z>0.0?6.0:7.0);

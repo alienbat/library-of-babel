@@ -41,3 +41,13 @@ void test('end landings block nonexistent flights while retaining the valid retu
     assert.ok(Math.abs(move(down,11,0,top).y)<.001);
   }
 });
+
+void test('stair frontage and lintels are flush with the gallery wall and meet its ceiling',()=>{
+  for(const side of [-1,1]){
+    const model=staircase(0,0,side);
+    for(const box of [model.walls[0],...model.walls.slice(4,6)]){
+      assert.ok(Math.abs(Math.abs(box[2])-box[5]/2-OUTER)<1e-8);
+      assert.ok(Math.abs(box[1]+box[4]/2-(HEIGHT-.34))<1e-8);
+    }
+  }
+});

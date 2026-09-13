@@ -142,6 +142,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const goldMat=mat({color:'#b59b59',roughness:.65,metalness:.35});
   const screenMat=mat({color:'#b3c9b3',emissive:'#7d9d80',emissiveIntensity:.6});
   goldMat.name='book-edges';
+  const distantWallMat=fade(mat({color:'#a8a69a'}));
   const distantSlabMat=fade(slabMat),distantFloorMat=fade(floorMat),distantRailMat=fade(railMat);
   // Lightweight distant strips extend the view without duplicating nearby furnishings.
   const farShelfMaterials=[841,405].map(repeats=>{
@@ -255,9 +256,10 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
       for(let j=0;j<3;j++)lamps.push([x+3.81+j*7.62,y+HEIGHT-.38,z,1.6,.035,.28]);
       if(!amenity) {
         shelves.push([x+BAY/2,y+1.62,side*(OUTER+.035),BAY,3.18,.65]);
+        walls.push([x+BAY/2,y+(3.33+HEIGHT-.34)/2,side*(OUTER+.15),BAY,HEIGHT-.34-3.33,.3]);
         trim.push([x+BAY/2,y+3.28,side*(OUTER-.04),BAY,.10,.5],[x+BAY/2,y+.045,side*(OUTER-.04),BAY,.09,.5]);
       }else {
-        walls.push([x+.5,y+1.8,side*(OUTER+.22),1,3.6,.3],[x+15.5,y+1.8,side*(OUTER+.22),1,3.6,.3],[x+17,y+1.8,side*(OUTER+.22),2,3.6,.3],[x+22,y+1.8,side*(OUTER+.22),4,3.6,.3]);
+        walls.push([x+.5,y+1.81,side*(OUTER+.15),1,3.62,.3],[x+15.5,y+1.81,side*(OUTER+.15),1,3.62,.3],[x+17,y+1.81,side*(OUTER+.15),2,3.62,.3],[x+22,y+1.81,side*(OUTER+.15),4,3.62,.3]);
         const stairs=staircase(x,y,side,cornerLimits);
         walls.push(...stairs.walls);floors.push(...stairs.floors);slabs.push(...stairs.steps);
         if(cornerLimits.maxY!==undefined&&Math.abs(y+HEIGHT-.34-cornerLimits.maxY)<.001){
@@ -267,10 +269,10 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         // Dormitory, seven beds, book return and food dispenser.
         // Each room deck also forms the ceiling below; never overlap two slabs.
         floors.push([x+20,y-.18,side*(OUTER+DORM.depth/2),8,.36,DORM.depth]);
-        walls.push([x+20,y+1.8,side*(OUTER+DORM.depth),8,3.6,.2],
-          [x+DORM.left,y+1.8,side*(OUTER+DORM.depth/2),.2,3.6,DORM.depth],
-          [x+DORM.right,y+1.8,side*(OUTER+DORM.bathDoorStart/2),.2,3.6,DORM.bathDoorStart],
-          [x+DORM.right,y+1.8,side*(OUTER+(DORM.bathDoorEnd+DORM.depth)/2),.2,3.6,DORM.depth-DORM.bathDoorEnd],
+        walls.push([x+20,y+1.81,side*(OUTER+DORM.depth),8,3.62,.2],
+          [x+DORM.left,y+1.81,side*(OUTER+DORM.depth/2),.2,3.62,DORM.depth],
+          [x+DORM.right,y+1.81,side*(OUTER+DORM.bathDoorStart/2),.2,3.62,DORM.bathDoorStart],
+          [x+DORM.right,y+1.81,side*(OUTER+(DORM.bathDoorEnd+DORM.depth)/2),.2,3.62,DORM.depth-DORM.bathDoorEnd],
           [x+DORM.right,y+3.1,side*(OUTER+(DORM.bathDoorStart+DORM.bathDoorEnd)/2),.2,1,DORM.bathDoorEnd-DORM.bathDoorStart]);
         for(const bed of DORM_BEDS) {
           const xx=x+bed.x,zz=side*(OUTER+bed.depth),head=side*bed.head;
@@ -279,9 +281,9 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         }
         // Bathroom attached to the sleeping room; an open doorway meets its aisle.
         tiles.push([x+25+BATH_SHIFT,y-.18,side*(OUTER+2.5),6,.36,5]);
-        walls.push([x+25+BATH_SHIFT,y+1.8,side*(OUTER+.325),6,3.6,.35],
-          [x+25+BATH_SHIFT,y+1.8,side*(OUTER+5),6,3.6,.2],
-          [x+28+BATH_SHIFT,y+1.8,side*(OUTER+2.5),.2,3.6,5]);
+        walls.push([x+25+BATH_SHIFT,y+1.81,side*(OUTER+.325),6,3.62,.35],
+          [x+25+BATH_SHIFT,y+1.81,side*(OUTER+5),6,3.62,.2],
+          [x+28+BATH_SHIFT,y+1.81,side*(OUTER+2.5),.2,3.62,5]);
 
         bathroomPlacements.push({x:x+25+BATH_SHIFT,y,z:side*(OUTER+2.5),side});
         for(const [dx,dy,dz,w,h,d] of BATHROOM_CONTACTS)
@@ -315,7 +317,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     // origin by whole bays/floors preserves the same shelf and lamp alignment.
     distantGroup.position.set(bx*BAY,fy*HEIGHT,0);
     if(distantGroup.children.length===0){
-    const farSlabs:Box[]=[],farRails:Box[]=[];
+    const farSlabs:Box[]=[],farRails:Box[]=[],farHeaders:Box[]=[];
     const farShelves:[Box[],Box[]]=[[],[]],farLamps:[Box[],Box[]]=[[],[]];
     for(let f=-2400;f<=2400;f++) {
       // No overlap with the full-detail rectangle above.
@@ -324,12 +326,14 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         : [{start:-420,count:841,material:0}];
       for(const strip of strips)for(const side of [-1,1]) {
         const width=strip.count*BAY,x=(strip.start+strip.count/2)*BAY,y=f*HEIGHT,z=side*(INNER+1.8288);
+        farHeaders.push([x,y+(3.33+HEIGHT-.34)/2,side*(OUTER+.15),width,HEIGHT-.34-3.33,.3]);
         farSlabs.push([x,y-.17,z,width,.34,3.6576]);
         farShelves[strip.material].push([x,y+1.62,side*(OUTER+.035),width,3.18,.65]);
         farLamps[strip.material].push([x,y+HEIGHT-.38,z,width,.035,.28]);
         farRails.push([x,y+1.2192,side*INNER,width,.07,.07],[x,y+.55,side*INNER,width,.07,.07]);
       }
     }
+    batchDistant(farHeaders,distantWallMat,distantShelfGeometry);
     batchDistant(farSlabs,[distantSlabMat,distantFloorMat],deckGeometry);batchDistant(farRails,distantRailMat,distantRailGeometry);
     for(let i=0;i<2;i++){batchDistant(farShelves[i],farShelfMaterials[i],distantShelfGeometry);batchDistant(farLamps[i],farLampMaterials[i],distantLampGeometry);}
     }
