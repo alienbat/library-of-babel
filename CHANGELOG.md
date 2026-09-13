@@ -105,3 +105,5 @@ record; older entries are grouped milestones rather than released version number
 - Use rounded books within 24 m and cheaper box books to the existing Low/32 m or High/100 m cutoff. Retain matching textured distant shelves and infinite horizon; no extra lighting or geometry at long range.
 
 - Extend the top and bottom shelf caps to the outer edges of both end panels, removing the stepped corner at exposed shelf ends.
+
+- Remove unused top/bottom stairwell alcoves, seal their gallery entries, remove redundant partitions/landing floors, and mount/rebake the top stairwell ceiling light. Cull shelf bays beyond library ends to remove stray end panels.

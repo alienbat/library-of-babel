@@ -14,18 +14,22 @@ export function staircase(x:number,y:number,side:number,limits:WorldLimits={}){
   // Lintels above the two gallery doors close the remaining front-wall gaps.
   const lintelHeight=HEIGHT-.34-2.6;
   for(const landing of [2.5,13.5]){
-    walls.push([x+landing,y+2.6+lintelHeight/2,side*(OUTER+.15),3,lintelHeight,.3]);
-    floors.push([x+landing,y-.17,side*(OUTER+1.9),3,.34,3.8]);
+    const closed=(top&&landing===2.5)||(bottom&&landing===13.5);
+    if(closed)walls.push([x+landing,wallY,side*(OUTER+.15),3,HEIGHT,.3]);
+    else{
+      walls.push([x+landing,y+2.6+lintelHeight/2,side*(OUTER+.15),3,lintelHeight,.3]);
+      floors.push([x+landing,y-.17,side*(OUTER+1.9),3,.34,3.8]);
+    }
   }
   if(!top)for(let s=0;s<24;s++)steps.push([x+4+(s+.5)/3,y+(s+1)*HEIGHT/24-.09,side*(OUTER+2.13),1/3,.18,3.24]);
   // Cap only the footprint behind the gallery; no coplanar overlap with its deck.
   if(bottom){
     floors.push([x+8,y-.17,side*(OUTER+1.9),8,.34,3.8]);
-    walls.push([x+12,wallY,side*(OUTER+2.05),.16,HEIGHT,3.5]);
+
   }
   if(top){
     floors.push([x+8,y+HEIGHT-.17,side*(OUTER+1.9),14,.34,3.8]);
-    walls.push([x+4,wallY,side*(OUTER+2.05),.16,HEIGHT,3.5]);
+
   }
   return {walls,floors,steps,label:top?'STAIRS\nDOWN ONLY':bottom?'STAIRS\nUP ONLY':'STAIRS\nUP →     ← DOWN'};
 }

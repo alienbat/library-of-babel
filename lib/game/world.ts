@@ -8,7 +8,7 @@ import {createStairCulling} from './landing-occlusion.ts';
 import {detailCells,detailRadius,shelfDistanceSquared,shelfLod,type ShelfCell} from './shelf-lod.ts';
 import * as T from 'three';
 import {createWallWriting} from './wall-writing.ts';
-import {ROOM_LIGHTS} from './room-lighting.ts';
+import {roomLights} from './room-lighting.ts';
 import {staircase} from './stairs.ts';
 import {createBoundaryLighting,BOUNDARY_SPAN,BOUNDARY_LIGHT_SPACING,WALL_LIGHT_SPACING} from './boundary-lighting.ts';
 import {createInfiniteHorizon,withHorizonFade} from './horizon.ts';
@@ -279,6 +279,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     for(let f=fy-32;f<=fy+32;f++)for(let b=bx-15;b<=bx+15;b++)for(const side of [-1,1]) {
       const x=b*BAY,y=f*HEIGHT,z=side*(INNER+1.8288), amenity=mod(b,12)===0;
       if(y<(cornerLimits.minY??-Infinity)-.001||y>(cornerLimits.maxY??Infinity)+.001)continue;
+      if(x+BAY<=(cornerLimits.minX??-Infinity)||x>=(cornerLimits.maxX??Infinity))continue;
       // Carpet is the top face of one solid deck, never a second coplanar mesh.
       decks.push([x+BAY/2,y-.17,z,BAY,.34,3.6576]);
       // At the top there is no next floor to supply the gallery ceiling.
@@ -332,7 +333,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
           [x+17,y+.94,side*(OUTER-.49),.9,.08,1.1]);
         returnPlacements.push({x:x+21.43,y,z:side*(OUTER-.16),side});
         propContacts.push([x+21.43,y+.62,side*(OUTER-.16),.5,1.24,.44]);
-        for(const lamp of ROOM_LIGHTS){
+        for(const lamp of roomLights(cornerLimits.maxY!==undefined&&Math.abs(y+HEIGHT-.34-cornerLimits.maxY)<.001,cornerLimits.minY!==undefined&&Math.abs(y-cornerLimits.minY)<.001)){
           if(lamp.y>HEIGHT&&cornerLimits.maxY!==undefined&&y+lamp.y>cornerLimits.maxY)continue;
           lamps.push([x+lamp.x,y+lamp.y,side*(OUTER+lamp.z),1.6,.035,.28]);
         }

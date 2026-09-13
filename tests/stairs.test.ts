@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {staircase} from '../lib/game/stairs.ts';
-import {HEIGHT,OUTER,PERIOD,move,flyMove} from '../lib/game/physics.ts';
+import {HEIGHT,OUTER,PERIOD,move,flyMove,supportBelow} from '../lib/game/physics.ts';
 
 void test('stairwell shells meet adjacent decks and steps seal against both side walls',()=>{
   for(const side of [-1,1])for(const y of [-HEIGHT,0,HEIGHT]){
@@ -29,10 +29,11 @@ void test('terminal models cap the shaft and omit stairs beyond the library',()=
 void test('end landings block nonexistent flights while retaining the valid return route',()=>{
   for(const side of [-1,1])for(const x of [0,PERIOD]){
     const z=side*(OUTER+2),bottom={minY:0},top={maxY:HEIGHT-.34};
-    assert.ok(move({x:x+13.5,y:0,z},-3,0,bottom).x>x+12.2);
-    assert.ok(move({x:x+2.5,y:0,z},3,0,top).x<x+3.8);
-    assert.ok(flyMove({x:x+13.5,y:.2,z},-3,0,0,bottom).x>x+12.2);
-    assert.ok(flyMove({x:x+2.5,y:.2,z},3,0,0,top).x<x+3.8);
+    for(const [limits,door] of [[bottom,13.5],[top,2.5]] as const){
+      const start={x:x+door,y:0,z:side*(OUTER-1)};
+      assert.ok(Math.abs(move(start,0,side*3,limits).z)<OUTER);
+      assert.ok(Math.abs(flyMove({...start,y:.2},0,0,side*3,limits).z)<OUTER);
+    }
     const up=move({x:x+2.5,y:0,z},11,0,bottom);
     assert.ok(Math.abs(up.y-HEIGHT)<.001);
     assert.ok(Math.abs(move(up,-11,0,bottom).y)<.001);
@@ -50,4 +51,19 @@ void test('stair frontage and lintels are flush with the gallery wall and meet i
       assert.ok(Math.abs(box[1]+box[4]/2-(HEIGHT-.34))<1e-8);
     }
   }
+});
+
+void test('terminal stairwell alcoves are removed, with ceiling-mounted top light',async()=>{
+  const {roomLights}=await import('../lib/game/room-lighting.ts');
+  for(const [limits,door] of [[{maxY:HEIGHT-.34},2.5],[{minY:0},13.5]] as const){
+    const model=staircase(0,0,1,limits);
+    assert.ok(model.walls.some(b=>b[0]===door&&b[3]===3&&b[4]===HEIGHT));
+    assert.ok(!model.floors.some(b=>b[0]===door&&b[1]<0));
+    assert.ok(!model.walls.some(b=>b[3]===.16),'no redundant interior partition');
+  }
+  const topLights=roomLights(true).filter(l=>l.room===0);
+  assert.equal(topLights.length,1);assert.equal(topLights[0].x,8);
+  assert.ok(Math.abs(topLights[0].y+.035/2-(HEIGHT-.34))<1e-8);
+  assert.ok(!roomLights(false,true).some(l=>l.x===13.5));
+  assert.ok(Math.abs(supportBelow({x:2.5,y:.2,z:OUTER+2},{maxY:HEIGHT-.34})!+HEIGHT)<1e-8);
 });

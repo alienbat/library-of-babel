@@ -10,6 +10,10 @@ export const ROOM_LIGHTS=[
   // Center of the bathroom interior: x 24.1–29.9, depth .5–4.9.
   {x:25+BATH_SHIFT,y:HEIGHT-.43,z:2.7,room:2},
 ];
+export function roomLights(top=false,bottom=false){
+  if(top)return [...ROOM_LIGHTS.filter(l=>l.room!==0),{x:8,y:HEIGHT-.34-.035/2,z:2.1,room:0}];
+  return bottom?ROOM_LIGHTS.filter(l=>l.x!==13.5):ROOM_LIGHTS;
+}
 export const ROOM_GRID=[120,32,24] as const;
 const RANGE=4;
 const ramp=(x:number)=>x<=4?0:x>=12?HEIGHT:(x-4)/8*HEIGHT;
@@ -22,7 +26,7 @@ export function bakeRoomLighting(top=false){
     const room=px<15.5?0:px<DORM.right?1:2;
     const floor=room===0&&!top?Math.floor((py-ramp(px)+.001)/HEIGHT)*HEIGHT:0;
     const lobes=[.18,.36,.20,.18,.14,.20];
-    for(const lamp of ROOM_LIGHTS){
+    for(const lamp of roomLights(top)){
       if(lamp.room!==room)continue;
       // Landings belong to the same stair passage as the sampled step.
       const ly=lamp.y+(room===0&&!top?floor+(lamp.x>=12?HEIGHT:0):0);
@@ -36,7 +40,7 @@ export function bakeRoomLighting(top=false){
       }
     }
     // Baked contact shade along walls and floor junctions, not a live shadow map.
-    const floorY=room===0?py-(top?(px>4&&px<12?ramp(px)-HEIGHT:0):floor+ramp(px)):py;
+    const floorY=room===0?py-(top?(px<12?ramp(px)-HEIGHT:0):floor+ramp(px)):py;
     const wallDistance=Math.min(Math.max(0,pz-.5),Math.max(0,(room===0?3.7:room===1?DORM.depth-.1:5)-pz));
     const contact=1-.28*Math.exp(-Math.max(0,floorY)*3)*Math.exp(-wallDistance*2);
     const offset=((z*ny+y)*nx+x)*4;
