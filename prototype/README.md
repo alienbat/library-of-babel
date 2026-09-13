@@ -63,12 +63,12 @@ identical scene/camera, 15 warmup frames and 30 measured samples per view/engine
 CPU is world update + submission, not total frame latency. GPU uses
 `EXT_disjoint_timer_query_webgl2`; invalid/disjoint samples are excluded.
 
-| View | Three CPU ms | Babylon CPU ms | Three GPU ms | Babylon GPU ms |
-|---|---:|---:|---:|---:|
-| Fresh arrival | 0.30 | 1.00 | 15.23 | 20.44 |
-| Shelf detail | 0.40 | 1.20 | 9.63 | 12.94 |
-| Stair up | 0.30 | 1.00 | 3.43 | 4.17 |
-| Top right | 0.30 | 0.90 | 10.07 | 10.43 |
+| View          | Three CPU ms | Babylon CPU ms | Three GPU ms | Babylon GPU ms |
+| ------------- | -----------: | -------------: | -----------: | -------------: |
+| Fresh arrival |         0.30 |           1.00 |        15.23 |          20.44 |
+| Shelf detail  |         0.40 |           1.20 |         9.63 |          12.94 |
+| Stair up      |         0.30 |           1.00 |         3.43 |           4.17 |
+| Top right     |         0.30 |           0.90 |        10.07 |          10.43 |
 
 These are one local sample, not an engine-wide ranking. They show **no performance advantage
 for this adapter prototype**. Engine-native scheduling/buffer management may improve it,
@@ -90,3 +90,44 @@ Before any production migration: repeat parity checks at higher pixel densities 
 Safari/Chrome, test movement/rebuild memory over time, migrate gameplay integration, and
 profile a native Babylon update path. WebGPU should be a separate comparison so backend
 changes are not confused with engine changes.
+
+## Static AO and section-occlusion experiment
+
+The two new buttons are independent:
+
+- **Baked room AO** defaults on. A short-range visibility volume is baked once for
+  normal rooms and once for the top-floor variant. The bake uses 32 deterministic
+  directions, a 0.75 m radius, and conservative bounds of the actual nearby walls,
+  stair geometry and furnishings. Two 60 × 24 × 16 CPU visibility grids (about 45 KiB) are resampled
+  into alternate copies of the existing irradiance textures. The comparison keeps
+  about 1.4 MiB of additional RGBA texture data. AO adds no shader operations or
+  texture lookups during rendering. Gentle contact darkening augments the existing
+  baked irradiance. Distant-gallery shaders and the analytic horizon are untouched.
+  This is approximate local ambient occlusion, not a full light-transport bake.
+  No lights move, and no visibility rays or screen-space AO are evaluated per frame.
+- **Occlusion** defaults off for comparison. The near geometry is grouped spatially
+  by four bays, four floors and gallery side. Babylon's asynchronous query APIs test
+  section bounds against the rendered depth buffer. A custom query material matches
+  logarithmic depth; Babylon's stock linear-depth bounding-box material cannot be
+  used unmodified. Hidden instances are compacted within the existing material
+  batches, rather than multiplying draw calls for every section.
+
+Visibility results are cached only while the camera, projection and source geometry
+remain unchanged. Movement, teleport, rebasing and geometry rebuilds invalidate them;
+geometry is made visible immediately while fresh results are pending. Near-camera
+boxes are never culled. At most 24 section candidates are visited per frame, and
+queries stop once static visibility is known. This deliberately conservative prototype
+optimizes stationary views; it does not claim continuous-motion occlusion performance.
+The existing analytic stair culling remains enabled throughout.
+
+The benchmark now includes Three, Babylon, and Babylon with occlusion, with 80 warmup
+frames and 30 measured samples per mode, in two passes with reversed mode order.
+GPU query overhead is included in rendering measurements.
+Both engines receive the same AO setting. The visual-parity test also warms each view
+for 80 frames, allowing asynchronous section results to settle.
+
+The clean two-pass rerun is recorded in [validation.md](validation.md#repeat-after-other-gpu-workloads-were-stopped).
+It supersedes earlier performance numbers that may have been affected by concurrent
+GPU work. Occlusion saved roughly 6% GPU time in the stationary stair view and 3%
+in the bathroom; other sampled views showed little gain. Babylon still trailed
+the reference renderer, so this experiment does not establish a migration speedup.

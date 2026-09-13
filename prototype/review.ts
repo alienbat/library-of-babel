@@ -1,4 +1,5 @@
 import * as T from 'three';
+import { BakedRoomAO } from './baked-ao.ts';
 import { BabylonBridge } from './babylon-bridge.ts';
 import { createWorld } from '../lib/game/world.ts';
 import {
@@ -8,7 +9,7 @@ import {
   type WorldLimits,
 } from '../lib/game/physics.ts';
 const root = document.body;
-root.innerHTML = `<header><strong>Babel · Babylon prototype</strong><span>Isolated renderer comparison · WebGL2</span><button id="engine">Switch to Three.js</button><button id="compare">Check visual parity</button><button id="bench">Benchmark both</button></header><nav id="views"></nav><main><canvas id="three"></canvas><canvas id="babylon"></canvas><aside>Click view to look around · WASD move · Space rise · C descend · Shift faster · Esc releases cursor</aside></main><footer id="status">Building shared scene…</footer><pre id="results"></pre>`;
+root.innerHTML = `<header><strong>Babel · Babylon prototype</strong><span>Isolated renderer comparison · WebGL2</span><button id="engine">Switch to Three.js</button><button id="compare">Check visual parity</button><button id="bench">Benchmark both</button></header><div><button id="occ">Occlusion: off</button> <button id="ao">Baked room AO: on</button></div><nav id="views"></nav><main><canvas id="three"></canvas><canvas id="babylon"></canvas><aside>Click view to look around · WASD move · Space rise · C descend · Shift faster · Esc releases cursor</aside></main><footer id="status">Building shared scene…</footer><pre id="results"></pre>`;
 const tc = document.querySelector<HTMLCanvasElement>('#three')!,
   bc = document.querySelector<HTMLCanvasElement>('#babylon')!;
 const renderer = new T.WebGLRenderer({
@@ -27,6 +28,20 @@ scene.background = new T.Color('#202825');
 const camera = new T.PerspectiveCamera(65, 1100 / 720, 0.1, 16000);
 const world = createWorld(scene);
 const bridge = new BabylonBridge(bc, renderer);
+const ao = new BakedRoomAO();
+ao.enabled.value = 1;
+document.querySelector('#occ')!.addEventListener('click', () => {
+  if (busy) return;
+  bridge.occlusion.enabled = !bridge.occlusion.enabled;
+  document.querySelector('#occ')!.textContent =
+    `Occlusion: ${bridge.occlusion.enabled ? 'on' : 'off'}`;
+});
+document.querySelector('#ao')!.addEventListener('click', () => {
+  if (busy) return;
+  ao.enabled.value = 1 - ao.enabled.value;
+  document.querySelector('#ao')!.textContent =
+    `Baked room AO: ${ao.enabled.value ? 'on' : 'off'}`;
+});
 type View = { p: number[]; at: number[]; limits?: WorldLimits };
 const views: Record<string, View> = {
   'Fresh arrival': { p: [30, 5.64, 0], at: [130, 5.64, 0] },
@@ -193,6 +208,8 @@ let previous = performance.now(),
 function draw() {
   rebase();
   world.update(camera.position.x, camera.position.y, camera);
+  scene.updateMatrixWorld(true);
+  ao.prepare(scene, bridge.limits.maxY !== undefined);
   if (engine === 'Babylon') bridge.render(scene, camera);
   else renderer.render(scene, camera);
 }
@@ -214,7 +231,7 @@ function tick(now: number) {
   const start = performance.now();
   draw();
   if (frame++ % 20 === 0)
-    status.textContent = `${engine} · ${viewName} · ${tc.width} × ${tc.height} · submit ${(performance.now() - start).toFixed(1)} ms · ${engine === 'Babylon' ? bridge.draws : renderer.info.render.calls} draws · ${(engine === 'Babylon' ? bridge.triangles : renderer.info.render.triangles).toLocaleString()} triangles · shader errors ${bridge.errors.length + threeErrors} · origin ${originPeriods} periods / ${originLevels} floors`;
+    status.textContent = `${engine} · ${viewName} · ${tc.width} × ${tc.height} · submit ${(performance.now() - start).toFixed(1)} ms · ${engine === 'Babylon' ? bridge.draws : renderer.info.render.calls} draws · ${(engine === 'Babylon' ? bridge.triangles : renderer.info.render.triangles).toLocaleString()} triangles · shader errors ${bridge.errors.length + threeErrors} · occluded ${bridge.occlusion.hiddenSections} sections / ${bridge.occlusion.removedInstances} instances · queries ${bridge.occlusion.queryDraws} · origin ${originPeriods} periods / ${originLevels} floors`;
 }
 requestAnimationFrame(tick);
 const raf = () =>
@@ -223,79 +240,90 @@ async function benchmark() {
   if (busy) return;
   busy = true;
   const report = [];
-  const saved = engine;
+  const saved = engine,
+    savedOcclusion = bridge.occlusion.enabled;
   try {
     for (const name of [
       'Fresh arrival',
       'Shelf detail',
       'Stair up',
       'Top right',
+      'Bathroom',
     ]) {
       view(name);
-      for (const next of ['Three', 'Babylon'] as const) {
-        switchEngine(next);
-        status.textContent = `Benchmarking ${name} · ${next}…`;
-        for (let i = 0; i < 15; i++) {
-          draw();
-          await raf();
-        }
-        const gl = (
-          next === 'Three' ? renderer.getContext() : bridge.engine._gl
-        ) as WebGL2RenderingContext;
-        const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2');
-        const cpu: number[] = [],
-          gpu: number[] = [];
-        for (let i = 0; i < 30; i++) {
-          const query = ext
-            ? (gl as WebGL2RenderingContext).createQuery()
-            : null;
-          if (query)
-            (gl as WebGL2RenderingContext).beginQuery(
-              ext.TIME_ELAPSED_EXT,
-              query,
-            );
-          const t = performance.now();
-          draw();
-          cpu.push(performance.now() - t);
-          if (query) {
-            (gl as WebGL2RenderingContext).endQuery(ext.TIME_ELAPSED_EXT);
-            let waited = 0;
-            while (
-              !(gl as WebGL2RenderingContext).getQueryParameter(
+      for (const pass of [1, 2]) {
+        const modes =
+          pass === 1
+            ? (['Three', 'Babylon', 'Babylon + occlusion'] as const)
+            : (['Babylon + occlusion', 'Babylon', 'Three'] as const);
+        for (const mode of modes) {
+          const next = mode === 'Three' ? 'Three' : 'Babylon';
+          bridge.occlusion.enabled = mode === 'Babylon + occlusion';
+          switchEngine(next);
+          status.textContent = `Benchmarking ${name} · ${mode} · pass ${pass}/2…`;
+          for (let i = 0; i < 80; i++) {
+            draw();
+            await raf();
+          }
+          const gl = (
+            next === 'Three' ? renderer.getContext() : bridge.engine._gl
+          ) as WebGL2RenderingContext;
+          const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2');
+          const cpu: number[] = [],
+            gpu: number[] = [];
+          for (let i = 0; i < 30; i++) {
+            const query = ext
+              ? (gl as WebGL2RenderingContext).createQuery()
+              : null;
+            if (query)
+              (gl as WebGL2RenderingContext).beginQuery(
+                ext.TIME_ELAPSED_EXT,
                 query,
-                gl.QUERY_RESULT_AVAILABLE,
-              ) &&
-              waited++ < 120
-            )
-              await raf();
-            if (
-              !gl.getParameter(ext.GPU_DISJOINT_EXT) &&
-              (gl as WebGL2RenderingContext).getQueryParameter(
-                query,
-                gl.QUERY_RESULT_AVAILABLE,
+              );
+            const t = performance.now();
+            draw();
+            cpu.push(performance.now() - t);
+            if (query) {
+              (gl as WebGL2RenderingContext).endQuery(ext.TIME_ELAPSED_EXT);
+              let waited = 0;
+              while (
+                !(gl as WebGL2RenderingContext).getQueryParameter(
+                  query,
+                  gl.QUERY_RESULT_AVAILABLE,
+                ) &&
+                waited++ < 120
               )
-            )
-              gpu.push(
+                await raf();
+              if (
+                !gl.getParameter(ext.GPU_DISJOINT_EXT) &&
                 (gl as WebGL2RenderingContext).getQueryParameter(
                   query,
-                  gl.QUERY_RESULT,
-                ) / 1e6,
-              );
-            (gl as WebGL2RenderingContext).deleteQuery(query);
+                  gl.QUERY_RESULT_AVAILABLE,
+                )
+              )
+                gpu.push(
+                  (gl as WebGL2RenderingContext).getQueryParameter(
+                    query,
+                    gl.QUERY_RESULT,
+                  ) / 1e6,
+                );
+              (gl as WebGL2RenderingContext).deleteQuery(query);
+            }
+            await raf();
           }
-          await raf();
+          const median = (a: number[]) =>
+            a.length
+              ? a.sort((a, b) => a - b)[Math.floor(a.length / 2)].toFixed(2)
+              : 'unavailable';
+          report.push(
+            `${name} | pass ${pass} | ${mode} | CPU submit ${median(cpu)} ms | GPU ${median(gpu)} ms`,
+          );
+          results.textContent = report.join('\n');
         }
-        const median = (a: number[]) =>
-          a.length
-            ? a.sort((a, b) => a - b)[Math.floor(a.length / 2)].toFixed(2)
-            : 'unavailable';
-        report.push(
-          `${name} | ${next} | CPU submit ${median(cpu)} ms | GPU ${median(gpu)} ms`,
-        );
-        results.textContent = report.join('\n');
       }
     }
   } finally {
+    bridge.occlusion.enabled = savedOcclusion;
     switchEngine(saved);
     busy = false;
     previous = performance.now();
@@ -315,7 +343,7 @@ async function compare() {
       for (const next of ['Three', 'Babylon'] as const) {
         switchEngine(next);
         status.textContent = `Comparing ${name} · ${next}…`;
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 80; i++) {
           draw();
           await raf();
         }

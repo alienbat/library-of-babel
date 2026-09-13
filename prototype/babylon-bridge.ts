@@ -1,5 +1,6 @@
 /** Prototype adapter: shared scene recipes, independently rendered Babylon GPU scene. */
 import * as T from 'three';
+import { SectionOcclusion } from './section-occlusion.ts';
 import * as B from '@babylonjs/core';
 import type { WorldLimits } from '../lib/game/physics.ts';
 
@@ -23,6 +24,7 @@ vec4 linearToOutputTexel(vec4 c){return sRGBTransferOETF(c);}
 type SourceMesh = T.Mesh<T.BufferGeometry, T.Material>;
 type Uniforms = Record<string, T.IUniform>;
 export class BabylonBridge {
+  readonly occlusion: SectionOcclusion;
   readonly engine: B.Engine;
   readonly scene: B.Scene;
   readonly errors: string[] = [];
@@ -34,6 +36,7 @@ export class BabylonBridge {
       material: B.ShaderMaterial;
       uniforms: Uniforms;
       version: number;
+      buffer: T.InstancedBufferAttribute | null;
     }
   >();
   private parts = new Map<number, SourceMesh[]>();
@@ -67,6 +70,7 @@ export class BabylonBridge {
     camera.maxZ = 16000;
     this.scene.activeCamera = camera;
     this.scene.autoClear = true;
+    this.occlusion = new SectionOcclusion(this.scene);
     // Match Three's opaque material ordering and transparent back-to-front ordering.
     this.scene.setRenderingOrder(
       0,
@@ -135,7 +139,9 @@ export class BabylonBridge {
             width,
             height,
             im.depth,
-            B.Constants.TEXTUREFORMAT_RGBA,
+            source.format === T.RedFormat
+              ? B.Constants.TEXTUREFORMAT_R
+              : B.Constants.TEXTUREFORMAT_RGBA,
             this.scene,
             false,
             false,
@@ -146,7 +152,9 @@ export class BabylonBridge {
             data,
             width,
             height,
-            B.Constants.TEXTUREFORMAT_RGBA,
+            source.format === T.RedFormat
+              ? B.Constants.TEXTUREFORMAT_R
+              : B.Constants.TEXTUREFORMAT_RGBA,
             this.scene,
             source.generateMipmaps,
             source.flipY,
@@ -330,7 +338,14 @@ export class BabylonBridge {
           true,
         );
     }
-    const entry = { source, mesh, material, uniforms, version: -1 };
+    const entry = {
+      source,
+      mesh,
+      material,
+      uniforms,
+      version: -1,
+      buffer: null as T.InstancedBufferAttribute | null,
+    };
     this.entries.set(source.id, entry);
     return entry;
   }
@@ -365,6 +380,7 @@ export class BabylonBridge {
         camera.matrixWorldInverse,
       ),
     );
+    this.occlusion.begin(sourceScene, camera);
     const alive = new Set<number>();
     this.draws = 0;
     this.triangles = 0;
@@ -395,7 +411,10 @@ export class BabylonBridge {
         order: source.id,
       };
       if (source instanceof T.InstancedMesh) {
-        if (e.version !== source.instanceMatrix.version) {
+        if (
+          e.version !== source.instanceMatrix.version ||
+          e.buffer !== source.instanceMatrix
+        ) {
           e.mesh.thinInstanceSetBuffer(
             'matrix',
             source.instanceMatrix.array as Float32Array,
@@ -403,6 +422,7 @@ export class BabylonBridge {
             false,
           );
           e.version = source.instanceMatrix.version;
+          e.buffer = source.instanceMatrix;
         }
         e.mesh.thinInstanceCount = source.count;
       }
@@ -507,5 +527,6 @@ export class BabylonBridge {
         this.entries.delete(id);
       }
     this.scene.render();
+    this.occlusion.end(camera);
   }
 }
