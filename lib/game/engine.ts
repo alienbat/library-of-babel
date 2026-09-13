@@ -29,7 +29,7 @@ import bathroomAssetUrl from '../../models/blender/bathroom/bathroom.glb?url';
 import { createWorld } from './world';
 import { EYE, HEIGHT, INNER,BAY,PERIOD, move, flightVector, flyMove, fallStep, brakeFallStep, type Position, type TravelMode,type WorldLimits } from './physics';
 
-import {bookId,localBookId,openedChanges,bookCenter,pickBook,loadOpened,type BookLocation} from './books';
+import {bookId,localBookId,openedChanges,bookSlot,bookCenter,pickBook,loadOpened,type BookLocation} from './books';
 
 import {createBookClient} from './book-client';
 import {newFrame,shiftFrame,frameLimits,type GlobalFrame} from './global-books';
@@ -98,7 +98,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   function setTarget(next:BookLocation|null){
     if((next?bookId(next):null)!==(target?bookId(target):null)){target=next;callbacks.onTarget(next);}
     highlight.visible=!!next;
-    if(next){const c=bookCenter(next);highlight.position.set(c.x,c.y,c.z);}
+    if(next){const c=bookCenter(next);highlight.position.set(c.x,c.y,c.z);highlight.scale.x=(bookSlot(next.book).width+.004)/.043;}
   }
   function openBook(){
     if(!active||reading||gameMenu||!target)return;

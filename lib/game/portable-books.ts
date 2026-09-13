@@ -3,7 +3,7 @@ import {WALK_YEARS,WALK_DIRECTIONS,YEAR_WALK_CM,YEAR_MS,type WalkDirection,type 
 import {matchingOrdinalDigits,exactOrdinalDigits,packDigits,type SearchAddress,type NavigationAnchor} from './search.ts';
 import {BAY,HEIGHT,OUTER,INNER,type Position} from './physics.ts';
 import {init} from 'gmp-wasm/dist/mini.esm.js';
-import {BOOKS_PER_ROW,ROWS,type BookLocation} from './books.ts';
+import {bookSlot,BOOKS_PER_ROW,ROWS,type BookLocation} from './books.ts';
 import {CHARACTER_COUNT,ordinalDigits,type GlobalBook,type GlobalFrame} from './global-books.ts';
 
 /** GMP uses WebAssembly memory, avoiding Safari's one-million-bit BigInt ceiling.
@@ -122,7 +122,7 @@ function contextMath(factory:import('gmp-wasm').CalculateType['Integer'],searchO
     if(right.lessThan(100000000))limits.maxX=right.toNumber()/100;
     if(bottom.lessThan(100000000))limits.minY=bottom.isEqual(0)?0:-bottom.toNumber()/100;
     if(top.lessThan(100000000))limits.maxY=top.toNumber()/100+HEIGHT-.34;
-    return {frame,limits,position:{x:section.sub(block).toNumber()*BAY+(address.book+.5)*BAY/BOOKS_PER_ROW,y:0,z:address.side*(OUTER-1.2)},side:address.side,row:address.row};
+    return {frame,limits,position:{x:section.sub(block).toNumber()*BAY+bookSlot(address.book).x,y:0,z:address.side*(OUTER-1.2)},side:address.side,row:address.row};
   }
   function digits(index:IntegerValue){
     const result=new Uint8Array(CHARACTER_COUNT);
@@ -164,7 +164,7 @@ function contextMath(factory:import('gmp-wasm').CalculateType['Integer'],searchO
     const base=origin(frame);
     const dx=Integer(address.sectionHex,16).sub(base.section),dy=Integer(address.floorHex,16).sub(base.floor);
     const safe=integer(1000000000);
-    const z=address.side*(OUTER-.08),offsetX=(address.book+.5)*BAY/BOOKS_PER_ROW,offsetY=.3+address.row*.39;
+    const z=address.side*(OUTER-.08),offsetX=bookSlot(address.book).x,offsetY=.3+address.row*.39;
     if(dx.abs().lessThan(safe)&&dy.abs().lessThan(safe)){
       const localTarget:[number,number,number]=[dx.toNumber()*BAY+offsetX,dy.toNumber()*HEIGHT+offsetY,z];
       return {direction:[0,0,0],logMeters:0,localTarget};

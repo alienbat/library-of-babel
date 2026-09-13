@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {bookId,bookCenter,pickBook,turnPage,loadOpened,OPENED_STORAGE_KEY,type BookLocation} from '../lib/game/books.ts';
+import {bookSlot,bookId,bookCenter,pickBook,turnPage,loadOpened,OPENED_STORAGE_KEY,type BookLocation} from '../lib/game/books.ts';
 import {uniqueBook,textPage,globalBook,newFrame} from '../lib/game/global-books.ts';
 import {BAY,HEIGHT,OUTER} from '../lib/game/physics.ts';
 const book:BookLocation={level:0,side:1,bay:1,row:3,book:120};
@@ -26,7 +26,7 @@ void test('picking resolves actual spines on both sides and negative floors and 
     assert.equal(pickBook({...origin,z:side*(OUTER+1)},direction,level),null);
     assert.equal(pickBook(origin,{x:0,y:0,z:-side},level),null);
     assert.equal(pickBook({...origin,y:level*HEIGHT+.105},direction,level),null);
-    assert.equal(pickBook({...origin,x:bay*BAY+BAY/570*121},direction,level),null);
+    assert.equal(pickBook({...origin,x:bay*BAY+(bookSlot(120).x+bookSlot(121).x)/2},direction,level),null);
     assert.equal(pickBook({...origin,x:bay*BAY+BAY/8},direction,level),null);
   }
   assert.equal(pickBook({x:10,y:1.68,z:OUTER-1},{x:0,y:0,z:1},0),null);
@@ -37,4 +37,15 @@ void test('opened history survives reload, filters corrupt data and tolerates bl
   assert.deepEqual([...loaded],[id]);
   assert.equal(loadOpened({getItem:()=>'{broken'}).size,0);
   assert.equal(loadOpened({getItem:()=>{throw new Error('blocked');}}).size,0);
+});
+
+void test('all 570 book slots clear uprights and remain selectable on both galleries',()=>{
+ for(const side of [-1,1] as const)for(const bay of [-13,1])for(let book=0;book<570;book++){
+  const slot=bookSlot(book),unit=BAY/8,c=Math.floor(book*8/570);
+  assert.ok(slot.x-slot.width/2>c*unit+.0275);
+  assert.ok(slot.x+slot.width/2<(c+1)*unit-.0275);
+  const location={side,bay,book,row:3,level:0},center=bookCenter(location);
+  const hit=pickBook({...center,z:side*(OUTER-1)},{x:0,y:0,z:side},0);
+  assert.deepEqual(hit,location);
+ }
 });

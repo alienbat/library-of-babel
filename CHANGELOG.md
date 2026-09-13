@@ -5,6 +5,8 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Fit all 570 book slots between shelf uprights without changing book identities. Share spacing across detailed meshes, impostors, picking, highlighting and target navigation.
+
 - Extend end-wall irradiance sampling behind the galleries instead of stretching the chasm-edge sample; increase boundary transverse resolution to 128 samples.
 
 - Remove inter-gallery boundary fixtures and emissive LOD marks. Re-bake boundary surfaces from corridor illumination, repeat end-wall lighting per storey, and clamp lighting across the chasm.

@@ -15,7 +15,7 @@ import {createInfiniteHorizon,withHorizonFade} from './horizon.ts';
 import {bakeGalleryLighting} from './lighting.ts';
 import { BAY, HEIGHT, INNER, RAIL_OFFSET, OUTER, mod,type WorldLimits } from './physics.ts';
 
-import {bookId,ROWS,BOOKS_PER_ROW,type BookLocation} from './books.ts';
+import {bookSlot,bookId,ROWS,BOOKS_PER_ROW,type BookLocation} from './books.ts';
 
 type Box = [number, number, number, number, number, number];
 export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set(),bedAssetUrl?:string,bathroomAssetUrl?:string,furnishingUrls?:{board:string;upright:string;returns:string;bbq:string;light?:string;module?:string;start?:string;book?:string}) {
@@ -64,11 +64,11 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     for(let row=0;row<ROWS;row++){
       const bottom=.13+row*.39;
       for(let book=0;book<BOOKS_PER_ROW;book++){
-        const x=(book+.5)*BAY/BOOKS_PER_ROW-.037/2;
-        rect(x,bottom,.037,.34,'#987953');
-        rect(x,bottom,.037/4,.34,'rgba(0,0,0,.25)');
-        rect(x+.037/4,bottom+.34*(1-56/256),.037/2,.34*4/256,'rgba(225,206,163,.23)');
-        rect(x+.037/4,bottom+.34*(1-236/256),.037/2,.34*4/256,'rgba(225,206,163,.23)');
+        const slot=bookSlot(book),w=slot.width,x=slot.x-w/2;
+        rect(x,bottom,w,.34,'#987953');
+        rect(x,bottom,w/4,.34,'rgba(0,0,0,.25)');
+        rect(x+w/4,bottom+.34*(1-56/256),w/2,.34*4/256,'rgba(225,206,163,.23)');
+        rect(x+w/4,bottom+.34*(1-236/256),w/2,.34*4/256,'rgba(225,206,163,.23)');
       }
       // Small contact shadows preserve the separation of books and timber.
       rect(0,bottom,BAY,.012,'rgba(35,29,20,.22)');
@@ -189,7 +189,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   // Opened-book tint is independent of the geometry quality setting.
   const colorRadius=24,colorEye=new T.Vector3();
   function withinColorRange(location:BookLocation){
-    const x=location.bay*BAY+(location.book+.5)*BAY/BOOKS_PER_ROW;
+    const x=location.bay*BAY+bookSlot(location.book).x;
     const y=location.level*HEIGHT+.30+location.row*.39,z=location.side*(OUTER-.08);
     return (x-colorEye.x)**2+(y-colorEye.y)**2+(z-colorEye.z)**2<=colorRadius**2;
   }
@@ -229,7 +229,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     for(const cell of cells)if(!existing.has(id(cell))){
       const {bay,level,side}=cell,x=bay*BAY,y=level*HEIGHT;
       const books:Box[]=[];
-      for(let row=0;row<ROWS;row++)for(let i=0;i<BOOKS_PER_ROW;i++)books.push([x+(i+.5)*BAY/BOOKS_PER_ROW,y+.30+row*.39,side*(OUTER-.08),.037,.34,.3]);
+      for(let row=0;row<ROWS;row++)for(let i=0;i<BOOKS_PER_ROW;i++)books.push([x+bookSlot(i).x,y+.30+row*.39,side*(OUTER-.08),bookSlot(i).width,.34,.3]);
       const mesh=batch(books,[bookMat,goldMat],detailGroup,bookGeometry);
       const backing=batch([[x+BAY/2,y+1.62,side*(OUTER+.22),BAY,3.18,.28]],shelfBackMat,detailGroup);
       bookBatches.push({...cell,mesh,parts:[mesh,backing,batch([[x+BAY/2,y+1.63,side*(OUTER-.04),BAY,3.25,.5]],woodMat,detailGroup,mod(bay,12)===1?shelfFrame.start:shelfFrame.module)]});
