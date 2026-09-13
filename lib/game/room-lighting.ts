@@ -1,13 +1,14 @@
+import {DORM,BATH_SHIFT,ROOM_VOLUME} from './room-layout.ts';
 import * as T from 'three';
 import {HEIGHT} from './physics.ts';
-export const ROOM_WIDTH=30,ROOM_DEPTH=5.5;
+export const ROOM_WIDTH=ROOM_VOLUME.width,ROOM_DEPTH=ROOM_VOLUME.depth;
 export const ROOM_LIGHTS=[
   {x:2.5,y:HEIGHT-.43,z:2.1,room:0},
   {x:13.5,y:HEIGHT-.43,z:2.1,room:0},
-  {x:17.5,y:HEIGHT-.43,z:2.65,room:1},
-  {x:20.5,y:HEIGHT-.43,z:2.65,room:1},
-  // Center of the bathroom interior: x 22.1–27.9, depth .5–4.9.
-  {x:25,y:HEIGHT-.43,z:2.7,room:2},
+  {x:18,y:HEIGHT-.43,z:DORM.depth/2,room:1},
+  {x:22,y:HEIGHT-.43,z:DORM.depth/2,room:1},
+  // Center of the bathroom interior: x 24.1–29.9, depth .5–4.9.
+  {x:25+BATH_SHIFT,y:HEIGHT-.43,z:2.7,room:2},
 ];
 export const ROOM_GRID=[120,32,24] as const;
 const RANGE=4;
@@ -18,7 +19,7 @@ export function bakeRoomLighting(top=false){
   const positive=new Uint8Array(nx*ny*nz*4),negative=new Uint8Array(positive.length);
   for(let z=0;z<nz;z++)for(let y=0;y<ny;y++)for(let x=0;x<nx;x++){
     const px=x/(nx-1)*ROOM_WIDTH,py=y/(ny-1)*HEIGHT,pz=z/(nz-1)*ROOM_DEPTH;
-    const room=px<15.5?0:px<22?1:2;
+    const room=px<15.5?0:px<DORM.right?1:2;
     const floor=room===0&&!top?Math.floor((py-ramp(px)+.001)/HEIGHT)*HEIGHT:0;
     const lobes=[.18,.36,.20,.18,.14,.20];
     for(const lamp of ROOM_LIGHTS){
@@ -36,7 +37,7 @@ export function bakeRoomLighting(top=false){
     }
     // Baked contact shade along walls and floor junctions, not a live shadow map.
     const floorY=room===0?py-(top?(px>4&&px<12?ramp(px)-HEIGHT:0):floor+ramp(px)):py;
-    const wallDistance=Math.min(Math.max(0,pz-.5),Math.max(0,(room===0?3.7:5)-pz));
+    const wallDistance=Math.min(Math.max(0,pz-.5),Math.max(0,(room===0?3.7:room===1?DORM.depth-.1:5)-pz));
     const contact=1-.28*Math.exp(-Math.max(0,floorY)*3)*Math.exp(-wallDistance*2);
     const offset=((z*ny+y)*nx+x)*4;
     for(let axis=0;axis<3;axis++){

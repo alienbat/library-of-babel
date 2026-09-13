@@ -10,4 +10,13 @@ assert.ok(!source.includes('file:///'),'Production game must not contain build-m
 const asset=source.match(/\/_next\/static\/book-worker-[\w-]+\.js/)?.[0];
 assert.ok(asset,'Missing public book worker URL');
 assert.ok(existsSync(`dist/client${asset}`),'Book worker must be included in published assets');
-console.log('Production book worker URL verified');
+const bed=source.match(/\/_next\/static\/media\/bed\.[\w-]+\.glb/)?.[0];
+assert.ok(bed&&existsSync(`dist/client${bed}`),'Bed model must use a published asset URL');
+const bathroom=source.match(/\/_next\/static\/media\/bathroom\.[\w-]+\.glb/)?.[0];
+assert.ok(bathroom&&existsSync(`dist/client${bathroom}`),'Bathroom kit must use a published asset URL');
+console.log('Production worker, bed and bathroom asset URLs verified');
+
+for(const name of ['ShelfBoard','ShelfUpright','Return','BBQ','ceiling-light']){
+  const url=source.match(new RegExp('/_next/static/media/'+name+'\\.[\\w-]+\\.glb'))?.[0];
+  assert.ok(url&&existsSync(`dist/client${url}`),`${name} must use a published asset URL`);
+}

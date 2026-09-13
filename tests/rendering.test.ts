@@ -28,9 +28,15 @@ void test('distant cache survives movement, with unchanged book detail and conse
         if(position.x<15||position.x>29||position.y<0||position.y>3.6)continue;
         const bounds=new T.Box3().setFromCenterAndSize(position,scale);
         if(color==='a8a69a')walls.push(bounds);
-        else if(Math.abs(scale.x-1)<.001&&Math.abs(scale.y-.14)<.001)beds.push(bounds);
+
       }
     });
+    const bedBatch=scene.getObjectByName('dormitory-beds')!.children[0] as T.InstancedMesh;
+    for(let i=0;i<bedBatch.count;i++){
+      bedBatch.getMatrixAt(i,matrix);position.setFromMatrixPosition(matrix);
+      if(position.x<15||position.x>29||Math.abs(position.y)>.001)continue;
+      beds.push(new T.Box3(new T.Vector3(-.5,0,-.9),new T.Vector3(.5,.985,.9)).applyMatrix4(matrix));
+    }
     assert.equal(beds.length,14,'retain seven beds on each side');
     beds.forEach((bed,i)=>{
       for(const wall of walls)assert.equal(bed.intersectsBox(wall),false,'bed must clear every wall');
@@ -46,13 +52,30 @@ void test('distant cache survives movement, with unchanged book detail and conse
           object.getMatrixAt(i,matrix);matrix.decompose(position,rotation,scale);
           if(position.z*side<0)continue;
           const depth=Math.abs(position.z)-OUTER;
-          if(Math.abs(position.x-25)<scale.x/2&&Math.abs(depth-2.8)<scale.z/2&&Math.abs(position.y+scale.y/2)<1e-5)floorSurfaces++;
-          if(Math.abs(position.y-1.8)<.001&&Math.abs(position.x-25)<.001&&depth<1&&standard.color.getHexString()==='a8a69a')liningDepth=depth+scale.z/2;
-          if(Math.abs(position.y-1.62)<.001&&position.x-scale.x/2<28&&position.x+scale.x/2>23&&(standard.name==='shelf-backing'||standard.name==='shelf-facade'))shelfDepth=Math.max(shelfDepth,depth+scale.z/2);
+          if(Math.abs(position.x-27)<scale.x/2&&Math.abs(depth-2.8)<scale.z/2&&Math.abs(position.y+scale.y/2)<1e-5)floorSurfaces++;
+          if(Math.abs(position.y-1.81)<.001&&Math.abs(position.x-27)<.001&&depth<1&&standard.color.getHexString()==='a8a69a')liningDepth=depth+scale.z/2;
+          if(Math.abs(position.y-1.62)<.001&&position.x-scale.x/2<30&&position.x+scale.x/2>25&&(standard.name==='shelf-backing'||standard.name==='shelf-facade'))shelfDepth=Math.max(shelfDepth,depth+scale.z/2);
         }
       });
       assert.equal(floorSurfaces,1,'bathroom has exactly one exposed floor surface, including the ceiling below');
       assert.ok(shelfDepth>0&&liningDepth>shelfDepth+.05,'solid inner wall conceals the gallery shelf backs');
+    }
+    for(const side of [-1,1]){
+      let sealedHeader=false;
+      scene.children[0].traverse(object=>{
+        if(!(object instanceof T.InstancedMesh)||Array.isArray(object.material))return;
+        if((object.material as T.MeshBasicMaterial).color.getHexString()!=='a8a69a')return;
+        for(let i=0;i<object.count;i++){
+          object.getMatrixAt(i,matrix);matrix.decompose(position,rotation,scale);
+          if(position.z*side<0||Math.abs(position.x-34.29)>.001)continue;
+          if(Math.abs(position.y-scale.y/2-3.33)<.001){
+            assert.ok(Math.abs(position.y+scale.y/2-3.62)<.001);
+            assert.ok(Math.abs(Math.abs(position.z)-scale.z/2-OUTER)<.001);
+            sealedHeader=true;
+          }
+        }
+      });
+      assert.ok(sealedHeader,'opaque white shelf header reaches the ceiling on both galleries');
     }
     let uprights=0,facades=0;
     scene.children[0].traverse(object=>{
@@ -63,11 +86,11 @@ void test('distant cache survives movement, with unchanged book detail and conse
         if(Math.abs(scale.x-.055)<1e-5&&Math.abs(scale.y-3.25)<1e-5)uprights++;
         if(material.name==='shelf-facade'){
           facades++;
-          assert.ok(Math.abs(Math.abs(position.z)-scale.z/2-(OUTER-.29))<1e-5,'LOD face aligns with real book spines');
+          assert.ok(Math.abs(Math.abs(position.z)-scale.z/2-(OUTER-.29))<1e-5,'LOD face aligns with the front of the solid timber end');
         }
       }
     });
-    assert.equal(uprights,0,'static facade window carries no individual uprights');
+    assert.ok(uprights>0&&uprights<1000,'only exposed shelf-run ends have permanent timber panels');
     assert.ok(facades>3000,'other shelves use the shared board-and-book facade');
     const readLocation={level:0,side:1 as const,bay:1,row:3,book:120};
     const coloredCount=()=>{
@@ -78,6 +101,17 @@ void test('distant cache survives movement, with unchanged book detail and conse
     assert.equal(coloredCount(),0);
     opened.add(bookId(readLocation));world.markOpened(readLocation);
     assert.equal(coloredCount(),1,'only the opened book changes color');
+    const colouredMeshes=scene.getObjectByName('nearby-shelf-details')!.children.filter((o):o is T.InstancedMesh=>o instanceof T.InstancedMesh&&!!o.instanceColor);
+    const versions=new Map(colouredMeshes.map(m=>[m,m.instanceColor!.version]));
+    // Simulate completed uploads before a single status change.
+    for(const mesh of colouredMeshes)mesh.instanceColor!.clearUpdateRanges();
+    world.markOpened(readLocation,false);
+    assert.equal(coloredCount(),0);
+    const changed=colouredMeshes.filter(m=>m.instanceColor!.version!==versions.get(m));
+    assert.equal(changed.length,1,'a status change touches only its shelf buffer');
+    assert.deepEqual(changed[0].instanceColor!.updateRanges,[{start:(readLocation.row*570+readLocation.book)*3,count:3}]);
+    world.markOpened(readLocation);
+    assert.equal(coloredCount(),1);
     const horizon=scene.children[1],cached=horizon.children.slice();
     let books=0;
     scene.traverse(object=>{
@@ -102,7 +136,7 @@ void test('distant cache survives movement, with unchanged book detail and conse
     for(const m of cached)if(m instanceof T.Mesh){m.geometry.addEventListener('dispose',()=>disposed.push(m.uuid));}
     camera.position.set(54,5.64,16.94);world.update(54,3.96,camera);
     assert.deepEqual(horizon.children,cached,'crossing a bay must reuse the distant meshes');
-    assert.equal(coloredCount(),1,'opened book remains on its original nearby floor when flying');
+    assert.equal(coloredCount(),0,'opened tint disappears beyond 24 m even while detailed books remain');
     assert.equal(horizon.position.x,45.72);assert.equal(horizon.position.y,3.96);
     assert.deepEqual(disposed,[],'cached geometry must remain live');
     const nearMeshes=scene.children[0].children.slice();
@@ -123,7 +157,7 @@ void test('distant cache survives movement, with unchanged book detail and conse
       }
     }});
     assert.ok(baked>0);
-    world.update(30,0,camera);assert.equal(coloredCount(),1,'read color returns after leaving the geometry window');
+    camera.position.set(30,1.68,16.94);world.update(30,0,camera);assert.equal(coloredCount(),1,'read color returns after leaving the geometry window');
     world.setLimits({minX:0,minY:0});world.update(30,0,camera);
     const boundaries=scene.getObjectByName('corner-boundaries')!;
     const cap=boundaries.children[1] as T.Mesh<T.PlaneGeometry,T.MeshBasicMaterial>;
@@ -141,7 +175,7 @@ void test('distant cache survives movement, with unchanged book detail and conse
     assert.ok(cap.position.y>0&&cap.position.y<.01);
     const fixtureFrames=boundaries.children[2] as T.InstancedMesh;
     assert.ok(fixtureFrames.count>0&&fixtureFrames.count<=108,'bounded instanced fixture window');
-    const wall=(scene.children[0].children.find(object=>object instanceof T.InstancedMesh&&!Array.isArray(object.material)&&object.material.customProgramCacheKey()==='baked-wall-writing-v1') as T.InstancedMesh).material as T.MeshBasicMaterial;
+    const wall=(scene.children[0].children.find(object=>object instanceof T.InstancedMesh&&!Array.isArray(object.material)&&object.material.customProgramCacheKey()==='baked-wall-writing-v2') as T.InstancedMesh).material as T.MeshBasicMaterial;
     const writtenShader={uniforms:{},vertexShader:T.ShaderLib.basic.vertexShader,fragmentShader:T.ShaderLib.basic.fragmentShader} as T.WebGLProgramParametersWithUniforms;
     wall.onBeforeCompile(writtenShader,{} as T.WebGLRenderer);
     assert.equal(writtenShader.uniforms.writingBottom.value,0);
@@ -166,10 +200,38 @@ void test('top-floor ceilings seal both galleries and amenity rooms',()=>{
   const scene=new T.Scene(),world=createWorld(scene);
   try{
     world.setLimits({maxY:3.62});world.update(17,0);scene.updateMatrixWorld(true);
-    for(const side of [-1,1])for(const [x,z] of [[17,OUTER-1.5],[35,OUTER-1.5],[8,OUTER+2],[19,OUTER+2.6],[25,OUTER+2.5]]){
+    for(const side of [-1,1])for(const [x,z] of [[17,OUTER-1.5],[35,OUTER-1.5],[8,OUTER+2],[19,OUTER+3.4],[17,OUTER+5.8],[23,OUTER+5.8],[27,OUTER+2.5]]){
       const ray=new T.Raycaster(new T.Vector3(x,2,side*z),new T.Vector3(0,1,0),0,3);
       const hits=ray.intersectObject(scene.children[0],true);
       assert.ok(hits.some(hit=>Math.abs(hit.point.y-3.62)<.03),'roof must exist above every top-floor room and gallery');
+    }
+  }finally{world.dispose();if(descriptor)Object.defineProperty(globalThis,'document',descriptor);else Reflect.deleteProperty(globalThis,'document');}
+});
+
+void test('opened tint has the same 24 m range at High and Low detail',()=>{
+  const descriptor=Object.getOwnPropertyDescriptor(globalThis,'document');
+  const context=new Proxy({}, {get:()=>()=>{},set:()=>true});
+  Object.defineProperty(globalThis,'document',{configurable:true,value:{createElement:()=>({getContext:()=>context})}});
+  const location={level:0,side:1 as const,bay:1,row:0,book:120};
+  const scene=new T.Scene(),world=createWorld(scene,new Set([bookId(location)]));
+  const camera=new T.PerspectiveCamera(),color=new T.Color();
+  function tinted(){let count=0;scene.getObjectByName('nearby-shelf-details')!.traverse(o=>{
+    if(o instanceof T.InstancedMesh&&o.instanceColor)for(let i=0;i<o.count;i++){o.getColorAt(i,color);if(color.r<.9)count++;}
+  });return count;}
+  try{
+    for(const quality of ['low','high']){
+      world.setDetail(quality);
+      for(const [x,expected] of [[30,1],[60,0],[30,1]]){
+        camera.position.set(x,1.68,16.94);world.update(x,0,camera);
+        assert.equal(tinted(),expected,quality+' tint must clear and return with distance');
+      }
+      if(quality==='high'){
+        const root=scene.getObjectByName('nearby-shelf-details')!;
+        const far=root.children.filter(o=>o instanceof T.InstancedMesh&&o.count===4560&&!o.instanceColor);
+        assert.ok(far.length>100,'far detailed books do not allocate colour buffers');
+        world.refreshBookColors();
+        assert.ok(far.every(o=>!(o as T.InstancedMesh).instanceColor),'history refresh does not colour distant books');
+      }
     }
   }finally{world.dispose();if(descriptor)Object.defineProperty(globalThis,'document',descriptor);else Reflect.deleteProperty(globalThis,'document');}
 });

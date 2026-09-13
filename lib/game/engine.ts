@@ -1,14 +1,29 @@
+import {clearAppStorage} from './preferences';
+// oxlint-disable-next-line import/default
+import light from '../../models/blender/ceiling-light/ceiling-light.glb?url';
+// oxlint-disable-next-line import/default
+import board from '../../models/blender/library-furnishings/ShelfBoard.glb?url';
+// oxlint-disable-next-line import/default
+import upright from '../../models/blender/library-furnishings/ShelfUpright.glb?url';
+// oxlint-disable-next-line import/default
+import returns from '../../models/blender/library-furnishings/Return.glb?url';
+// oxlint-disable-next-line import/default
+import bbq from '../../models/blender/library-furnishings/BBQ.glb?url';
 import {clearLocationStorage} from './location-store';
 import {readJourney,newJourneySeed,JOURNEY_STORAGE,libraryTime,bigCount,type Journey,type WalkDirection} from './journey';
-import {BOOKMARK_STORAGE,type Bookmark} from './bookmarks';
+import {type Bookmark} from './bookmarks';
 import {coarseNavigation,type NavigationAnchor,type NavigationHint} from './search';
 import * as T from 'three';
 // oxlint-disable-next-line import/default -- Vite generates the URL export for worker queries.
 import bookWorkerUrl from './book-worker?worker&url';
+// oxlint-disable-next-line import/default -- Vite generates the bundled asset URL.
+import bedAssetUrl from '../../models/blender/bed/bed.glb?url';
+// oxlint-disable-next-line import/default -- Vite emits the static model asset.
+import bathroomAssetUrl from '../../models/blender/bathroom/bathroom.glb?url';
 import { createWorld } from './world';
 import { EYE, HEIGHT, INNER,BAY,PERIOD, move, flightVector, flyMove, fallStep, brakeFallStep, type Position, type TravelMode,type WorldLimits } from './physics';
 
-import {bookId,localBookId,bookCenter,pickBook,loadOpened,OPENED_STORAGE_KEY,type BookLocation} from './books';
+import {bookId,localBookId,openedChanges,bookCenter,pickBook,loadOpened,type BookLocation} from './books';
 
 import {createBookClient} from './book-client';
 import {newFrame,shiftFrame,frameLimits,type GlobalFrame} from './global-books';
@@ -22,20 +37,20 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   let renderer:T.WebGLRenderer;
   try{renderer=new T.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true,powerPreference:'high-performance'});}
   catch(error){throw new Error(`WebGL initialization failed: ${error instanceof Error?error.message:String(error)}. Check that hardware acceleration is enabled.`);}
-  renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(host.clientWidth,host.clientHeight);
+  renderer.setPixelRatio(window.devicePixelRatio||1);renderer.setSize(host.clientWidth,host.clientHeight);
   renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
   const canvas=renderer.domElement;host.appendChild(canvas);
   const scene=new T.Scene();scene.background=new T.Color('#202825');scene.fog=null;
   const camera=new T.PerspectiveCamera(75,host.clientWidth/host.clientHeight,.1,16000);camera.rotation.order='YXZ';
   let opened=new Set<string>();
   try{opened=loadOpened(localStorage);}catch{/* Session history still works without storage. */}
-  const world=createWorld(scene,opened);
+  const world=createWorld(scene,opened,bedAssetUrl,bathroomAssetUrl,{board,upright,returns,bbq,light});
   let restored:Journey|null=null;
   try{restored=readJourney(localStorage);}catch{callbacks.onStorageWarning();}
   const journeySeed=restored?.journeySeed??restored?.frame.originSeed??newJourneySeed();
   let globalFrame:GlobalFrame=restored?.frame??{...newFrame(),originSeed:journeySeed};
   let navigationAnchor:NavigationAnchor|null=null;
-  const books=createBookClient(ids=>{opened.clear();ids.forEach(id=>opened.add(id));world.refreshBookColors();},callbacks.onStorageWarning,bookWorkerUrl,anchor=>{navigationAnchor=anchor;emitStats();},callbacks.onBookmarks);
+  const books=createBookClient(ids=>{const next=new Set(ids),changes=openedChanges(opened,next);opened.clear();next.forEach(id=>opened.add(id));for(const change of changes)world.markOpened(change.location,change.opened);},callbacks.onStorageWarning,bookWorkerUrl,anchor=>{navigationAnchor=anchor;emitStats();},callbacks.onBookmarks);
   const highlightGeometry=new T.BoxGeometry(.043,.352,.31);
   const highlightEdges=new T.EdgesGeometry(highlightGeometry);
   const highlightMaterial=new T.LineBasicMaterial({color:'#fff3a8',toneMapped:false});
@@ -92,7 +107,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   let takeoffTime=0;
   let mode:TravelMode=restored?.mode??'walking',fallSpeed=restored?.fallSpeed??0;
   let distanceMm=BigInt(restored?.distanceMm??'0'),distanceRemainder=0,artificialMs=restored?.artificialMs??'0',startedAt=restored?.startedAt??0,savedAt=restored?.savedAt??0;
-  let config:Settings={sound:true,motion:false,fov:75,sensitivity:1,quality:'high'};
+  let config:Settings={sound:true,motion:false,fov:75,sensitivity:1,quality:'low'};
   const keys=new Set<string>();let lastStats=0,lastTime=performance.now(),frame=0,stepDistance=0,bob=0;
   let audio:AudioContext|undefined,master:GainNode|undefined,windGain:GainNode|undefined,windFilter:BiquadFilterNode|undefined,stepBuffer:AudioBuffer|undefined;
   function soundStart(){
@@ -186,7 +201,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const focusLost=()=>{clearKeys();dragId=null;if(gameMenu||reading){windSound(0);return;}pause();};
   const visibility=()=>{if(document.hidden)focusLost();};
   const lost=(e:Event)=>{e.preventDefault();pause();callbacks.onError('Graphics were interrupted. Refresh the page to return to the library.');};
-  const resize=()=>{camera.aspect=host.clientWidth/host.clientHeight;camera.updateProjectionMatrix();renderer.setSize(host.clientWidth,host.clientHeight);};
+  const resize=()=>{renderer.setPixelRatio(window.devicePixelRatio||1);camera.aspect=host.clientWidth/host.clientHeight;camera.updateProjectionMatrix();renderer.setSize(host.clientWidth,host.clientHeight);};
   const events:[EventTarget,string,EventListener][]=[
     [window,'mousedown',rightClick as EventListener],[window,'contextmenu',contextmenu],
     [window,'keydown',keydown as EventListener],[window,'keyup',keyup as EventListener],[window,'blur',focusLost],
@@ -196,6 +211,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const observer=new ResizeObserver(resize);observer.observe(host);
   function animate(now:number){
     if(disposed)return;frame=requestAnimationFrame(animate);const dt=Math.min((now-lastTime)/1000,.05);lastTime=now;
+    if(renderer.getPixelRatio()!==(window.devicePixelRatio||1))resize();
     if(reading||gameMenu){windSound(0);return;} // The reader freezes the world; no hidden scene renders are needed.
     if(active&&!reading&&!walkBusy){
       if(keys.has('ArrowLeft'))yaw+=dt*1.4;if(keys.has('ArrowRight'))yaw-=dt*1.4;if(keys.has('ArrowUp'))pitch=Math.min(1.48,pitch+dt);if(keys.has('ArrowDown'))pitch=Math.max(-1.48,pitch-dt);
@@ -242,15 +258,14 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
     start,pause,toggleFlight,openBook,closeBook,toggleMenu,teleport,closeMenu,readPage:(book:BookLocation,page:number)=>books.page(book,page),
     reset(){teleport('arrival');},
     async startOver(){
-      // Clear only this game's progress. Stop autosave and the worker before reload
-      // so pagehide or an outstanding book response cannot restore the old journey.
-      for(const key of [JOURNEY_STORAGE,BOOKMARK_STORAGE,OPENED_STORAGE_KEY,'babel-global-opened-v2'])localStorage.removeItem(key);
+      // Stop all writers before clearing progress, preferences, and legacy keys.
       handle.dispose(false);
+      clearAppStorage(localStorage);
       await clearLocationStorage();
       window.location.reload();
     },
     touchMove(direction:string,pressed:boolean){const code=({forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'} as Record<string,string>)[direction];if(pressed)keys.add(code);else keys.delete(code);},
-    configure(next:Settings){config=next;camera.fov=next.fov;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio,next.quality==='low'?1:1.7));renderer.setSize(host.clientWidth,host.clientHeight);if(master&&audio)master.gain.setTargetAtTime(next.sound&&active?.13:0,audio.currentTime,.1);},
+    configure(next:Settings){config=next;world.setDetail(next.quality);camera.fov=next.fov;camera.updateProjectionMatrix();renderer.setPixelRatio(window.devicePixelRatio||1);renderer.setSize(host.clientWidth,host.clientHeight);if(master&&audio)master.gain.setTargetAtTime(next.sound&&active?.13:0,audio.currentTime,.1);},
     dispose(save=true){if(disposed)return;if(save)autoSave();clearInterval(saveTimer);clearInterval(timeTimer);window.removeEventListener('pagehide',autoSave);books.dispose();lifecycle.abort();disposed=true;cancelAnimationFrame(frame);observer.disconnect();events.forEach(([target,name,listener])=>target.removeEventListener(name,listener));if(document.pointerLockElement===canvas)document.exitPointerLock();void audio?.close();world.dispose();highlightGeometry.dispose();highlightEdges.dispose();highlightMaterial.dispose();renderer.dispose();canvas.remove();},
   };
   type ModelContext={registerTool:(tool:{name:string;description:string;inputSchema:object;annotations:{readOnlyHint:boolean};execute:(input:unknown)=>unknown},options:{signal:AbortSignal})=>void|Promise<void>};

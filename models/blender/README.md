@@ -1,0 +1,36 @@
+# Blender source models
+
+Furniture models include the [Scandinavian-style bed](bed/README.md) and
+[closed-lid toilet](toilet/README.md), with editable sources, portable GLB exports
+and rendered previews. The [bathroom kit](bathroom/README.md) integrates the toilet,
+partitions, basin, mirror, tissue dispenser and shower fixtures.
+
+`shelf-test.blend` is a small workflow specimen created with Blender 5.2 LTS:
+three rows of books, supporting shelf boards, a plain backing, materials, a
+preview camera and studio lights. Units are metres. It is an original project
+asset under the repository MIT license, not yet an in-game replacement.
+
+Open the `.blend` directly in Blender. `shelf-test.png` is its rendered preview.
+The editable objects and bevel modifiers remain in the file.
+
+To rebuild the sample (overwrites the sample scene and preview):
+
+```sh
+/Applications/Blender.app/Contents/MacOS/Blender --background --python models/blender/create_test_scene.py
+```
+
+The script uses Blender's Python API and CPU Cycles rendering, so automation does
+not depend on manually clicking the interface or using the GPU. The saved scene
+was reopened in a separate Blender process and in the desktop application; its
+81 book objects and preview camera were verified after reopening.
+
+The bed and bathroom GLBs are imported by the game and emitted as hashed assets.
+The editable `.blend` files, scripts and studio previews remain authoring-only;
+they are not included in the deployed game.
+
+The [library furnishings](library-furnishings/README.md) provide exact-dimension
+bevelled shelf boards, an after-hours return cabinet, and a park-style BBQ dispenser.
+All four exports replace or supply their in-game furnishings.
+
+The [ceiling light](ceiling-light/README.md) provides a rounded diffuser and
+a 12-triangle box LOD, sharing the Low/High book-detail ranges.

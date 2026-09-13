@@ -1,6 +1,8 @@
+import {DORM,DORM_BEDS,BATH_SHIFT,showerFloorHeight} from './room-layout.ts';
 // Project dimensions in metres; see README.md for literary inspiration and choices.
 export const GAP = 30.48;
 export const INNER = GAP / 2;
+export const RAIL_OFFSET = .05;
 export const OUTER = INNER + 3.6576;
 export const HEIGHT = 3.96;
 export const BAY = 22.86;
@@ -15,43 +17,44 @@ export function floorAt(x: number, z: number, previousY: number): number {
     const ramp = (t - 4) / 8 * HEIGHT;
     return Math.round((previousY - ramp) / HEIGHT) * HEIGHT + ramp;
   }
-  return Math.round(previousY / HEIGHT) * HEIGHT;
+  return Math.round(previousY / HEIGHT) * HEIGHT+showerFloorHeight(t,Math.abs(z)-OUTER);
 }
 export function allowed(x: number, z: number): boolean {
   const a = Math.abs(z), t = mod(x, PERIOD);
-  if (a < INNER + RADIUS || a > OUTER + 5.2 - RADIUS) return false;
+  if (a < INNER + RAIL_OFFSET + .036 + RADIUS || a > OUTER + DORM.depth - .1 - RADIUS) return false;
+  // Include projecting boards and end panels, expanded by the player's radius.
+  const shelfRun=t>=BAY-.0275-RADIUS||t<=.0275+RADIUS;
+  if(shelfRun&&a>OUTER-.29-RADIUS&&a<OUTER+.36+RADIUS)return false;
   // Stairs sit behind the shelves. Their side wall prevents stepping off mid-flight.
   if (a <= OUTER - RADIUS) {
-    // Food kiosk, set back from the rail.
-    return !(t > 17.4 - RADIUS && t < 18.3 + RADIUS && a < INNER + 1.3 + RADIUS);
+    // Wall-side dispenser and book return leave the gallery aisle clear.
+    return !(t > 16.55 - RADIUS && t < 17.45 + RADIUS && a > OUTER - 1.04 - RADIUS)
+      && !(t > 21.18 - RADIUS && t < 21.68 + RADIUS && a > OUTER - .46 - RADIUS);
   }
   if (t > 1 + RADIUS && t < 15 - RADIUS) {
     if (a > OUTER + 3.7 - RADIUS) return false;
     if (t > 4 && t < 12 && a < OUTER + 0.5 + RADIUS) return false;
     return true;
   }
-  // Bathroom side doorway lines up with the aisle between the seven beds.
-  if (t >= 22 - RADIUS && t <= 22 + RADIUS + .1) {
-    return a > OUTER + 2 + RADIUS && a < OUTER + 3.5 - RADIUS;
+  // Bathroom doorway and fixtures use the same translated layout as the meshes.
+  const bathroomX=t-BATH_SHIFT;
+  if (t >= DORM.right - .1 - RADIUS && t <= DORM.right + .1 + RADIUS) {
+    return a > OUTER + DORM.bathDoorStart + RADIUS && a < OUTER + DORM.bathDoorEnd - RADIUS;
   }
-  if (t > 22 + RADIUS + .1 && t < 28 - .1 - RADIUS) {
+  if (bathroomX > 22 + RADIUS + .1 && bathroomX < 28 - .1 - RADIUS) {
     const d=a-OUTER;
     if(d < .5+RADIUS || d > 4.9-RADIUS)return false;
-    if(t>24.05-RADIUS&&t<25.15+RADIUS&&d<.975+RADIUS)return false;
-    if(t<23.3+RADIUS&&d>3.86-RADIUS)return false;
-    if(Math.abs(t-23.75)<.05+RADIUS&&d>3.25-RADIUS)return false;
-    if(t>26-RADIUS&&Math.abs(d-2.5)<.05+RADIUS)return false;
+    if(bathroomX>24.05-RADIUS&&bathroomX<25.15+RADIUS&&d<1.06+RADIUS)return false;
+    if(bathroomX<23.3+RADIUS&&d>4.088-RADIUS)return false;
+    if(Math.abs(bathroomX-23.75)<.05+RADIUS&&d>3.25-RADIUS)return false;
+    if(bathroomX>26-RADIUS&&Math.abs(d-2.5)<.05+RADIUS)return false;
     return true;
   }
-  // Dormitory doorway and room, with solid bed furniture.
-  if (t > 16 + RADIUS && t < 22 - RADIUS) {
-    if (a < OUTER + 0.3 && !(t > 18 && t < 20)) return false;
-    for (let i = 0; i < 4; i++) {
-      if (t > 16.3 + i * 1.4 - RADIUS && t < 17.3 + i * 1.4 + RADIUS && a > OUTER + 3.25 - RADIUS) return false;
-    }
-    for (let i = 0; i < 3; i++) {
-      if (t > 16.3 + [0,3.2,4.4][i] - RADIUS && t < 17.3 + [0,3.2,4.4][i] + RADIUS && a < OUTER + 2.3 + RADIUS) return false;
-    }
+  if (t > DORM.left + .1 + RADIUS && t < DORM.right - .1 - RADIUS) {
+    const d=a-OUTER;
+    if (d < .37+RADIUS && !(t>DORM.doorLeft+RADIUS&&t<DORM.doorRight-RADIUS))return false;
+    for(const bed of DORM_BEDS)
+      if(Math.abs(t-bed.x)<.5+RADIUS&&Math.abs(d-bed.depth)<.9+RADIUS)return false;
     return true;
   }
   return false;
@@ -110,14 +113,14 @@ export function flightVector(yaw:number,pitch:number,forward:number,right:number
 export function supportBelow(p:Position):number|null {
   if(!allowed(p.x,p.z))return null;
   const t=mod(p.x,PERIOD);
-  const ramp=Math.abs(p.z)>OUTER+.48&&t>=4&&t<=12?(t-4)/8*HEIGHT:0;
+  const ramp=Math.abs(p.z)>OUTER+.48&&t>=4&&t<=12?(t-4)/8*HEIGHT:showerFloorHeight(t,Math.abs(p.z)-OUTER);
   return Math.floor((p.y-ramp+1e-8)/HEIGHT)*HEIGHT+ramp;
 }
 
 export function airClear(p:Position):boolean {
   const a=Math.abs(p.z);
   if(a<INNER-RADIUS-.04)return true;
-  const inRail=a<INNER+RADIUS+.04;
+  const inRail=a<INNER+RAIL_OFFSET+RADIUS+.04;
   if(!inRail&&!allowed(p.x,p.z))return false;
   const t=mod(p.x,PERIOD);
   const ramp=a>OUTER+.48&&t>=4&&t<=12?(t-4)/8*HEIGHT:0;
@@ -127,7 +130,7 @@ export function airClear(p:Position):boolean {
   if(inDoor&&a>OUTER+.4-RADIUS&&a<OUTER+.56+RADIUS&&height+BODY_HEIGHT>2.6)return false;
   // A full body must fit between the deck and the ceiling. Crossing above the
   // 4-foot rail is possible, but passing through a deck or shelving is not.
-  if(height< -1e-7||height+BODY_HEIGHT>HEIGHT-.34)return false;
+  if(height<showerFloorHeight(t,a-OUTER)-1e-7||height+BODY_HEIGHT>HEIGHT-.34)return false;
   if(inRail&&height<1.2192+.04)return false;
   return true;
 }

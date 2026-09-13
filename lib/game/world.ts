@@ -1,6 +1,11 @@
+import {createCeilingLights} from './ceiling-lights.ts';
+import {createShelfFrame} from './shelf-frame.ts';
+import {createBathroomFixtures,BATHROOM_CONTACTS,type BathroomPlacement} from './bathroom-fixtures.ts';
+import {DORM,DORM_BEDS,BATH_SHIFT} from './room-layout.ts';
+import {createBeds,createFurniture,type BedPlacement} from './beds.ts';
 import {roomOccluders} from './room-ao.ts';
 import {createStairCulling} from './landing-occlusion.ts';
-import {detailCells,shelfLod,type ShelfCell} from './shelf-lod.ts';
+import {detailCells,detailRadius,shelfDistanceSquared,shelfLod,type ShelfCell} from './shelf-lod.ts';
 import * as T from 'three';
 import {createWallWriting} from './wall-writing.ts';
 import {ROOM_LIGHTS} from './room-lighting.ts';
@@ -8,12 +13,12 @@ import {staircase} from './stairs.ts';
 import {createBoundaryLighting,BOUNDARY_SPAN,BOUNDARY_LIGHT_SPACING,WALL_LIGHT_SPACING} from './boundary-lighting.ts';
 import {createInfiniteHorizon,withHorizonFade} from './horizon.ts';
 import {bakeGalleryLighting} from './lighting.ts';
-import { BAY, HEIGHT, INNER, OUTER, PERIOD, mod,type WorldLimits } from './physics.ts';
+import { BAY, HEIGHT, INNER, RAIL_OFFSET, OUTER, PERIOD, mod,type WorldLimits } from './physics.ts';
 
 import {bookId,ROWS,BOOKS_PER_ROW,type BookLocation} from './books.ts';
 
 type Box = [number, number, number, number, number, number];
-export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()) {
+export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set(),bedAssetUrl?:string,bathroomAssetUrl?:string,furnishingUrls?:{board:string;upright:string;returns:string;bbq:string;light?:string}) {
   const group = new T.Group(), distantGroup = new T.Group(); scene.add(group,distantGroup);
   const geometries: T.BufferGeometry[] = [];
   const textures: T.Texture[] = [];
@@ -32,9 +37,6 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   // Consolidate identical face materials: two draws instead of six per batch.
   const deckGeometry=faces([0,1,3,4,5,2]);deckGeometry.addGroup(0,30,0);deckGeometry.addGroup(30,6,1);
   const bookGeometry=faces([0,1,4,5,2,3]);bookGeometry.addGroup(0,24,0);bookGeometry.addGroup(24,12,1);
-  const bowlGeo=new T.SphereGeometry(1,12,8);
-  const seatGeo=new T.TorusGeometry(1,.16,6,20);seatGeo.rotateX(Math.PI/2);
-  geometries.push(bowlGeo,seatGeo);
   const baseGeometryCount=geometries.length;
   const dummy = new T.Object3D();
   let seed = 9834;
@@ -55,7 +57,9 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     const rect=(x:number,y:number,w:number,h:number,color:string)=>{
       c.fillStyle=color;c.fillRect(x*sx,(3.21-y-h)*sy,w*sx,h*sy);
     };
-    rect(0,.03,BAY,3.18,'#a8a69a');
+    // Recessed wall is mostly occluded by the deep shelf boards at viewing angles.
+    // Bake the cavity shading into the impostor, not the actual wall material.
+    rect(0,.03,BAY,3.18,'#514c40');
     for(let row=0;row<ROWS;row++){
       const bottom=.13+row*.39;
       for(let book=0;book<BOOKS_PER_ROW;book++){
@@ -65,12 +69,16 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         rect(x+.037/4,bottom+.34*(1-56/256),.037/2,.34*4/256,'rgba(225,206,163,.23)');
         rect(x+.037/4,bottom+.34*(1-236/256),.037/2,.34*4/256,'rgba(225,206,163,.23)');
       }
+      // Small contact shadows preserve the separation of books and timber.
+      rect(0,bottom,BAY,.012,'rgba(35,29,20,.22)');
+      rect(0,bottom+.328,BAY,.012,'rgba(35,29,20,.18)');
       rect(0,bottom-.04,BAY,.04,'#544b3d');
     }
     for(let j=0;j<=8;j++)rect(j*BAY/8-.055/2,.03,.055,3.18,'#544b3d');
     rect(0,.03,BAY,.06,'#544b3d');
   });
-  const lighting=bakeGalleryLighting(),stairCulling=createStairCulling(scene);
+  const lighting=bakeGalleryLighting(),beds=createBeds(scene,lighting.material,bedAssetUrl),bathrooms=createBathroomFixtures(scene,lighting.material,bathroomAssetUrl),stairCulling=createStairCulling(scene);
+  const shelfFrame=createShelfFrame(furnishingUrls),returns=createFurniture(scene,lighting.material,furnishingUrls?.returns,'return'),bbq=createFurniture(scene,lighting.material,furnishingUrls?.bbq,'bbq');
   let occlusionEnabled=true;
   spines.wrapS=T.RepeatWrapping;
   const boundary=createBoundaryLighting(carpet);
@@ -120,21 +128,18 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const woodMat=mat({color:'#544b3d',roughness:.9});
   const railMat=mat({color:'#854a3d',roughness:.6,metalness:.25});
   const shelfBackMat=mat({color:'#a8a69a',roughness:1});shelfBackMat.name='shelf-backing';
+  const bookRadius={value:32};
   const detailEye={value:new T.Vector3(1e10,1e10,1e10)};
-  const shelfMat=shelfLod(mat({map:spines,roughness:1}),detailEye);shelfMat.name='shelf-facade';
+  const shelfMat=shelfLod(mat({map:spines,roughness:1}),detailEye,bookRadius);shelfMat.name='shelf-facade';
   const lightMat=mat({color:'#fff0c9',emissive:'#fff0c9',emissiveIntensity:2.2});
+  const ceilingLights=createCeilingLights(scene,lightMat,furnishingUrls?.light);
   const darkMat=mat({color:'#353c38',roughness:.55,metalness:.3});
-  const linenMat=mat({color:'#b7b5a8',roughness:1});
   const tileMap=texture(256,256,c=>{
     c.fillStyle='#bebfb5';c.fillRect(0,0,256,256);
     c.strokeStyle='#858c83';c.lineWidth=2;
     for(let i=0;i<=256;i+=32){c.beginPath();c.moveTo(i,0);c.lineTo(i,256);c.moveTo(0,i);c.lineTo(256,i);c.stroke();}
   });
   const tileMat=mat({map:tileMap,roughness:.75});
-  const ceramicMat=mat({color:'#e1e2d7',roughness:.25});
-  const chromeMat=mat({color:'#adb6b4',metalness:.75,roughness:.28});
-  const mirrorMat=mat({color:'#8faba8',metalness:.65,roughness:.12});
-  const blanketMat=mat({color:'#666d65',roughness:1});
   // One binding per actual book; the multi-book atlas is only a distant facade.
   const binding=texture(32,256,c=>{
     c.fillStyle='#987953';c.fillRect(0,0,32,256);
@@ -145,11 +150,12 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const goldMat=mat({color:'#b59b59',roughness:.65,metalness:.35});
   const screenMat=mat({color:'#b3c9b3',emissive:'#7d9d80',emissiveIntensity:.6});
   goldMat.name='book-edges';
+  const distantWallMat=fade(mat({color:'#a8a69a'}));
   const distantSlabMat=fade(slabMat),distantFloorMat=fade(floorMat),distantRailMat=fade(railMat);
   // Lightweight distant strips extend the view without duplicating nearby furnishings.
   const farShelfMaterials=[841,405].map(repeats=>{
     const t=spines.clone();t.wrapS=T.RepeatWrapping;t.repeat.set(repeats,1);t.needsUpdate=true;textures.push(t);
-    return fade(shelfLod(mat({map:t}),detailEye));
+    return fade(shelfLod(mat({map:t}),detailEye,bookRadius));
   });
   const farLampMaterials=[841,405].map(repeats=>{
     const t=texture(128,8,c=>{c.fillStyle='#fff0c9';c.fillRect(51,0,27,8);});
@@ -189,37 +195,59 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     boxes.forEach((b,i)=>{dummy.position.set(b[0],b[1],b[2]);dummy.rotation.set(0,0,b[3]>1?Math.PI/2:0);dummy.scale.set(.036,b[3]>1?b[3]:b[4],.036);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});m.computeBoundingSphere();group.add(m);
   }
   const detailGroup=new T.Group();detailGroup.name='nearby-shelf-details';scene.add(detailGroup);
-  const bookBatches:({mesh:T.InstancedMesh;parts:T.InstancedMesh[]}&ShelfCell)[]=[];
+  const bookBatches:({mesh:T.InstancedMesh;parts:T.InstancedMesh[];colored?:boolean}&ShelfCell)[]=[];
   const unreadColor=new T.Color('#ffffff'),openedColor=new T.Color('#43c9c0');
+  // Opened-book tint is independent of the geometry quality setting.
+  const colorRadius=24,colorEye=new T.Vector3();
+  function withinColorRange(location:BookLocation){
+    const x=location.bay*BAY+(location.book+.5)*BAY/BOOKS_PER_ROW;
+    const y=location.level*HEIGHT+.30+location.row*.39,z=location.side*(OUTER-.08);
+    return (x-colorEye.x)**2+(y-colorEye.y)**2+(z-colorEye.z)**2<=colorRadius**2;
+  }
   function refreshBookColors(){
-    for(const {mesh,bay,side,level} of bookBatches){
-      for(let row=0;row<ROWS;row++)for(let book=0;book<BOOKS_PER_ROW;book++)mesh.setColorAt(row*BOOKS_PER_ROW+book,opened.has(bookId({level,bay,side,row,book}))?openedColor:unreadColor);
-      if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+    for(const entry of bookBatches){
+      const {mesh,bay,side,level}=entry;
+      if(shelfDistanceSquared(colorEye,entry)>colorRadius**2){
+        if(entry.colored&&mesh.instanceColor){mesh.instanceColor.array.fill(1);mesh.instanceColor.clearUpdateRanges();mesh.instanceColor.addUpdateRange(0,mesh.instanceColor.array.length);mesh.instanceColor.needsUpdate=true;entry.colored=false;}
+        continue;
+      }
+      for(let row=0;row<ROWS;row++)for(let book=0;book<BOOKS_PER_ROW;book++){
+        const location={level,bay,side,row,book};
+        mesh.setColorAt(row*BOOKS_PER_ROW+book,withinColorRange(location)&&opened.has(bookId(location))?openedColor:unreadColor);
+      }
+      entry.colored=true;
+      if(mesh.instanceColor){mesh.instanceColor.clearUpdateRanges();mesh.instanceColor.addUpdateRange(0,mesh.instanceColor.array.length);mesh.instanceColor.needsUpdate=true;}
     }
   }
-  function markOpened(location:BookLocation){
+  function markOpened(location:BookLocation,isOpened=true){
+    if(!withinColorRange(location))return;
     const found=bookBatches.find(b=>b.level===location.level&&b.bay===location.bay&&b.side===location.side);
-    if(found){found.mesh.setColorAt(location.row*BOOKS_PER_ROW+location.book,openedColor);found.mesh.instanceColor!.needsUpdate=true;}
+    if(found){
+      const index=location.row*BOOKS_PER_ROW+location.book;
+      found.mesh.setColorAt(index,isOpened?openedColor:unreadColor);
+      found.mesh.instanceColor!.addUpdateRange(index*3,3);
+      found.mesh.instanceColor!.needsUpdate=true;found.colored=true;
+    }
   }
   let detailKey='';
   function updateDetails(eye:T.Vector3){
     const snapped=new T.Vector3(Math.round(eye.x),Math.round(eye.y),Math.round(eye.z));
-    const key=snapped.toArray().join(':');if(key===detailKey)return;detailKey=key;detailEye.value.copy(snapped);
-    const cells=detailCells(snapped,cornerLimits),id=(c:ShelfCell)=>`${c.bay}:${c.level}:${c.side}`;
+    const key=snapped.toArray().join(':');if(key===detailKey)return;detailKey=key;detailEye.value.copy(snapped);colorEye.copy(snapped);
+    const cells=detailCells(snapped,cornerLimits,bookRadius.value),id=(c:ShelfCell)=>`${c.bay}:${c.level}:${c.side}`;
     const wanted=new Set(cells.map(id));
     for(let i=bookBatches.length-1;i>=0;i--)if(!wanted.has(id(bookBatches[i]))){for(const part of bookBatches[i].parts){detailGroup.remove(part);part.dispose();}bookBatches.splice(i,1);}
     const existing=new Set(bookBatches.map(id));
     for(const cell of cells)if(!existing.has(id(cell))){
       const {bay,level,side}=cell,x=bay*BAY,y=level*HEIGHT;
-      const boards:Box[]=[],books:Box[]=[];
+      const boards:Box[]=[],uprights:Box[]=[],books:Box[]=[];
       for(let row=0;row<ROWS;row++){
         boards.push([x+BAY/2,y+.11+row*.39,side*(OUTER-.04),BAY,.04,.5]);
         for(let i=0;i<BOOKS_PER_ROW;i++)books.push([x+(i+.5)*BAY/BOOKS_PER_ROW,y+.30+row*.39,side*(OUTER-.08),.037,.34,.3]);
       }
-      for(let j=0;j<8;j++)boards.push([x+j*BAY/8,y+1.63,side*(OUTER-.03),.055,3.25,.46]);
+      for(let j=mod(bay,12)===1?1:0;j<8;j++)uprights.push([x+j*BAY/8,y+1.63,side*(OUTER-.04),.055,3.25,.5]);
       const mesh=batch(books,[bookMat,goldMat],detailGroup,bookGeometry);
       const backing=batch([[x+BAY/2,y+1.62,side*(OUTER+.22),BAY,3.18,.28]],shelfBackMat,detailGroup);
-      bookBatches.push({...cell,mesh,parts:[mesh,backing,batch(boards,woodMat,detailGroup)]});
+      bookBatches.push({...cell,mesh,parts:[mesh,backing,batch(boards,woodMat,detailGroup,shelfFrame.board),batch(uprights,woodMat,detailGroup,shelfFrame.upright)]});
     }
     refreshBookColors();
   }
@@ -242,8 +270,9 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     while(textures.length>baseTextureCount)textures.pop()!.dispose();
     while(materials.length>baseMaterialCount)materials.pop()!.dispose();
     while(geometries.length>baseGeometryCount)geometries.pop()!.dispose();
-    const decks:Box[]=[], slabs:Box[]=[], floors:Box[]=[], shelves:Box[]=[], trim:Box[]=[], rails:Box[]=[], lamps:Box[]=[], walls:Box[]=[], furniture:Box[]=[], linens:Box[]=[], blankets:Box[]=[], dark:Box[]=[], screens:Box[]=[];
-    const tiles:Box[]=[],ceramics:Box[]=[],bowls:Box[]=[],seats:Box[]=[],chrome:Box[]=[],mirrors:Box[]=[];
+    const returnPlacements:BedPlacement[]=[],bbqPlacements:BedPlacement[]=[],propContacts:Box[]=[],bedPlacements:BedPlacement[]=[],bedContacts:Box[]=[],bathroomPlacements:BathroomPlacement[]=[],bathroomContacts:Box[]=[];
+    const decks:Box[]=[], slabs:Box[]=[], floors:Box[]=[], shelves:Box[]=[], trim:Box[]=[], rails:Box[]=[], lamps:Box[]=[], walls:Box[]=[], dark:Box[]=[], screens:Box[]=[];
+    const tiles:Box[]=[],shelfEnds:Box[]=[];
     for(let f=fy-32;f<=fy+32;f++)for(let b=bx-15;b<=bx+15;b++)for(const side of [-1,1]) {
       const x=b*BAY,y=f*HEIGHT,z=side*(INNER+1.8288), amenity=mod(b,12)===0;
       if(y<(cornerLimits.minY??-Infinity)-.001||y>(cornerLimits.maxY??Infinity)+.001)continue;
@@ -252,83 +281,68 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
       // At the top there is no next floor to supply the gallery ceiling.
       if(cornerLimits.maxY!==undefined&&Math.abs(y+HEIGHT-.34-cornerLimits.maxY)<.001)
         slabs.push([x+BAY/2,y+HEIGHT-.17,z,BAY,.34,3.6576]);
-      rails.push([x+BAY/2,y+1.2192,side*INNER,BAY,0,0],[x+BAY/2,y+.55,side*INNER,BAY,0,0]);
-      for(let j=0;j<6;j++)rails.push([x+j*BAY/6,y+.6,side*INNER,0,1.2,0]);
+      rails.push([x+BAY/2,y+1.2192,side*(INNER+RAIL_OFFSET),BAY,0,0],[x+BAY/2,y+.55,side*(INNER+RAIL_OFFSET),BAY,0,0]);
+      for(let j=0;j<6;j++)rails.push([x+j*BAY/6,y+.6,side*(INNER+RAIL_OFFSET),0,1.2,0]);
       for(let j=0;j<3;j++)lamps.push([x+3.81+j*7.62,y+HEIGHT-.38,z,1.6,.035,.28]);
       if(!amenity) {
-        shelves.push([x+BAY/2,y+1.62,side*(OUTER+.035),BAY,3.18,.65]);
+        shelves.push([x+BAY/2,y+1.62,side*(OUTER+.02),BAY,3.18,.62]);
+        // Solid timber ends survive both detail levels; never map book spines onto them.
+        if(mod(b,12)===1)shelfEnds.push([x,y+1.63,side*(OUTER-.04),.055,3.25,.5]);
+        if(mod(b+1,12)===0)shelfEnds.push([x+BAY,y+1.63,side*(OUTER-.04),.055,3.25,.5]);
+        walls.push([x+BAY/2,y+(3.33+HEIGHT-.34)/2,side*(OUTER+.15),BAY,HEIGHT-.34-3.33,.3]);
         trim.push([x+BAY/2,y+3.28,side*(OUTER-.04),BAY,.10,.5],[x+BAY/2,y+.045,side*(OUTER-.04),BAY,.09,.5]);
       }else {
-        walls.push([x+.5,y+1.8,side*(OUTER+.22),1,3.6,.3],[x+15.5,y+1.8,side*(OUTER+.22),1,3.6,.3],[x+17,y+1.8,side*(OUTER+.22),2,3.6,.3],[x+21.43,y+1.8,side*(OUTER+.22),2.86,3.6,.3]);
+        walls.push([x+.5,y+1.81,side*(OUTER+.15),1,3.62,.3],[x+15.5,y+1.81,side*(OUTER+.15),1,3.62,.3],[x+17,y+1.81,side*(OUTER+.25),2,3.62,.5],[x+22,y+1.81,side*(OUTER+.25),4,3.62,.5]);
         const stairs=staircase(x,y,side,cornerLimits);
         walls.push(...stairs.walls);floors.push(...stairs.floors);slabs.push(...stairs.steps);
         if(cornerLimits.maxY!==undefined&&Math.abs(y+HEIGHT-.34-cornerLimits.maxY)<.001){
-          slabs.push([x+19,y+HEIGHT-.18,side*(OUTER+2.65),6,.36,5.3],
-            [x+25,y+HEIGHT-.18,side*(OUTER+2.5),6,.36,5]);
+          slabs.push([x+20,y+HEIGHT-.18,side*(OUTER+DORM.depth/2),8,.36,DORM.depth],
+            [x+25+BATH_SHIFT,y+HEIGHT-.18,side*(OUTER+2.5),6,.36,5]);
         }
-        // Dormitory, seven beds, fountain and an inert food kiosk.
+        // Dormitory, seven beds, book return and food dispenser.
         // Each room deck also forms the ceiling below; never overlap two slabs.
-        floors.push([x+19,y-.18,side*(OUTER+2.65),6,.36,5.3]);
-        walls.push([x+19,y+1.8,side*(OUTER+5.3),6,3.6,.2],[x+16,y+1.8,side*(OUTER+2.65),.2,3.6,5.3],[x+22,y+1.8,side*(OUTER+1),.2,3.6,2],[x+22,y+1.8,side*(OUTER+4.4),.2,3.6,1.8],[x+22,y+3.1,side*(OUTER+2.75),.2,1,1.5]);
-        for(let bed=0;bed<7;bed++) {
-          const back=bed<4, xx=x+16.8+(back?bed*1.4:[0,3.2,4.4][bed-4]), zz=side*(OUTER+(back?4.15:1.4));
-          furniture.push([xx,y+.39,zz,1,.14,1.8]);linens.push([xx,y+.53,zz,.96,.15,1.77],[xx,y+.66,zz+side*.63,.70,.13,.35]);blankets.push([xx,y+.62,zz-side*.22,.97,.055,1.25]);
-          for(const dx of [-.42,.42])for(const dz of [-.76,.76])furniture.push([xx+dx,y+.2,zz+dz,.045,.4,.045]);
+        floors.push([x+20,y-.18,side*(OUTER+DORM.depth/2),8,.36,DORM.depth]);
+        walls.push([x+20,y+1.81,side*(OUTER+DORM.depth),8,3.62,.2],
+          [x+DORM.left,y+1.81,side*(OUTER+DORM.depth/2),.2,3.62,DORM.depth],
+          [x+DORM.right,y+1.81,side*(OUTER+DORM.bathDoorStart/2),.2,3.62,DORM.bathDoorStart],
+          [x+DORM.right,y+1.81,side*(OUTER+(DORM.bathDoorEnd+DORM.depth)/2),.2,3.62,DORM.depth-DORM.bathDoorEnd],
+          [x+DORM.right,y+3.1,side*(OUTER+(DORM.bathDoorStart+DORM.bathDoorEnd)/2),.2,1,DORM.bathDoorEnd-DORM.bathDoorStart]);
+        for(const bed of DORM_BEDS) {
+          const xx=x+bed.x,zz=side*(OUTER+bed.depth),head=side*bed.head;
+          bedPlacements.push({x:xx,y,z:zz,side:head});
+          bedContacts.push([xx,y+.515,zz,.922,.215,1.688],[xx,y+.79,zz+head*.855,.94,.32,.055]);
         }
         // Bathroom attached to the sleeping room; an open doorway meets its aisle.
-        tiles.push([x+25,y-.18,side*(OUTER+2.5),6,.36,5]);
-        walls.push([x+25,y+1.8,side*(OUTER+.325),6,3.6,.35],
-          [x+25,y+1.8,side*(OUTER+5),6,3.6,.2],
-          [x+28,y+1.8,side*(OUTER+2.5),.2,3.6,5]);
+        tiles.push([x+25+BATH_SHIFT,y-.18,side*(OUTER+2.5),6,.36,5]);
+        walls.push([x+25+BATH_SHIFT,y+1.81,side*(OUTER+.325),6,3.62,.35],
+          [x+25+BATH_SHIFT,y+1.81,side*(OUTER+5),6,3.62,.2],
+          [x+28+BATH_SHIFT,y+1.81,side*(OUTER+2.5),.2,3.62,5]);
 
-        // Wall-mounted basin with a dark recess, tap and soap pump.
-        ceramics.push([x+24.6,y+.78,side*(OUTER+.65),1.1,.2,.65],
-          [x+24.6,y+.42,side*(OUTER+.48),.22,.65,.25]);
-        dark.push([x+24.6,y+.887,side*(OUTER+.7),.7,.014,.36]);
-        chrome.push([x+24.6,y+1.01,side*(OUTER+.39),.045,.28,.045],
-          [x+24.6,y+1.13,side*(OUTER+.51),.045,.045,.28]);
-        ceramics.push([x+25,y+1,side*(OUTER+.48),.1,.24,.1]);
-        chrome.push([x+25,y+1.13,side*(OUTER+.51),.14,.035,.04]);
-        // Full-length mirror opposite the sink; inexpensive polished panel.
-        chrome.push([x+24.6,y+1.45,side*(OUTER+4.87),1.05,2.3,.08]);
-        mirrors.push([x+24.6,y+1.45,side*(OUTER+4.82),.95,2.2,.025]);
-        // Toilet in a screened corner, with cistern, oval bowl, seat and paper.
-        ceramics.push([x+23,y+.67,side*(OUTER+4.64),.48,.65,.23],
-          [x+23,y+.22,side*(OUTER+4.3),.28,.44,.4]);
-        bowls.push([x+23,y+.43,side*(OUTER+4.25),.29,.18,.39]);
-        dark.push([x+23,y+.57,side*(OUTER+4.23),.32,.015,.44]);
-        seats.push([x+23,y+.59,side*(OUTER+4.23),.25,.15,.35]);
-        walls.push([x+23.75,y+1.05,side*(OUTER+4.1),.10,2.1,1.7]);
-        linens.push([x+23.63,y+.85,side*(OUTER+4.3),.15,.15,.25]);
-        chrome.push([x+23.14,y+.95,side*(OUTER+4.49),.12,.035,.035]);
-        // Two open shower stalls, each with tray, drain, mixer and overhead head.
-        for(const depth of [1.25,3.75]){
-          ceramics.push([x+27,y+.025,side*(OUTER+depth),1.65,.05,1.75]);
-          dark.push([x+27,y+.056,side*(OUTER+depth),.14,.008,.14]);
-          chrome.push([x+27.78,y+1.65,side*(OUTER+depth),.035,1.55,.035],
-            [x+27.55,y+2.4,side*(OUTER+depth),.5,.035,.035],
-            [x+27.32,y+2.37,side*(OUTER+depth),.25,.055,.25],
-            [x+27.73,y+1.1,side*(OUTER+depth),.12,.08,.28]);
-        }
-        walls.push([x+27,y+1.1,side*(OUTER+2.5),2,2.2,.10]);
-        dark.push([x+17.85,y+.68,side*(INNER+.72),.9,1.36,1.1]);screens.push([x+17.85,y+1.38,side*(INNER+.72),.68,.045,.67]);
-        dark.push([x+20.6,y+.83,side*(OUTER-.24),.5,.22,.5],[x+20.6,y+.45,side*(OUTER-.05),.25,.8,.2]);
+        bathroomPlacements.push({x:x+25+BATH_SHIFT,y,z:side*(OUTER+2.5),side});
+        for(const [dx,dy,dz,w,h,d] of BATHROOM_CONTACTS)
+          bathroomContacts.push([x+25+BATH_SHIFT+dx,y+dy,side*(OUTER+2.5+dz),w,h,d]);
+        bbqPlacements.push({x:x+17,y,z:side*(OUTER-.49),side});
+        propContacts.push([x+17,y+.46,side*(OUTER-.49),.74,.85,.87],
+          [x+17,y+.94,side*(OUTER-.49),.9,.08,1.1]);
+        returnPlacements.push({x:x+21.43,y,z:side*(OUTER-.16),side});
+        propContacts.push([x+21.43,y+.62,side*(OUTER-.16),.5,1.24,.44]);
         for(const lamp of ROOM_LIGHTS){
           if(lamp.y>HEIGHT&&cornerLimits.maxY!==undefined&&y+lamp.y>cornerLimits.maxY)continue;
           lamps.push([x+lamp.x,y+lamp.y,side*(OUTER+lamp.z),1.6,.035,.28]);
         }
       }
     }
-    batch(tiles,[slabMat,tileMat],group,deckGeometry);batch(ceramics,ceramicMat);batch(bowls,ceramicMat,group,bowlGeo);batch(seats,ceramicMat,group,seatGeo);batch(chrome,chromeMat);batch(mirrors,mirrorMat);
+    beds.set(bedPlacements);bathrooms.set(bathroomPlacements);returns.set(returnPlacements);bbq.set(bbqPlacements);
+    batch(tiles,[slabMat,tileMat],group,deckGeometry);
     const deckMaterials=[slabMat,floorMat];
-    batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,[slabMat,floorMat],group,deckGeometry);batch(shelves,shelfMat);batch(trim,woodMat);pipes(rails);batch(lamps,lightMat);batch(walls,wallMat);batch(furniture,railMat);batch(linens,linenMat);batch(blankets,blanketMat);batch(dark,darkMat);batch(screens,screenMat);
+    batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,[slabMat,floorMat],group,deckGeometry);batch(shelves,shelfMat,group,distantShelfGeometry);batch(shelfEnds,woodMat,group,shelfFrame.upright);batch(trim,woodMat);pipes(rails);ceilingLights.set(lamps);batch(walls,wallMat);batch(dark,darkMat);batch(screens,screenMat);
     // Capture the actual room geometry once per lighting variant. Sample a complete
     // amenity cell near this window, even after random starts or origin shifts.
     const roomX=Math.round(bx/12)*PERIOD;
     const topFloor=cornerLimits.maxY===undefined?Infinity:Math.round((cornerLimits.maxY-HEIGHT+.34)/HEIGHT);
     const bottomFloor=cornerLimits.minY===undefined?-Infinity:Math.round(cornerLimits.minY/HEIGHT);
     const normalFloor=Math.max(bottomFloor+2,Math.min(fy,topFloor-2));
-    const contacts=(floor:number)=>()=>roomOccluders([decks,slabs,floors,shelves,trim,lamps,walls,furniture,linens,blankets,dark,screens,tiles,ceramics,chrome,mirrors].flat(),new T.Vector3(roomX,floor*HEIGHT,0));
+    const contacts=(floor:number)=>()=>roomOccluders([decks,slabs,floors,shelves,trim,lamps,walls,dark,screens,tiles,bedContacts,bathroomContacts,propContacts].flat(),new T.Vector3(roomX,floor*HEIGHT,0));
     lighting.bakeRoomContacts(contacts(normalFloor));
     if(topFloor>=fy-31&&topFloor<=fy+31)
       lighting.bakeRoomContacts(contacts(topFloor),true);
@@ -336,7 +350,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     // origin by whole bays/floors preserves the same shelf and lamp alignment.
     distantGroup.position.set(bx*BAY,fy*HEIGHT,0);
     if(distantGroup.children.length===0){
-    const farSlabs:Box[]=[],farRails:Box[]=[];
+    const farSlabs:Box[]=[],farRails:Box[]=[],farHeaders:Box[]=[];
     const farShelves:[Box[],Box[]]=[[],[]],farLamps:[Box[],Box[]]=[[],[]];
     for(let f=-2400;f<=2400;f++) {
       // No overlap with the full-detail rectangle above.
@@ -345,18 +359,25 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         : [{start:-420,count:841,material:0}];
       for(const strip of strips)for(const side of [-1,1]) {
         const width=strip.count*BAY,x=(strip.start+strip.count/2)*BAY,y=f*HEIGHT,z=side*(INNER+1.8288);
+        farHeaders.push([x,y+(3.33+HEIGHT-.34)/2,side*(OUTER+.15),width,HEIGHT-.34-3.33,.3]);
         farSlabs.push([x,y-.17,z,width,.34,3.6576]);
-        farShelves[strip.material].push([x,y+1.62,side*(OUTER+.035),width,3.18,.65]);
+        farShelves[strip.material].push([x,y+1.62,side*(OUTER+.02),width,3.18,.62]);
         farLamps[strip.material].push([x,y+HEIGHT-.38,z,width,.035,.28]);
-        farRails.push([x,y+1.2192,side*INNER,width,.07,.07],[x,y+.55,side*INNER,width,.07,.07]);
+        farRails.push([x,y+1.2192,side*(INNER+RAIL_OFFSET),width,.07,.07],[x,y+.55,side*(INNER+RAIL_OFFSET),width,.07,.07]);
       }
     }
+    batchDistant(farHeaders,distantWallMat,distantShelfGeometry);
     batchDistant(farSlabs,[distantSlabMat,distantFloorMat],deckGeometry);batchDistant(farRails,distantRailMat,distantRailGeometry);
     for(let i=0;i<2;i++){batchDistant(farShelves[i],farShelfMaterials[i],distantShelfGeometry);batchDistant(farLamps[i],farLampMaterials[i],distantLampGeometry);}
     }
   }
   function update(px:number,py:number,camera?:T.Camera){
     rebuild(px,py);
+    returns.update(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7),group.position.y);
+    bbq.update(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7),group.position.y);
+    bathrooms.update(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7),group.position.y);
+    beds.update(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7),group.position.y);
+    ceilingLights.update(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7),group.position.y,bookRadius.value);
     updateDetails(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7));
     endWall.position.y=py;endCap.position.x=px;updateFixtures(px,py);
     if(!camera)return;
@@ -365,5 +386,5 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     stairCulling.update(group,camera,frustum,cornerLimits,occlusionEnabled);
     for(const {mesh,bounds} of distantBatches){worldBounds.copy(bounds).translate(distantGroup.position);mesh.visible=frustum.intersectsBox(worldBounds);}
   }
-  return { setOcclusionEnabled(enabled:boolean){occlusionEnabled=enabled;},update, markOpened,setLimits,refreshBookColors, dispose(){stairCulling.dispose();wallWriting.dispose();boundary.dispose();frames.dispose();lenses.dispose();scene.remove(boundaryGroup);endGeometry.dispose();capGeometry.dispose();horizon.dispose();lighting.dispose();scene.remove(group,distantGroup,detailGroup);for(const root of [group,distantGroup,detailGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
+  return { setDetail(quality:string){const next=detailRadius(quality);if(next!==bookRadius.value){bookRadius.value=next;detailKey='';}},setOcclusionEnabled(enabled:boolean){occlusionEnabled=enabled;},update, markOpened,setLimits,refreshBookColors, dispose(){ceilingLights.dispose();shelfFrame.dispose();returns.dispose();bbq.dispose();bathrooms.dispose();beds.dispose();stairCulling.dispose();wallWriting.dispose();boundary.dispose();frames.dispose();lenses.dispose();scene.remove(boundaryGroup);endGeometry.dispose();capGeometry.dispose();horizon.dispose();lighting.dispose();scene.remove(group,distantGroup,detailGroup);for(const root of [group,distantGroup,detailGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
 }

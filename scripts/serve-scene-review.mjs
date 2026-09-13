@@ -6,7 +6,12 @@ import {mkdir,readFile} from 'node:fs/promises';
 await mkdir('work/scene-check',{recursive:true});
 await build({input:'scripts/scene-review.ts',output:{file:'work/scene-check/review.js',format:'esm'}});
 const html='<!doctype html><html><body style="margin:0;background:#222;color:white;font:16px sans-serif"><div id="buttons"></div><div id="status"></div><script type="module" src="review.js"></script></body></html>';
+const port=Number(process.env.SCENE_PORT??8765);
 createServer(async(req,res)=>{
-  if(req.url==='/review.js'){res.setHeader('Content-Type','text/javascript');res.end(await readFile('work/scene-check/review.js'));}
+  if(req.url==='/models/blender/ceiling-light/ceiling-light.glb'){res.setHeader('Content-Type','model/gltf-binary');res.end(await readFile(req.url.slice(1)));}
+  else if(/^\/models\/blender\/library-furnishings\/(ShelfBoard|ShelfUpright|Return|BBQ)\.glb$/.test(req.url)){res.setHeader('Content-Type','model/gltf-binary');res.end(await readFile(req.url.slice(1)));}
+  else if(req.url==='/models/blender/bathroom/bathroom.glb'){res.setHeader('Content-Type','model/gltf-binary');res.end(await readFile('models/blender/bathroom/bathroom.glb'));}
+  else if(req.url==='/models/blender/bed/bed.glb'){res.setHeader('Content-Type','model/gltf-binary');res.end(await readFile('models/blender/bed/bed.glb'));}
+  else if(req.url==='/review.js'){res.setHeader('Content-Type','text/javascript');res.end(await readFile('work/scene-check/review.js'));}
   else{res.setHeader('Content-Type','text/html');res.end(html);}
-}).listen(8765,'127.0.0.1',()=>console.log('Scene GPU check: http://127.0.0.1:8765/ — every view must report zero shader errors.'));
+}).listen(port,'127.0.0.1',()=>console.log(`Scene GPU check: http://127.0.0.1:${port}/ — every view must report zero shader errors.`));

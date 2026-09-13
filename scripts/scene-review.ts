@@ -1,14 +1,30 @@
 import * as T from 'three';
 import {createWorld} from '../lib/game/world.ts';
-import {OUTER,HEIGHT} from '../lib/game/physics.ts';
+import {OUTER,INNER,HEIGHT,PERIOD} from '../lib/game/physics.ts';
 const renderer=new T.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true});
 renderer.setSize(1100,720);renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
 document.body.appendChild(renderer.domElement);
 const scene=new T.Scene();scene.background=new T.Color('#202825');
-const world=createWorld(scene),camera=new T.PerspectiveCamera(65,1100/720,.1,16000);
+const world=createWorld(scene,new Set(),'/models/blender/bed/bed.glb','/models/blender/bathroom/bathroom.glb',{board:'/models/blender/library-furnishings/ShelfBoard.glb',upright:'/models/blender/library-furnishings/ShelfUpright.glb',returns:'/models/blender/library-furnishings/Return.glb',bbq:'/models/blender/library-furnishings/BBQ.glb',light:'/models/blender/ceiling-light/ceiling-light.glb'}),camera=new T.PerspectiveCamera(65,1100/720,.1,16000);
 let errors=0;
 renderer.debug.onShaderError=(gl,program,vs,fs)=>{errors++;console.error(gl.getProgramInfoLog(program),gl.getShaderInfoLog(vs),gl.getShaderInfoLog(fs));};
 const views={
+ BedroomFrontWall:{p:[20,1.68,OUTER+3.5],at:[23,2.3,OUTER+.4],limits:{}},
+ BedroomFrontWallOpposite:{p:[20,1.68,-OUTER-3.5],at:[23,2.3,-OUTER-.4],limits:{}},
+ BedroomLight:{p:[18,2,OUTER+3.15],at:[18,3.53,OUTER+3.15],limits:{}},
+ BathroomLight:{p:[27,2,OUTER+2.7],at:[27,3.53,OUTER+2.7],limits:{}},
+ StairLight:{p:[2.5,2,OUTER+2.1],at:[2.5,3.53,OUTER+2.1],limits:{}},
+ CeilingLight:{p:[3.81,2,17.1],at:[3.81,3.58,17.0688],limits:{}},
+ ShelfEndFlush:{p:[24,1.68,OUTER-1],at:[22.86,2.6,OUTER-.2],limits:{}},
+ RailFooting:{p:[33,1.68,INNER+1],at:[34,0,INNER+.05],limits:{}},
+ ShelfRunStart:{p:[9,1.68,OUTER-1.7],at:[26,1.8,OUTER-.15],limits:{}},
+ ShelfRunEnd:{p:[PERIOD+9,1.68,OUTER-1.7],at:[PERIOD-3,1.8,OUTER-.15],limits:{}},
+ AmenitySigns:{p:[20,1.68,OUTER-5],at:[20,1.7,OUTER],limits:{}},
+ AmenitySignsOpposite:{p:[20,1.68,-OUTER+5],at:[20,1.7,-OUTER],limits:{}},
+ BookReturn:{p:[21.5,1.68,OUTER-1.5],at:[21.43,.9,OUTER-.2],limits:{}},
+ ParkDispenser:{p:[18,1.68,OUTER-2],at:[17,.8,OUTER-.49],limits:{}},
+ ReturnOpposite:{p:[21.5,1.68,-OUTER+1.5],at:[21.43,.9,-OUTER+.2],limits:{}},
+ BBQOpposite:{p:[18,1.68,-OUTER+2],at:[17,.8,-OUTER+.49],limits:{}},
  FloatingNearFloor:{p:[35,4.1,OUTER-1.5],at:[38,5.4,OUTER],limits:{}},
  ShelfTransition:{p:[84,1.68,OUTER-1.6],at:[100,1.68,OUTER-.23],limits:{}},
  ShelfDetail:{p:[31,1.68,OUTER-1.4],at:[30,1.5,OUTER],limits:{}},
@@ -32,8 +48,15 @@ const views={
  StairBottomLookUp:{p:[2.5,1.68,OUTER+.6],at:[2.5,12,OUTER+.8],limits:{minY:0}},
  StairDownLookUp:{p:[13.5,1.68,OUTER+.6],at:[13.5,12,OUTER+.8],limits:{}},
  Stairs:{p:[2.5,1.68,OUTER+2.1],at:[10,3.4,OUTER+2.1],limits:{}},
- Bedroom:{p:[19,1.68,OUTER+2.6],at:[20.5,1.2,OUTER+4.5],limits:{}},
- Bathroom:{p:[23,1.68,OUTER+2.7],at:[27,1.6,OUTER+3.4],limits:{}},
+ BedroomEntrance:{p:[19,1.68,OUTER-.5],at:[20,.85,OUTER+4.2],limits:{}},
+ BedroomOpposite:{p:[19,1.68,-OUTER-3.4],at:[21,.6,-OUTER-5.1],limits:{}},
+ BedroomTop:{p:[19,1.68,OUTER+3.4],at:[21,.6,OUTER+5.1],limits:{maxY:HEIGHT-.34}},
+ Bedroom:{p:[19,1.68,OUTER+3.4],at:[21,.6,OUTER+5.1],limits:{}},
+ Basin:{p:[26.6,1.55,OUTER+2],at:[26.6,1.3,OUTER+.6],limits:{}},
+ Toilet:{p:[24.7,1.35,OUTER+3.15],at:[25,.55,OUTER+4.25],limits:{}},
+ ShowerDrain:{p:[28,1.4,OUTER+1.25],at:[29,.01,OUTER+1.25],limits:{}},
+ BathroomOpposite:{p:[27,1.68,-OUTER-2.9],at:[29,1.3,-OUTER-3.75],limits:{}},
+ Bathroom:{p:[25,1.68,OUTER+2.9],at:[29,1.6,OUTER+3.4],limits:{}},
  Bottom:{p:[25,1.68,0],at:[1,.5,0],limits:{minX:0,minY:0}},
  TopGallery:{p:[17,1.68,16.94],at:[45,3.3,18],limits:{maxY:HEIGHT-.34}},
  TopDescending:{p:[13.5,1.68,OUTER+2.1],at:[5,2.6,OUTER+2.1],limits:{maxY:HEIGHT-.34}},
@@ -99,3 +122,5 @@ validate.onclick=async()=>{
  }
  document.querySelector('#status')!.textContent=results.join('\n');validate.disabled=false;
 };
+
+for(const quality of ['low','high']){const b=document.createElement('button');b.textContent=quality+' detail';document.querySelector('#buttons')!.appendChild(b);b.onclick=()=>{world.setDetail(quality);world.update(camera.position.x,camera.position.y-1.68,camera);renderer.render(scene,camera);};}
