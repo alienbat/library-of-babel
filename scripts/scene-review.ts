@@ -5,10 +5,14 @@ const renderer=new T.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true})
 renderer.setSize(1100,720);renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
 document.body.appendChild(renderer.domElement);
 const scene=new T.Scene();scene.background=new T.Color('#202825');
-const world=createWorld(scene,new Set(),'/models/blender/bed/bed.glb','/models/blender/bathroom/bathroom.glb',{board:'/models/blender/library-furnishings/ShelfBoard.glb',upright:'/models/blender/library-furnishings/ShelfUpright.glb',returns:'/models/blender/library-furnishings/Return.glb',bbq:'/models/blender/library-furnishings/BBQ.glb'}),camera=new T.PerspectiveCamera(65,1100/720,.1,16000);
+const world=createWorld(scene,new Set(),'/models/blender/bed/bed.glb','/models/blender/bathroom/bathroom.glb',{board:'/models/blender/library-furnishings/ShelfBoard.glb',upright:'/models/blender/library-furnishings/ShelfUpright.glb',returns:'/models/blender/library-furnishings/Return.glb',bbq:'/models/blender/library-furnishings/BBQ.glb',light:'/models/blender/ceiling-light/ceiling-light.glb'}),camera=new T.PerspectiveCamera(65,1100/720,.1,16000);
 let errors=0;
 renderer.debug.onShaderError=(gl,program,vs,fs)=>{errors++;console.error(gl.getProgramInfoLog(program),gl.getShaderInfoLog(vs),gl.getShaderInfoLog(fs));};
 const views={
+ BedroomLight:{p:[18,2,OUTER+3.15],at:[18,3.53,OUTER+3.15],limits:{}},
+ BathroomLight:{p:[27,2,OUTER+2.7],at:[27,3.53,OUTER+2.7],limits:{}},
+ StairLight:{p:[2.5,2,OUTER+2.1],at:[2.5,3.53,OUTER+2.1],limits:{}},
+ CeilingLight:{p:[3.81,2,17.1],at:[3.81,3.58,17.0688],limits:{}},
  ShelfRunStart:{p:[9,1.68,OUTER-1.7],at:[26,1.8,OUTER-.15],limits:{}},
  ShelfRunEnd:{p:[PERIOD+9,1.68,OUTER-1.7],at:[PERIOD-3,1.8,OUTER-.15],limits:{}},
  AmenitySigns:{p:[20,1.68,OUTER-5],at:[20,1.7,OUTER],limits:{}},
@@ -114,3 +118,5 @@ validate.onclick=async()=>{
  }
  document.querySelector('#status')!.textContent=results.join('\n');validate.disabled=false;
 };
+
+for(const quality of ['low','high']){const b=document.createElement('button');b.textContent=quality+' detail';document.querySelector('#buttons')!.appendChild(b);b.onclick=()=>{world.setDetail(quality);world.update(camera.position.x,camera.position.y-1.68,camera);renderer.render(scene,camera);};}

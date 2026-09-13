@@ -5,6 +5,10 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Bind book and ceiling-light detail to Settings: Low uses 32 m and High 100 m.
+  Add a rounded Blender ceiling diffuser throughout galleries and rooms, with
+  a shared 12-triangle box LOD and unchanged baked illumination.
+
 - Keep solid timber panels at exposed shelf-run ends in every LOD. Extend real
   book detail from 12 to 32 m; retain the 500 m façade relief range.
 

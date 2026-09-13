@@ -46,7 +46,7 @@ console.log(
 );
 
 const scripts=await Promise.all(files.filter(f=>f.endsWith('.js')).map(f=>readFile(`${directory}/assets/${f}`,'utf8')));
-for(const name of ['ShelfBoard','ShelfUpright','Return','BBQ']){
+for(const name of ['ShelfBoard','ShelfUpright','Return','BBQ','ceiling-light']){
   const file=files.find(f=>f.startsWith(name+'-')&&f.endsWith('.glb'));
   assert.ok(file&&scripts.some(s=>s.includes(`${base}assets/${file}`)),`${name} must be emitted and use the deployment base`);
 }

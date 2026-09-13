@@ -1,10 +1,11 @@
+import {createCeilingLights} from './ceiling-lights.ts';
 import {createShelfFrame} from './shelf-frame.ts';
 import {createBathroomFixtures,BATHROOM_CONTACTS,type BathroomPlacement} from './bathroom-fixtures.ts';
 import {DORM,DORM_BEDS,BATH_SHIFT} from './room-layout.ts';
 import {createBeds,createFurniture,type BedPlacement} from './beds.ts';
 import {roomOccluders} from './room-ao.ts';
 import {createStairCulling} from './landing-occlusion.ts';
-import {detailCells,shelfLod,type ShelfCell} from './shelf-lod.ts';
+import {detailCells,detailRadius,shelfLod,type ShelfCell} from './shelf-lod.ts';
 import * as T from 'three';
 import {createWallWriting} from './wall-writing.ts';
 import {ROOM_LIGHTS} from './room-lighting.ts';
@@ -17,7 +18,7 @@ import { BAY, HEIGHT, INNER, OUTER, PERIOD, mod,type WorldLimits } from './physi
 import {bookId,ROWS,BOOKS_PER_ROW,type BookLocation} from './books.ts';
 
 type Box = [number, number, number, number, number, number];
-export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set(),bedAssetUrl?:string,bathroomAssetUrl?:string,furnishingUrls?:{board:string;upright:string;returns:string;bbq:string}) {
+export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set(),bedAssetUrl?:string,bathroomAssetUrl?:string,furnishingUrls?:{board:string;upright:string;returns:string;bbq:string;light?:string}) {
   const group = new T.Group(), distantGroup = new T.Group(); scene.add(group,distantGroup);
   const geometries: T.BufferGeometry[] = [];
   const textures: T.Texture[] = [];
@@ -122,9 +123,11 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const woodMat=mat({color:'#544b3d',roughness:.9});
   const railMat=mat({color:'#854a3d',roughness:.6,metalness:.25});
   const shelfBackMat=mat({color:'#a8a69a',roughness:1});shelfBackMat.name='shelf-backing';
+  const bookRadius={value:32};
   const detailEye={value:new T.Vector3(1e10,1e10,1e10)};
-  const shelfMat=shelfLod(mat({map:spines,roughness:1}),detailEye);shelfMat.name='shelf-facade';
+  const shelfMat=shelfLod(mat({map:spines,roughness:1}),detailEye,bookRadius);shelfMat.name='shelf-facade';
   const lightMat=mat({color:'#fff0c9',emissive:'#fff0c9',emissiveIntensity:2.2});
+  const ceilingLights=createCeilingLights(scene,lightMat,furnishingUrls?.light);
   const darkMat=mat({color:'#353c38',roughness:.55,metalness:.3});
   const tileMap=texture(256,256,c=>{
     c.fillStyle='#bebfb5';c.fillRect(0,0,256,256);
@@ -147,7 +150,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   // Lightweight distant strips extend the view without duplicating nearby furnishings.
   const farShelfMaterials=[841,405].map(repeats=>{
     const t=spines.clone();t.wrapS=T.RepeatWrapping;t.repeat.set(repeats,1);t.needsUpdate=true;textures.push(t);
-    return fade(shelfLod(mat({map:t}),detailEye));
+    return fade(shelfLod(mat({map:t}),detailEye,bookRadius));
   });
   const farLampMaterials=[841,405].map(repeats=>{
     const t=texture(128,8,c=>{c.fillStyle='#fff0c9';c.fillRect(51,0,27,8);});
@@ -203,7 +206,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   function updateDetails(eye:T.Vector3){
     const snapped=new T.Vector3(Math.round(eye.x),Math.round(eye.y),Math.round(eye.z));
     const key=snapped.toArray().join(':');if(key===detailKey)return;detailKey=key;detailEye.value.copy(snapped);
-    const cells=detailCells(snapped,cornerLimits),id=(c:ShelfCell)=>`${c.bay}:${c.level}:${c.side}`;
+    const cells=detailCells(snapped,cornerLimits,bookRadius.value),id=(c:ShelfCell)=>`${c.bay}:${c.level}:${c.side}`;
     const wanted=new Set(cells.map(id));
     for(let i=bookBatches.length-1;i>=0;i--)if(!wanted.has(id(bookBatches[i]))){for(const part of bookBatches[i].parts){detailGroup.remove(part);part.dispose();}bookBatches.splice(i,1);}
     const existing=new Set(bookBatches.map(id));
@@ -305,7 +308,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     beds.set(bedPlacements);bathrooms.set(bathroomPlacements);returns.set(returnPlacements);bbq.set(bbqPlacements);
     batch(tiles,[slabMat,tileMat],group,deckGeometry);
     const deckMaterials=[slabMat,floorMat];
-    batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,[slabMat,floorMat],group,deckGeometry);batch(shelves,shelfMat,group,distantShelfGeometry);batch(shelfEnds,woodMat,group,shelfFrame.upright);batch(trim,woodMat);pipes(rails);batch(lamps,lightMat);batch(walls,wallMat);batch(dark,darkMat);batch(screens,screenMat);
+    batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,[slabMat,floorMat],group,deckGeometry);batch(shelves,shelfMat,group,distantShelfGeometry);batch(shelfEnds,woodMat,group,shelfFrame.upright);batch(trim,woodMat);pipes(rails);ceilingLights.set(lamps);batch(walls,wallMat);batch(dark,darkMat);batch(screens,screenMat);
     // Capture the actual room geometry once per lighting variant. Sample a complete
     // amenity cell near this window, even after random starts or origin shifts.
     const roomX=Math.round(bx/12)*PERIOD;
@@ -347,6 +350,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     bbq.update(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7),group.position.y);
     bathrooms.update(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7),group.position.y);
     beds.update(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7),group.position.y);
+    ceilingLights.update(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7),group.position.y,bookRadius.value);
     updateDetails(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7));
     endWall.position.y=py;endCap.position.x=px;updateFixtures(px,py);
     if(!camera)return;
@@ -355,5 +359,5 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     stairCulling.update(group,camera,frustum,cornerLimits,occlusionEnabled);
     for(const {mesh,bounds} of distantBatches){worldBounds.copy(bounds).translate(distantGroup.position);mesh.visible=frustum.intersectsBox(worldBounds);}
   }
-  return { setOcclusionEnabled(enabled:boolean){occlusionEnabled=enabled;},update, markOpened,setLimits,refreshBookColors, dispose(){shelfFrame.dispose();returns.dispose();bbq.dispose();bathrooms.dispose();beds.dispose();stairCulling.dispose();wallWriting.dispose();boundary.dispose();frames.dispose();lenses.dispose();scene.remove(boundaryGroup);endGeometry.dispose();capGeometry.dispose();horizon.dispose();lighting.dispose();scene.remove(group,distantGroup,detailGroup);for(const root of [group,distantGroup,detailGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
+  return { setDetail(quality:string){const next=detailRadius(quality);if(next!==bookRadius.value){bookRadius.value=next;detailKey='';}},setOcclusionEnabled(enabled:boolean){occlusionEnabled=enabled;},update, markOpened,setLimits,refreshBookColors, dispose(){ceilingLights.dispose();shelfFrame.dispose();returns.dispose();bbq.dispose();bathrooms.dispose();beds.dispose();stairCulling.dispose();wallWriting.dispose();boundary.dispose();frames.dispose();lenses.dispose();scene.remove(boundaryGroup);endGeometry.dispose();capGeometry.dispose();horizon.dispose();lighting.dispose();scene.remove(group,distantGroup,detailGroup);for(const root of [group,distantGroup,detailGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
 }

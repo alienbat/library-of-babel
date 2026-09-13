@@ -1,4 +1,6 @@
 // oxlint-disable-next-line import/default
+import light from '../../models/blender/ceiling-light/ceiling-light.glb?url';
+// oxlint-disable-next-line import/default
 import board from '../../models/blender/library-furnishings/ShelfBoard.glb?url';
 // oxlint-disable-next-line import/default
 import upright from '../../models/blender/library-furnishings/ShelfUpright.glb?url';
@@ -41,7 +43,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const camera=new T.PerspectiveCamera(75,host.clientWidth/host.clientHeight,.1,16000);camera.rotation.order='YXZ';
   let opened=new Set<string>();
   try{opened=loadOpened(localStorage);}catch{/* Session history still works without storage. */}
-  const world=createWorld(scene,opened,bedAssetUrl,bathroomAssetUrl,{board,upright,returns,bbq});
+  const world=createWorld(scene,opened,bedAssetUrl,bathroomAssetUrl,{board,upright,returns,bbq,light});
   let restored:Journey|null=null;
   try{restored=readJourney(localStorage);}catch{callbacks.onStorageWarning();}
   const journeySeed=restored?.journeySeed??restored?.frame.originSeed??newJourneySeed();
@@ -104,7 +106,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   let takeoffTime=0;
   let mode:TravelMode=restored?.mode??'walking',fallSpeed=restored?.fallSpeed??0;
   let distanceMm=BigInt(restored?.distanceMm??'0'),distanceRemainder=0,artificialMs=restored?.artificialMs??'0',startedAt=restored?.startedAt??0,savedAt=restored?.savedAt??0;
-  let config:Settings={sound:true,motion:false,fov:75,sensitivity:1,quality:'high'};
+  let config:Settings={sound:true,motion:false,fov:75,sensitivity:1,quality:'low'};
   const keys=new Set<string>();let lastStats=0,lastTime=performance.now(),frame=0,stepDistance=0,bob=0;
   let audio:AudioContext|undefined,master:GainNode|undefined,windGain:GainNode|undefined,windFilter:BiquadFilterNode|undefined,stepBuffer:AudioBuffer|undefined;
   function soundStart(){
@@ -262,7 +264,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
       window.location.reload();
     },
     touchMove(direction:string,pressed:boolean){const code=({forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'} as Record<string,string>)[direction];if(pressed)keys.add(code);else keys.delete(code);},
-    configure(next:Settings){config=next;camera.fov=next.fov;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio,next.quality==='low'?1:1.7));renderer.setSize(host.clientWidth,host.clientHeight);if(master&&audio)master.gain.setTargetAtTime(next.sound&&active?.13:0,audio.currentTime,.1);},
+    configure(next:Settings){config=next;world.setDetail(next.quality);camera.fov=next.fov;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio,next.quality==='low'?1:1.7));renderer.setSize(host.clientWidth,host.clientHeight);if(master&&audio)master.gain.setTargetAtTime(next.sound&&active?.13:0,audio.currentTime,.1);},
     dispose(save=true){if(disposed)return;if(save)autoSave();clearInterval(saveTimer);clearInterval(timeTimer);window.removeEventListener('pagehide',autoSave);books.dispose();lifecycle.abort();disposed=true;cancelAnimationFrame(frame);observer.disconnect();events.forEach(([target,name,listener])=>target.removeEventListener(name,listener));if(document.pointerLockElement===canvas)document.exitPointerLock();void audio?.close();world.dispose();highlightGeometry.dispose();highlightEdges.dispose();highlightMaterial.dispose();renderer.dispose();canvas.remove();},
   };
   type ModelContext={registerTool:(tool:{name:string;description:string;inputSchema:object;annotations:{readOnlyHint:boolean};execute:(input:unknown)=>unknown},options:{signal:AbortSignal})=>void|Promise<void>};

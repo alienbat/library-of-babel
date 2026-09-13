@@ -14,7 +14,7 @@ visibility to inspect them. They are centred at the origin for runtime instancin
 - The game retains eight rows, 570 books per row, 0.39 m row spacing, all original
   book transforms, picking and identifiers. Books rest at the same support height.
 - Plain wall backing, shelf façade textures, 500 m façade relief and horizon remain
-  unchanged. Real-book detail extends to 32 m, and exposed timber end panels
+  unchanged. Real-book detail uses Low/32 m or High/100 m, and exposed timber end panels
   persist independently of the book LOD. The Blender exports replace only nearby frame geometry.
 
 `Return.glb` is a 0.50 m wide cabinet with a hood, inset slot, flap, service panel

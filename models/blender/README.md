@@ -31,3 +31,6 @@ they are not included in the deployed game.
 The [library furnishings](library-furnishings/README.md) provide exact-dimension
 bevelled shelf boards, an after-hours return cabinet, and a park-style BBQ dispenser.
 All four exports replace or supply their in-game furnishings.
+
+The [ceiling light](ceiling-light/README.md) provides a rounded diffuser and
+a 12-triangle box LOD, sharing the Low/High book-detail ranges.
