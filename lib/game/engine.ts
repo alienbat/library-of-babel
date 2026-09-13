@@ -180,12 +180,15 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const contextmenu=(e:Event)=>{if(active)e.preventDefault();};
   const lockchange=()=>{if(!document.pointerLockElement&&!fallback&&active&&!reading&&!gameMenu)pause();};
   const lockerror=()=>{fallback=true;callbacks.onFallback();};
-  const visibility=()=>{if(document.hidden)pause();};
+  // Dialogs already freeze the world. Native file pickers may blur or hide the
+  // browser; preserve the open dialog so selecting or cancelling keeps its state.
+  const focusLost=()=>{clearKeys();dragId=null;if(gameMenu||reading){windSound(0);return;}pause();};
+  const visibility=()=>{if(document.hidden)focusLost();};
   const lost=(e:Event)=>{e.preventDefault();pause();callbacks.onError('Graphics were interrupted. Refresh the page to return to the library.');};
   const resize=()=>{camera.aspect=host.clientWidth/host.clientHeight;camera.updateProjectionMatrix();renderer.setSize(host.clientWidth,host.clientHeight);};
   const events:[EventTarget,string,EventListener][]=[
     [window,'mousedown',rightClick as EventListener],[window,'contextmenu',contextmenu],
-    [window,'keydown',keydown as EventListener],[window,'keyup',keyup as EventListener],[window,'blur',pause],
+    [window,'keydown',keydown as EventListener],[window,'keyup',keyup as EventListener],[window,'blur',focusLost],
     [document,'mousemove',mousemove as EventListener],[document,'pointerlockchange',lockchange],[document,'pointerlockerror',lockerror],[document,'visibilitychange',visibility],
     [canvas,'pointerdown',pointerdown as EventListener],[canvas,'pointermove',pointermove as EventListener],[canvas,'pointerup',pointerup as EventListener],[canvas,'pointercancel',pointerup as EventListener],[canvas,'webglcontextlost',lost],
   ];events.forEach(([target,name,listener])=>target.addEventListener(name,listener));
