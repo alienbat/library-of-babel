@@ -7,7 +7,7 @@ import {BAY,HEIGHT,EYE} from '../lib/game/physics.ts';
 
 function location(a:SearchAddress){return {frame:{destination:'bottom-left' as const,floorOffset:BigInt('0x'+a.floorHex).toString(),sectionOffset:BigInt('0x'+a.sectionHex).toString()},level:0,bay:0,side:a.side,row:a.row,book:a.book};}
 void test('prefix search finds an existing book whose complete contents regenerate unchanged',async()=>{
-  const prefix='My name is Soren',expected=matchingContent(prefix),portable=await createPortableBookMath();
+  const prefix='A new page begins',expected=matchingContent(prefix),portable=await createPortableBookMath();
   assert.deepEqual(matchingContent(prefix),expected);
   portable.withContext(math=>{
     const index=math.fromDigits(matchingOrdinalDigits(prefix)),address=math.addressFromOrdinal(index);
@@ -72,7 +72,7 @@ void test('navigation distance uses metres, kilometres, then light years at thei
 void test('target teleport lands at the exact searched book and survives a saved frame',async()=>{
   const {readJourney}=await import('../lib/game/journey.ts');
   const {bookId}=await import('../lib/game/books.ts');
-  const prefix='My name is Soren',portable=await createPortableBookMath();
+  const prefix='A new page begins',portable=await createPortableBookMath();
   let savedFrame:ReturnType<typeof newFrame>;
   let address:SearchAddress;
   portable.withContext(math=>{

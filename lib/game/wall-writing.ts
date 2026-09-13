@@ -4,7 +4,7 @@ import {HEIGHT,OUTER,PERIOD,type WorldLimits} from './physics.ts';
 export function createWallWriting(){
   const canvas=document.createElement('canvas');canvas.width=2048;canvas.height=1024;
   const c=canvas.getContext('2d')!;
-  const labels=['STAIRS\nUP →     ← DOWN','STAIRS\nUP ONLY','STAIRS\nDOWN ONLY','REST AREA\n7 BEDS · BATH →','LIBRARY\nFind the story of your life.\nYour search has no deadline.','BATHROOM\nSHOWERS · WC','← EAST     WEST →','← WEST     EAST →'];
+  const labels=['STAIRS\nUP →     ← DOWN','STAIRS\nUP ONLY','STAIRS\nDOWN ONLY','REST AREA\n7 BEDS · BATH →','LIBRARY\nExplore the shelves.\nChoose your own search.','BATHROOM\nSHOWERS · WC','← EAST     WEST →','← WEST     EAST →'];
   labels.forEach((label,i)=>{
     c.save();c.translate((i%4)*512,Math.floor(i/4)*512);c.scale(1,2);
     c.fillStyle='#dad8c7';c.fillRect(0,0,512,256);c.strokeStyle='#7b7667';c.lineWidth=5;c.strokeRect(10,10,492,236);
