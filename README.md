@@ -1,5 +1,7 @@
 # The Library of Babel
 
+**[Play now in your browser](https://alienbat.github.io/library-of-babel/)** — no installation required.
+
 A first-person browser exploration of a library containing every possible book of a fixed format. Almost every page is noise; somewhere among them is any text you can imagine, provided it fits that format.
 
 The project draws literary inspiration from Steven L. Peck’s _A Short Stay in Hell_ and its vast opposing galleries. It is an independent exploration of a combinatorial library, not an official game or a retelling of the novella. Read about the book on its [publisher’s website](https://www.penguin.co.uk/books/486146/a-short-stay-in-hell-by-peck-steven-l/9781807841348). Neither the author nor the publisher is affiliated with or endorses this project.
