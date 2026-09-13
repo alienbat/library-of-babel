@@ -18,7 +18,7 @@ import { BAY, HEIGHT, INNER, RAIL_OFFSET, OUTER, PERIOD, mod,type WorldLimits } 
 import {bookId,ROWS,BOOKS_PER_ROW,type BookLocation} from './books.ts';
 
 type Box = [number, number, number, number, number, number];
-export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set(),bedAssetUrl?:string,bathroomAssetUrl?:string,furnishingUrls?:{board:string;upright:string;returns:string;bbq:string;light?:string}) {
+export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set(),bedAssetUrl?:string,bathroomAssetUrl?:string,furnishingUrls?:{board:string;upright:string;returns:string;bbq:string;light?:string;module?:string;start?:string;book?:string}) {
   const group = new T.Group(), distantGroup = new T.Group(); scene.add(group,distantGroup);
   const geometries: T.BufferGeometry[] = [];
   const textures: T.Texture[] = [];
@@ -37,6 +37,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   // Consolidate identical face materials: two draws instead of six per batch.
   const deckGeometry=faces([0,1,3,4,5,2]);deckGeometry.addGroup(0,30,0);deckGeometry.addGroup(30,6,1);
   const bookGeometry=faces([0,1,4,5,2,3]);bookGeometry.addGroup(0,24,0);bookGeometry.addGroup(24,12,1);
+  const roundedBookGeometry=bookGeometry.clone();geometries.push(roundedBookGeometry);
   const baseGeometryCount=geometries.length;
   const dummy = new T.Object3D();
   let seed = 9834;
@@ -78,7 +79,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     rect(0,.03,BAY,.06,'#544b3d');
   });
   const lighting=bakeGalleryLighting(),beds=createBeds(scene,lighting.material,bedAssetUrl),bathrooms=createBathroomFixtures(scene,lighting.material,bathroomAssetUrl),stairCulling=createStairCulling(scene);
-  const shelfFrame=createShelfFrame(furnishingUrls),returns=createFurniture(scene,lighting.material,furnishingUrls?.returns,'return'),bbq=createFurniture(scene,lighting.material,furnishingUrls?.bbq,'bbq');
+  const shelfFrame=createShelfFrame(furnishingUrls,roundedBookGeometry),returns=createFurniture(scene,lighting.material,furnishingUrls?.returns,'return'),bbq=createFurniture(scene,lighting.material,furnishingUrls?.bbq,'bbq');
   let occlusionEnabled=true;
   spines.wrapS=T.RepeatWrapping;
   const boundary=createBoundaryLighting(carpet);
@@ -147,7 +148,12 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     c.fillStyle='rgba(225,206,163,.23)';c.fillRect(8,52,16,4);c.fillRect(8,232,16,4);
   });
   const bookMat=mat({map:binding,roughness:1});
-  const goldMat=mat({color:'#b59b59',roughness:.65,metalness:.35});
+  const pages=texture(64,256,c=>{
+    c.fillStyle='#987953';c.fillRect(0,0,64,256);
+    c.fillStyle='#b59b59';c.fillRect(3,3,58,242);
+    c.fillStyle='rgba(75,60,39,.14)';for(let y=5;y<245;y+=4)c.fillRect(3,y,58,1);
+  });
+  const goldMat=mat({map:pages,roughness:1});
   const screenMat=mat({color:'#b3c9b3',emissive:'#7d9d80',emissiveIntensity:.6});
   goldMat.name='book-edges';
   const distantWallMat=fade(mat({color:'#a8a69a'}));
@@ -165,7 +171,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const baseTextureCount=textures.length,baseMaterialCount=materials.length;
   function batch(boxes:Box[], material:T.Material|T.Material[], target=group,geometry:T.BufferGeometry=boxGeo) {
     const m=new T.InstancedMesh(geometry,material,boxes.length);
-    boxes.forEach((b,i)=>{dummy.position.set(b[0],b[1],b[2]);dummy.rotation.set(0,0,0);dummy.scale.set(b[3],b[4],b[5]);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});
+    boxes.forEach((b,i)=>{dummy.position.set(b[0],b[1],b[2]);dummy.rotation.set(0,geometry===bookGeometry&&b[2]<0?Math.PI:0,0);dummy.scale.set(b[3],b[4],b[5]);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);});
     m.computeBoundingSphere();target.add(m);return m;
   }
   const distantBatches:{mesh:T.InstancedMesh;bounds:T.Box3}[]=[];
@@ -239,16 +245,13 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     const existing=new Set(bookBatches.map(id));
     for(const cell of cells)if(!existing.has(id(cell))){
       const {bay,level,side}=cell,x=bay*BAY,y=level*HEIGHT;
-      const boards:Box[]=[],uprights:Box[]=[],books:Box[]=[];
-      for(let row=0;row<ROWS;row++){
-        boards.push([x+BAY/2,y+.11+row*.39,side*(OUTER-.04),BAY,.04,.5]);
-        for(let i=0;i<BOOKS_PER_ROW;i++)books.push([x+(i+.5)*BAY/BOOKS_PER_ROW,y+.30+row*.39,side*(OUTER-.08),.037,.34,.3]);
-      }
-      for(let j=mod(bay,12)===1?1:0;j<8;j++)uprights.push([x+j*BAY/8,y+1.63,side*(OUTER-.04),.055,3.25,.5]);
+      const books:Box[]=[];
+      for(let row=0;row<ROWS;row++)for(let i=0;i<BOOKS_PER_ROW;i++)books.push([x+(i+.5)*BAY/BOOKS_PER_ROW,y+.30+row*.39,side*(OUTER-.08),.037,.34,.3]);
       const mesh=batch(books,[bookMat,goldMat],detailGroup,bookGeometry);
       const backing=batch([[x+BAY/2,y+1.62,side*(OUTER+.22),BAY,3.18,.28]],shelfBackMat,detailGroup);
-      bookBatches.push({...cell,mesh,parts:[mesh,backing,batch(boards,woodMat,detailGroup,shelfFrame.board),batch(uprights,woodMat,detailGroup,shelfFrame.upright)]});
+      bookBatches.push({...cell,mesh,parts:[mesh,backing,batch([[x+BAY/2,y+1.63,side*(OUTER-.04),BAY,3.25,.5]],woodMat,detailGroup,mod(bay,12)===1?shelfFrame.start:shelfFrame.module)]});
     }
+    for(const entry of bookBatches)entry.mesh.geometry=shelfDistanceSquared(snapped,entry)<=24**2?roundedBookGeometry:bookGeometry;
     refreshBookColors();
   }
   // Bounded window of repeated geometry; shifted around the walker, never an end wall.

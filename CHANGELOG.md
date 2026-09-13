@@ -97,3 +97,9 @@ record; older entries are grouped milestones rather than released version number
 - Align shelf uprights with the horizontal board fronts and move guardrails 5 cm onto the deck, including distant rendering and collision clearance.
 
 - Match shelf collision to projecting timber fronts and exposed ends; render at native device pixel ratio on both detail settings, including Retina and display-density changes.
+
+## Modular Blender shelves
+
+- Added repeatable shelf bay, start variant, shared end cap and low-poly rounded-spine books, with editable Blender source and preview.
+- Replaced nearby shelf frame batches with one shared module mesh per bay; preserved all book positions, capacity, interactions, and 24 m opened-book tint.
+- Use rounded books within 24 m and cheaper box books to the existing Low/32 m or High/100 m cutoff. Retain matching textured distant shelves and infinite horizon; no extra lighting or geometry at long range.
