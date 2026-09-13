@@ -112,9 +112,9 @@ rebuild all fields rather than publish a mixture.
 | `top` | top | 160 × 32 × 32 |
 | `final` | top; final ascending flight below the top | 160 × 32 × 32 |
 | `bottom` | bottom | 160 × 32 × 32 |
-| `boundaryFloor` | bottom | 32 × 1 × 32 |
-| `boundaryCeiling` | top | 32 × 1 × 32 |
-| `boundaryWall` | normal | 32 × 1 × 32 |
+| `boundaryFloor` | bottom | 32 × 1 × 128 |
+| `boundaryCeiling` | top | 32 × 1 × 128 |
+| `boundaryWall` | normal | 32 × 1 × 128 |
 
 Changes to fixtures, architecture, transport reflectance, sample placement, or
 filtering invalidate affected fields. Corridor changes can influence nearby room
@@ -307,7 +307,9 @@ repeats every 3.96 m, with several neighboring storeys present in the transport
 scene. The wall exporter excludes geometry and lights behind the end wall.
 
 Boundary sampling uses cell centers on the periodic axis, with wrapped Gaussian
-filtering there. Across the half-chasm, samples include center and gallery edge;
+filtering there. Across the half-width, floor/ceiling samples include center and gallery edge;
+wall samples extend to the gallery back wall (with 6 cm clearance). There are
+128 transverse samples so corridor lighting is resolved independently.
 the runtime mirrors with abs(Z) and clamps this texture axis. It must not repeat
 across the chasm or interpolate the gallery edge with the center. Endpoint planes
 on the periodic axis are different cell centers, not duplicate endpoints: do not

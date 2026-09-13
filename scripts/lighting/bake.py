@@ -11,7 +11,7 @@ ROOT=Path(__file__).resolve().parents[2]
 OUT=ROOT/'lib/game/baked';OUT.mkdir(exist_ok=True)
 SAMPLES=int(__import__('os').environ.get('BAKE_SAMPLES','2048'))
 H=3.96;INNER=15.24;OUTER=18.8976
-configs={'gallery':('normal',(64,32,16)), 'rooms':('normal',(160,32,32)), 'top':('top',(160,32,32)), 'final':('top',(160,32,32)), 'bottom':('bottom',(160,32,32)), 'boundaryFloor':('bottom',(32,1,32)), 'boundaryCeiling':('top',(32,1,32)), 'boundaryWall':('normal',(32,1,32))}
+configs={'gallery':('normal',(64,32,16)), 'rooms':('normal',(160,32,32)), 'top':('top',(160,32,32)), 'final':('top',(160,32,32)), 'bottom':('bottom',(160,32,32)), 'boundaryFloor':('bottom',(32,1,128)), 'boundaryCeiling':('top',(32,1,128)), 'boundaryWall':('normal',(32,1,128))}
 selected=sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else configs
 for name in selected:
  variant,grid=configs[name];start=time.time()
@@ -53,7 +53,7 @@ for name in selected:
  if name.startswith('boundary'):
   wall_mode=name=='boundaryWall';top_mode=name=='boundaryCeiling';height=3.62 if top_mode else 0
   bpy.ops.mesh.primitive_cube_add(size=1,location=(0,-0,0) if wall_mode else (10,0,height+(.17 if top_mode else -.17)))
-  plane=bpy.context.object;plane.name='Terminal boundary';plane.dimensions=(.34,30.48,40) if wall_mode else (140,30.48,.34)
+  plane=bpy.context.object;plane.name='Terminal boundary';plane.dimensions=(.34,OUTER*2,40) if wall_mode else (140,30.48,.34)
   if wall_mode:plane.location.x=-.17
   bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
   plane.data.materials.append(materials[0])
@@ -77,7 +77,7 @@ for name in selected:
    for x in range(nx):
     if name in ['top','final','bottom'] and x/(nx-1)*32>=15.5:continue # enclosed rooms reuse their shared ordinary bake
     if name.startswith('boundary'):
-     p=(.025,(x+.5)/nx*H,z/(nz-1)*INNER) if name=='boundaryWall' else (45.72+(x+.5)/nx*2.8575,3.595 if name=='boundaryCeiling' else .025,z/(nz-1)*INNER)
+     p=(.025,(x+.5)/nx*H,z/(nz-1)*(OUTER-.06)) if name=='boundaryWall' else (45.72+(x+.5)/nx*2.8575,3.595 if name=='boundaryCeiling' else .025,z/(nz-1)*INNER)
     elif name=='gallery':p=((x+.5)/nx*2.8575+45.72,min(3.54,max(.06,y/(ny-1)*H)),min(OUTER-.35,INNER+z/(nz-1)*(OUTER-INNER)))
     else:p=(x/(nx-1)*32,y/(ny-1)*H-(H if name=='final' else 0),OUTER+z/(nz-1)*6.5)
     if not name.startswith('boundary') and name!='gallery':
@@ -126,6 +126,6 @@ for name in selected:
   for axis,value in enumerate(lobes):(positive if axis<3 else negative)[probe*4+axis%3]=round(min(4,float(value))/4*255)
  result={'grid':grid,'range':4,'positive':base64.b64encode(positive).decode(),'negative':base64.b64encode(negative).decode(),'samples':SAMPLES,'diffuseBounces':6,'seconds':round(time.time()-start,2),'engine':'Blender Cycles','extraAO':False,'filter':'compartment-separated 3-tap Gaussian in linear light','probeClearance':0.06}
  if name.startswith('boundary'):
-  result.update(boundaryFixtures=False,repeatPeriod=H if name=='boundaryWall' else 2.8575,transverseSpan=INNER)
+  result.update(boundaryFixtures=False,repeatPeriod=H if name=='boundaryWall' else 2.8575,transverseSpan=OUTER-.06 if name=='boundaryWall' else INNER)
  (OUT/f'{name}.json').write_text(json.dumps(result,separators=(',',':')))
  print('DONE',name,result['seconds'],max(positive),flush=True)

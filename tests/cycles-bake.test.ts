@@ -43,7 +43,8 @@ void test('boundary fields use corridor periods and cannot wrap across the chasm
   const f=JSON.parse(readFileSync(new URL(`../lib/game/baked/${name}.json`,import.meta.url),'utf8'));
   assert.equal(f.boundaryFixtures,false);
   assert.equal(f.repeatPeriod,name==='boundaryWall'?3.96:2.8575);
-  assert.equal(f.transverseSpan,15.24);
+  assert.ok(Math.abs(f.transverseSpan-(name==='boundaryWall'?18.8376:15.24))<1e-8);
+  assert.deepEqual(f.grid,[32,1,128]);
  }
  const bake=createBoundaryLighting(new T.Texture());
  assert.equal(bake.uniforms.boundaryLight.value.wrapS,T.RepeatWrapping);
