@@ -33,8 +33,13 @@ Validated by rendering and inspecting the preview, reopening the source in a
 fresh Blender process, checking footprint and packed textures, and reimporting
 the GLB to check its six mesh batches and exclusion of studio objects.
 
-This is the **authoring model**, not yet a replacement in the running game.
-The studio preview lighting is not baked into the export. Runtime integration
-should use the game's static room lighting, shared geometry/instancing, and
-simpler distant LODs rather than repeating the full model on every visible floor.
+The game loads this GLB through Vite's asset pipeline. `lib/game/beds.ts` shares
+its six mesh/material batches across beds within 14 m of the camera, including
+adjacent floors. Three coarse instanced batches provide the distant version and
+a fallback during loading or asset failure. World-window translation and boundary
+rebuilds update both versions. Textures and geometry are disposed with the world.
+
+Studio preview lighting is not baked into the export: runtime materials use the
+existing static room irradiance/AO. Mattress and headboard bounds contribute to
+the room contact bake. No live lights or shadow maps are added.
 All model geometry, textures and scripting are original project work under MIT.

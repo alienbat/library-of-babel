@@ -1,3 +1,4 @@
+import {createBeds,type BedPlacement} from './beds.ts';
 import {roomOccluders} from './room-ao.ts';
 import {createStairCulling} from './landing-occlusion.ts';
 import {detailCells,shelfLod,type ShelfCell} from './shelf-lod.ts';
@@ -13,7 +14,7 @@ import { BAY, HEIGHT, INNER, OUTER, PERIOD, mod,type WorldLimits } from './physi
 import {bookId,ROWS,BOOKS_PER_ROW,type BookLocation} from './books.ts';
 
 type Box = [number, number, number, number, number, number];
-export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()) {
+export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set(),bedAssetUrl?:string) {
   const group = new T.Group(), distantGroup = new T.Group(); scene.add(group,distantGroup);
   const geometries: T.BufferGeometry[] = [];
   const textures: T.Texture[] = [];
@@ -70,7 +71,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     for(let j=0;j<=8;j++)rect(j*BAY/8-.055/2,.03,.055,3.18,'#544b3d');
     rect(0,.03,BAY,.06,'#544b3d');
   });
-  const lighting=bakeGalleryLighting(),stairCulling=createStairCulling(scene);
+  const lighting=bakeGalleryLighting(),beds=createBeds(scene,lighting.material,bedAssetUrl),stairCulling=createStairCulling(scene);
   let occlusionEnabled=true;
   spines.wrapS=T.RepeatWrapping;
   const boundary=createBoundaryLighting(carpet);
@@ -134,7 +135,6 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   const ceramicMat=mat({color:'#e1e2d7',roughness:.25});
   const chromeMat=mat({color:'#adb6b4',metalness:.75,roughness:.28});
   const mirrorMat=mat({color:'#8faba8',metalness:.65,roughness:.12});
-  const blanketMat=mat({color:'#666d65',roughness:1});
   // One binding per actual book; the multi-book atlas is only a distant facade.
   const binding=texture(32,256,c=>{
     c.fillStyle='#987953';c.fillRect(0,0,32,256);
@@ -242,7 +242,8 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     while(textures.length>baseTextureCount)textures.pop()!.dispose();
     while(materials.length>baseMaterialCount)materials.pop()!.dispose();
     while(geometries.length>baseGeometryCount)geometries.pop()!.dispose();
-    const decks:Box[]=[], slabs:Box[]=[], floors:Box[]=[], shelves:Box[]=[], trim:Box[]=[], rails:Box[]=[], lamps:Box[]=[], walls:Box[]=[], furniture:Box[]=[], linens:Box[]=[], blankets:Box[]=[], dark:Box[]=[], screens:Box[]=[];
+    const bedPlacements:BedPlacement[]=[],bedContacts:Box[]=[];
+    const decks:Box[]=[], slabs:Box[]=[], floors:Box[]=[], shelves:Box[]=[], trim:Box[]=[], rails:Box[]=[], lamps:Box[]=[], walls:Box[]=[], linens:Box[]=[], dark:Box[]=[], screens:Box[]=[];
     const tiles:Box[]=[],ceramics:Box[]=[],bowls:Box[]=[],seats:Box[]=[],chrome:Box[]=[],mirrors:Box[]=[];
     for(let f=fy-32;f<=fy+32;f++)for(let b=bx-15;b<=bx+15;b++)for(const side of [-1,1]) {
       const x=b*BAY,y=f*HEIGHT,z=side*(INNER+1.8288), amenity=mod(b,12)===0;
@@ -272,8 +273,9 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         walls.push([x+19,y+1.8,side*(OUTER+5.3),6,3.6,.2],[x+16,y+1.8,side*(OUTER+2.65),.2,3.6,5.3],[x+22,y+1.8,side*(OUTER+1),.2,3.6,2],[x+22,y+1.8,side*(OUTER+4.4),.2,3.6,1.8],[x+22,y+3.1,side*(OUTER+2.75),.2,1,1.5]);
         for(let bed=0;bed<7;bed++) {
           const back=bed<4, xx=x+16.8+(back?bed*1.4:[0,3.2,4.4][bed-4]), zz=side*(OUTER+(back?4.15:1.4));
-          furniture.push([xx,y+.39,zz,1,.14,1.8]);linens.push([xx,y+.53,zz,.96,.15,1.77],[xx,y+.66,zz+side*.63,.70,.13,.35]);blankets.push([xx,y+.62,zz-side*.22,.97,.055,1.25]);
-          for(const dx of [-.42,.42])for(const dz of [-.76,.76])furniture.push([xx+dx,y+.2,zz+dz,.045,.4,.045]);
+          bedPlacements.push({x:xx,y,z:zz,side});
+          // AO proxies include the new mattress and headboard without filling the space below the frame.
+          bedContacts.push([xx,y+.515,zz,.922,.215,1.688],[xx,y+.79,zz+side*.855,.94,.32,.055]);
         }
         // Bathroom attached to the sleeping room; an open doorway meets its aisle.
         tiles.push([x+25,y-.18,side*(OUTER+2.5),6,.36,5]);
@@ -319,16 +321,17 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
         }
       }
     }
+    beds.set(bedPlacements);
     batch(tiles,[slabMat,tileMat],group,deckGeometry);batch(ceramics,ceramicMat);batch(bowls,ceramicMat,group,bowlGeo);batch(seats,ceramicMat,group,seatGeo);batch(chrome,chromeMat);batch(mirrors,mirrorMat);
     const deckMaterials=[slabMat,floorMat];
-    batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,[slabMat,floorMat],group,deckGeometry);batch(shelves,shelfMat);batch(trim,woodMat);pipes(rails);batch(lamps,lightMat);batch(walls,wallMat);batch(furniture,railMat);batch(linens,linenMat);batch(blankets,blanketMat);batch(dark,darkMat);batch(screens,screenMat);
+    batch(decks,deckMaterials,group,deckGeometry);batch(slabs,slabMat);batch(floors,[slabMat,floorMat],group,deckGeometry);batch(shelves,shelfMat);batch(trim,woodMat);pipes(rails);batch(lamps,lightMat);batch(walls,wallMat);batch(linens,linenMat);batch(dark,darkMat);batch(screens,screenMat);
     // Capture the actual room geometry once per lighting variant. Sample a complete
     // amenity cell near this window, even after random starts or origin shifts.
     const roomX=Math.round(bx/12)*PERIOD;
     const topFloor=cornerLimits.maxY===undefined?Infinity:Math.round((cornerLimits.maxY-HEIGHT+.34)/HEIGHT);
     const bottomFloor=cornerLimits.minY===undefined?-Infinity:Math.round(cornerLimits.minY/HEIGHT);
     const normalFloor=Math.max(bottomFloor+2,Math.min(fy,topFloor-2));
-    const contacts=(floor:number)=>()=>roomOccluders([decks,slabs,floors,shelves,trim,lamps,walls,furniture,linens,blankets,dark,screens,tiles,ceramics,chrome,mirrors].flat(),new T.Vector3(roomX,floor*HEIGHT,0));
+    const contacts=(floor:number)=>()=>roomOccluders([decks,slabs,floors,shelves,trim,lamps,walls,linens,dark,screens,tiles,ceramics,chrome,mirrors,bedContacts].flat(),new T.Vector3(roomX,floor*HEIGHT,0));
     lighting.bakeRoomContacts(contacts(normalFloor));
     if(topFloor>=fy-31&&topFloor<=fy+31)
       lighting.bakeRoomContacts(contacts(topFloor),true);
@@ -357,6 +360,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
   }
   function update(px:number,py:number,camera?:T.Camera){
     rebuild(px,py);
+    beds.update(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7),group.position.y);
     updateDetails(camera?.position??new T.Vector3(px,py+1.68,INNER+1.7));
     endWall.position.y=py;endCap.position.x=px;updateFixtures(px,py);
     if(!camera)return;
@@ -365,5 +369,5 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
     stairCulling.update(group,camera,frustum,cornerLimits,occlusionEnabled);
     for(const {mesh,bounds} of distantBatches){worldBounds.copy(bounds).translate(distantGroup.position);mesh.visible=frustum.intersectsBox(worldBounds);}
   }
-  return { setOcclusionEnabled(enabled:boolean){occlusionEnabled=enabled;},update, markOpened,setLimits,refreshBookColors, dispose(){stairCulling.dispose();wallWriting.dispose();boundary.dispose();frames.dispose();lenses.dispose();scene.remove(boundaryGroup);endGeometry.dispose();capGeometry.dispose();horizon.dispose();lighting.dispose();scene.remove(group,distantGroup,detailGroup);for(const root of [group,distantGroup,detailGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
+  return { setOcclusionEnabled(enabled:boolean){occlusionEnabled=enabled;},update, markOpened,setLimits,refreshBookColors, dispose(){beds.dispose();stairCulling.dispose();wallWriting.dispose();boundary.dispose();frames.dispose();lenses.dispose();scene.remove(boundaryGroup);endGeometry.dispose();capGeometry.dispose();horizon.dispose();lighting.dispose();scene.remove(group,distantGroup,detailGroup);for(const root of [group,distantGroup,detailGroup])root.traverse(o=>{if(o instanceof T.InstancedMesh)o.dispose();});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());} };
 }

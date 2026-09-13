@@ -22,6 +22,6 @@ not depend on manually clicking the interface or using the GPU. The saved scene
 was reopened in a separate Blender process and in the desktop application; its
 81 book objects and preview camera were verified after reopening.
 
-Future game-ready assets can be exported separately after agreeing on geometry,
-materials, baked lighting and LOD requirements. These authoring files are outside
-`public/` and do not increase the game's deployed download size.
+The bed GLB is imported by the game and emitted as a hashed deployment asset.
+The editable `.blend` files, scripts and studio previews remain authoring-only;
+they are not included in the deployed game.

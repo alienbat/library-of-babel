@@ -14,6 +14,9 @@ for (const [, url] of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
 const files = await readdir(`${directory}/assets`);
 const worker = files.find((name) => /^book-worker-.*\.js$/.test(name));
 assert.ok(worker, 'Book worker must be emitted as a static asset');
+const bed = files.find((name) => /^bed-.*\.glb$/.test(name));
+assert.ok(bed, 'Blender bed must be emitted as a static asset');
+let bedReferenced = false;
 let workerReferenced = false;
 for (const file of files.filter((name) => name.endsWith('.js'))) {
   const source = await readFile(`${directory}/assets/${file}`, 'utf8');
@@ -26,8 +29,10 @@ for (const file of files.filter((name) => name.endsWith('.js'))) {
     'Static build depends on server framework assets',
   );
   if (source.includes(`${base}assets/${worker}`)) workerReferenced = true;
+  if (source.includes(`${base}assets/${bed}`)) bedReferenced = true;
 }
 assert.ok(workerReferenced, 'Worker URL must include the deployment base');
+assert.ok(bedReferenced, 'Bed URL must include the deployment base');
 for (const file of ['LICENSE.txt', 'NOTICE.txt', 'source.tar.gz'])
   await access(`${directory}/third-party/gmp-wasm/${file}`);
 await writeFile(`${directory}/.nojekyll`, '');

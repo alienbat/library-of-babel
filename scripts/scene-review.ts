@@ -5,7 +5,7 @@ const renderer=new T.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true})
 renderer.setSize(1100,720);renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
 document.body.appendChild(renderer.domElement);
 const scene=new T.Scene();scene.background=new T.Color('#202825');
-const world=createWorld(scene),camera=new T.PerspectiveCamera(65,1100/720,.1,16000);
+const world=createWorld(scene,new Set(),'/models/blender/bed/bed.glb'),camera=new T.PerspectiveCamera(65,1100/720,.1,16000);
 let errors=0;
 renderer.debug.onShaderError=(gl,program,vs,fs)=>{errors++;console.error(gl.getProgramInfoLog(program),gl.getShaderInfoLog(vs),gl.getShaderInfoLog(fs));};
 const views={
@@ -32,7 +32,9 @@ const views={
  StairBottomLookUp:{p:[2.5,1.68,OUTER+.6],at:[2.5,12,OUTER+.8],limits:{minY:0}},
  StairDownLookUp:{p:[13.5,1.68,OUTER+.6],at:[13.5,12,OUTER+.8],limits:{}},
  Stairs:{p:[2.5,1.68,OUTER+2.1],at:[10,3.4,OUTER+2.1],limits:{}},
- Bedroom:{p:[19,1.68,OUTER+2.6],at:[20.5,1.2,OUTER+4.5],limits:{}},
+ BedroomOpposite:{p:[19,1.68,-OUTER-2.6],at:[20.5,.6,-OUTER-4.5],limits:{}},
+ BedroomTop:{p:[19,1.68,OUTER+2.6],at:[20.5,.6,OUTER+4.5],limits:{maxY:HEIGHT-.34}},
+ Bedroom:{p:[19,1.68,OUTER+2.6],at:[20.5,.6,OUTER+4.5],limits:{}},
  Bathroom:{p:[23,1.68,OUTER+2.7],at:[27,1.6,OUTER+3.4],limits:{}},
  Bottom:{p:[25,1.68,0],at:[1,.5,0],limits:{minX:0,minY:0}},
  TopGallery:{p:[17,1.68,16.94],at:[45,3.3,18],limits:{maxY:HEIGHT-.34}},

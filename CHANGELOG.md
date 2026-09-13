@@ -5,6 +5,9 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Replace dormitory block beds with an original Blender model, shared spatial LODs
+  and the existing baked room lighting; include editable source and previews.
+
 - Add a standalone static build for GitHub Pages with subpath-aware assets and book workers.
 - Add `deploy:github`, PR build checks and automatic Pages deployment from `main`.
 

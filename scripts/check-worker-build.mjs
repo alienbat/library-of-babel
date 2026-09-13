@@ -10,4 +10,6 @@ assert.ok(!source.includes('file:///'),'Production game must not contain build-m
 const asset=source.match(/\/_next\/static\/book-worker-[\w-]+\.js/)?.[0];
 assert.ok(asset,'Missing public book worker URL');
 assert.ok(existsSync(`dist/client${asset}`),'Book worker must be included in published assets');
-console.log('Production book worker URL verified');
+const bed=source.match(/\/_next\/static\/media\/bed\.[\w-]+\.glb/)?.[0];
+assert.ok(bed&&existsSync(`dist/client${bed}`),'Bed model must use a published asset URL');
+console.log('Production book worker and bed asset URLs verified');

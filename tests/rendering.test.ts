@@ -28,9 +28,15 @@ void test('distant cache survives movement, with unchanged book detail and conse
         if(position.x<15||position.x>29||position.y<0||position.y>3.6)continue;
         const bounds=new T.Box3().setFromCenterAndSize(position,scale);
         if(color==='a8a69a')walls.push(bounds);
-        else if(Math.abs(scale.x-1)<.001&&Math.abs(scale.y-.14)<.001)beds.push(bounds);
+
       }
     });
+    const bedBatch=scene.getObjectByName('dormitory-beds')!.children[0] as T.InstancedMesh;
+    for(let i=0;i<bedBatch.count;i++){
+      bedBatch.getMatrixAt(i,matrix);position.setFromMatrixPosition(matrix);
+      if(position.x<15||position.x>29||Math.abs(position.y)>.001)continue;
+      beds.push(new T.Box3(new T.Vector3(-.5,0,-.9),new T.Vector3(.5,.985,.9)).applyMatrix4(matrix));
+    }
     assert.equal(beds.length,14,'retain seven beds on each side');
     beds.forEach((bed,i)=>{
       for(const wall of walls)assert.equal(bed.intersectsBox(wall),false,'bed must clear every wall');
