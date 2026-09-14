@@ -1,230 +1,118 @@
 const repo = 'https://github.com/alienbat/library-of-babel';
-function LibraryDrawing() {
-  return (
-    <svg
-      viewBox="0 0 800 850"
-      preserveAspectRatio="xMidYMid slice"
-      aria-hidden="true"
-    >
-      <defs>
-        <linearGradient id="paper" x2="0" y2="1">
-          <stop stopColor="#c9bda5" />
-          <stop offset="1" stopColor="#706d59" />
-        </linearGradient>
-        <pattern id="books" width="9" height="70" patternUnits="userSpaceOnUse">
-          <path d="M1 0V70M7 0V70" stroke="#9b7950" strokeWidth="2" />
-        </pattern>
-      </defs>
-      <path fill="url(#paper)" d="M0 0H800V850H0Z" />
-      {Array.from({ length: 34 }, (_, i) => {
-        const y = (i - 12) * 90;
-        return (
-          <g key={i}>
-            {[false, true].map((right) => (
-              <g
-                key={String(right)}
-                transform={right ? 'translate(800 0) scale(-1 1)' : undefined}
-              >
-                <path
-                  d={`M0 ${y}L400 390L400 394L0 ${y + 68}Z`}
-                  fill="#bca16e"
-                />
-                <path
-                  d={`M0 ${y}L400 390L400 394L0 ${y + 68}Z`}
-                  fill="url(#books)"
-                />
-                <path
-                  d={`M0 ${y + 68}L400 394L400 397L0 ${y + 80}Z`}
-                  fill="#555444"
-                />
-                <path
-                  d={`M0 ${y + 50}L400 394`}
-                  stroke="#8d4531"
-                  strokeWidth="3"
-                />
-                <path
-                  d={`M0 ${y + 79}L400 397`}
-                  stroke="#e1dbbc"
-                  strokeWidth="2"
-                />
-              </g>
-            ))}
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
+const specs: [string, string][] = [
+  ['Layout', 'Two parallel galleries facing across a chasm, repeated floor over floor to finite boundaries'],
+  ['Chasm', '30.48 m (100 ft) between the inner gallery edges'],
+  ['Gallery', '3.66 m (12 ft) wide; sections 22.86 m (75 ft) long; floors 3.96 m apart'],
+  ['Shelves', '8 rows × 570 books per section, per gallery, one book deep'],
+  ['Each book', '410 pages × 40 lines × 80 characters — 1,312,000 characters'],
+  ['Alphabet', '95 printable ASCII characters, including space; case and spacing matter'],
+  ['Amenities', 'Every 12th section: stairs, a seven-bed dormitory, bathroom, food and water'],
+  ['Movement', 'Walk 1.7 m/s · run 3.4 m/s · fly 8 or 24 m/s · fall toward 120 mph'],
+  ['Planned walks', '1, 1,000, 1,000,000 or 1,000,000,000 years at ten hours a day'],
+];
+const examples: [string, React.ReactNode][] = [
+  ['01', <>A book of nothing but the letter <em>A</em></>],
+  ['02', <>“All work and no play makes Jack a dull boy”, 410 pages of it, as in <em>The Shining</em></>],
+  ['03', 'The King James Bible, encoded in Base64'],
+  ['04', 'The nuclear launch codes of every nuclear power'],
+];
 export default function ProjectPage({ base }: { base: string }) {
+  const play = `${base}play/`;
   return (
     <>
       <header>
         <a className="brand" href={base}>
-          <span className="mark" aria-hidden="true">
-            Ⅲ
-          </span>
-          <span>
-            THE LIBRARY
-            <br />
-            OF BABEL
-          </span>
+          <span className="mark" aria-hidden="true">Ⅲ</span>
+          <span>THE LIBRARY<br />OF BABEL</span>
         </a>
         <nav aria-label="Main navigation">
-          <a href="#explore">The experience</a>
+          <a href="#library">The library</a>
+          <a href="#search">The search</a>
           <a href={repo}>GitHub ↗</a>
-          <a className="nav-play" href={`${base}play/`}>
-            Enter the library ↗
-          </a>
+          <a className="nav-play" href={play}>Enter the library</a>
         </nav>
       </header>
       <main>
-        <section className="hero">
+        <section className="hero" aria-label="Introduction">
+          <div className="hero-art"><img src={`${base}hero.webp`} alt="" /></div>
+          <div className="hero-scrim" aria-hidden="true" />
           <div className="hero-copy">
-            <p className="eyebrow">AN OPEN-SOURCE EXPLORATION</p>
-            <h1>
-              Every book.
-              <br />
-              Every possibility.
-            </h1>
+            <p className="eyebrow eyebrow-light">A LIBRARY OF EVERY POSSIBLE BOOK</p>
+            <h1>Every book.<br />Every possibility.</h1>
             <p className="intro">
-              An unimaginable library. A quiet place to wander.
-              <br />
-              Somewhere in these shelves, the words you’re looking for.
+              A library that holds every book it is possible to write — an idea from Jorge Luis Borges, here given the vast opposing galleries of Steven L. Peck’s <em>A Short Stay in Hell</em>.
             </p>
-            <a className="cta" href={`${base}play/`}>
-              Enter the Library <span>↗</span>
-            </a>
-            <p className="note">
-              Free to explore · No download · Desktop recommended
-            </p>
-            <div className="hero-foot">
-              <span>01 / AN INVITATION</span>
-              <a href="#explore">Scroll to discover ↓</a>
+            <div className="hero-actions">
+              <a className="cta" href={play}>Enter the library <span>→</span></a>
+              <a className="hero-more" href="#library">How the library is built ↓</a>
             </div>
           </div>
-          <div className="art">
-            <LibraryDrawing />
-            <div className="art-caption">
-              TWO GALLERIES. A NEAR-ENDLESS HORIZON.
-            </div>
+          <div className="hero-facts">
+            <div><b>410</b>PAGES PER BOOK</div>
+            <div><b>40 × 80</b>LINES × CHARACTERS</div>
+            <div><b>95</b>PRINTABLE CHARACTERS</div>
+            <div><b>95<sup>1,312,000</sup></b>DISTINCT BOOKS</div>
           </div>
         </section>
-        <section id="explore" className="experience">
-          <p className="eyebrow">A LITTLE SPACE FOR ETERNITY</p>
+
+        <section id="library" className="library" aria-labelledby="library-title">
+          <p className="eyebrow">01 — THE LIBRARY WE MODEL</p>
           <div className="section-intro">
-            <h2>
-              What would you find
-              <br />
-              if everything was written?
-            </h2>
-            <p>
-              Every book has 410 pages. Every page holds 40 lines of 80
-              characters. With 95 possible characters, the collection contains
-              every possible text of that length. Most is meaningless. Some
-              could mean everything.
-            </p>
+            <h2 id="library-title">Two galleries, one chasm, and a horizon that never arrives.</h2>
+            <div>
+              <p>Every book has 410 pages of 40 lines, each 80 characters long, drawn from 95 printable characters. That fixes the collection at exactly 95<sup>1,312,000</sup> books — one of every possible text of that length — and every one of them has a single, permanent place on a shelf.</p>
+              <p>The galleries are laid out like a building rather than a database: two twelve-foot walkways face each other across a hundred-foot drop, stacked floor upon floor, with stairs, a dormitory and a bathroom every twelfth section. Return to any spot and the same book is on the same shelf.</p>
+              <p className="small">Inspired by the opposing galleries of Steven L. Peck’s <em>A Short Stay in Hell</em>. An independent project; the exact dimensions and rules below are its own choices.</p>
+            </div>
           </div>
-          <div className="features">
-            {[
-              [
-                '01',
-                'Wander without hurry',
-                'Walk the galleries, climb the stairs, or take flight over the chasm. Steady light and repeating architecture stretch beyond ordinary scales.',
-              ],
-              [
-                '02',
-                'Find your words',
-                'Open a book, search for an opening, or upload a text file to find its match. A book’s location always leads to the same contents.',
-              ],
-              [
-                '03',
-                'Leave a thread to follow',
-                'Name your bookmarks, track a distant book, and return to your journey. Or take a planned walk lasting a billion years.',
-              ],
-            ].map(([n, title, text]) => (
-              <article key={n}>
-                <span className="number">{n}</span>
-                <h3>{title}</h3>
-                <p>{text}</p>
-              </article>
-            ))}
+          <div className="library-detail">
+            <figure className="art">
+              <img src={`${base}galleries.webp`} alt="The two galleries seen from a walkway, shelves receding to the horizon" />
+              <figcaption className="art-caption">TWO GALLERIES. A NEAR-ENDLESS HORIZON.</figcaption>
+            </figure>
+            <dl className="specs">
+              {specs.map(([k, v]) => (
+                <div key={k}><dt>{k}</dt><dd>{v}</dd></div>
+              ))}
+            </dl>
           </div>
         </section>
-        <section className="fieldnotes">
-          <div>
-            <p className="eyebrow">BEFORE YOU ENTER</p>
-            <h2>
-              Take your time.
-              <br />
-              There is plenty of it.
-            </h2>
-            <p>
-              A keyboard, mouse and WebGL2-capable browser are all you need.
-              Your progress is saved in this browser.
-            </p>
+
+        <section id="search" className="search" aria-labelledby="search-title">
+          <p className="eyebrow">02 — THE SEARCH</p>
+          <div className="section-intro">
+            <div>
+              <h2 id="search-title">Every book that has ever existed, or ever will.</h2>
+              <p>Type how a book begins, or upload a text file, and the library finds the one shelf where that exact book sits — real or fictional, written or not yet written. Then it points you toward it, however many light years away. A few things already waiting on the shelves:</p>
+            </div>
+            <ul className="examples">
+              {examples.map(([n, text]) => (
+                <li key={n}><span className="number">{n}</span><span>{text}</span></li>
+              ))}
+              <li className="examples-cta"><span className="number">05</span><span>Your biography</span><a className="find" href={play}>Enter and find <span>→</span></a></li>
+            </ul>
           </div>
-          <dl>
-            {[
-              ['W A S D', 'Move'],
-              ['MOUSE', 'Look around'],
-              ['SPACE', 'Toggle flight'],
-              ['LEFT CLICK', 'Open a book'],
-              ['T', 'Search, bookmarks & actions'],
-              ['M / ESC', 'Game menu'],
-            ].map(([key, label]) => (
-              <div key={key}>
-                <dt>
-                  <kbd>{key}</kbd>
-                </dt>
-                <dd>{label}</dd>
-              </div>
-            ))}
-          </dl>
         </section>
-        <section className="about">
-          <div>
-            <p className="eyebrow">BUILT IN THE OPEN</p>
-            <h2>
-              A small project.
-              <br />
-              An enormous place.
-            </h2>
-            <p>
-              The Library of Babel is an independent project inspired by Steven
-              L. Peck’s <em>A Short Stay in Hell</em>. It explores the idea of a
-              combinatorial library through a playable, carefully constructed
-              world.
-            </p>
-            <p className="small">
-              Not affiliated with or endorsed by the author or publisher. The
-              game’s dimensions and mechanics include its own design choices.
-            </p>
-            <a className="text-link" href={repo}>
-              Explore the source ↗
+
+        <section className="about" aria-label="Built in the open">
+          <p className="eyebrow">03 — BUILT IN THE OPEN</p>
+          <div className="tiles">
+            <a className="tile" href={repo}>
+              <span className="tile-label"><span className="tile-mark" aria-hidden="true">Ⅲ</span><span>Explore the source</span></span>
+              <span className="tile-arrow">↗</span>
+            </a>
+            <a className="tile" href="https://github.com/sponsors/alienbat">
+              <span className="tile-label"><span className="tile-mark" aria-hidden="true">♡</span><span>Sponsor on GitHub</span></span>
+              <span className="tile-arrow">↗</span>
             </a>
           </div>
-          <aside>
-            <span className="heart">♡</span>
-            <h3>Help keep the lights on.</h3>
-            <p>
-              If you enjoy getting lost here, you can support the development of
-              this open-source world.
-            </p>
-            <a className="sponsor" href="https://github.com/sponsors/alienbat">
-              Sponsor on GitHub ↗
-            </a>
-          </aside>
+          <p className="footnote">MIT licensed. Not affiliated with or endorsed by Steven L. Peck or his publisher; the book’s text is not included.</p>
         </section>
       </main>
       <footer>
         <span>THE LIBRARY OF BABEL</span>
-        <span>
-          Made by <a href="https://github.com/alienbat">alienbat</a> · MIT
-          licensed
-        </span>
-        <a href={`${base}play/`}>
-          Eternity can wait. Enter when you’re ready ↗
-        </a>
+        <span>Made by <a href="https://github.com/alienbat">alienbat</a> · MIT licensed</span>
+        <a href={play}>Eternity can wait. Enter when you’re ready ↗</a>
       </footer>
     </>
   );
