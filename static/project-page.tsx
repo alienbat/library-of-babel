@@ -61,7 +61,7 @@ export default function ProjectPage({ base }: { base: string }) {
       </header>
       <main>
         <section className="hero" aria-label="Introduction">
-          <div className="hero-art"><SceneImage base={base} name="hero" alt="" eager /></div>
+          <div className="hero-art"><SceneImage base={base} name="galleries" alt="" eager /></div>
           <div className="hero-scrim" aria-hidden="true" />
           <div className="hero-copy">
             <p className="eyebrow eyebrow-light">A LIBRARY OF EVERY POSSIBLE BOOK</p>
@@ -94,7 +94,7 @@ export default function ProjectPage({ base }: { base: string }) {
           </div>
           <div className="library-detail">
             <figure className="art">
-              <SceneImage base={base} name="galleries" alt="The two galleries seen from a walkway, shelves receding to the horizon" />
+              <SceneImage base={base} name="hero" alt="Floating between the two galleries, looking toward the distant horizon" />
               <figcaption className="art-caption">TWO GALLERIES. A NEAR-ENDLESS HORIZON.</figcaption>
             </figure>
             <dl className="specs">
