@@ -1,6 +1,6 @@
 # The Library of Babel
 
-**[Play now in your browser](https://alienbat.github.io/library-of-babel/)** — no installation required.
+**[Play now in your browser](https://alienbat.github.io/library-of-babel/play/)** — no installation required.
 
 A first-person browser exploration of a library containing every possible book of a fixed format. Almost every page is noise; somewhere among them is any text you can imagine, provided it fits that format.
 

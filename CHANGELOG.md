@@ -5,6 +5,8 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Add a prerendered React project landing page; move the static game entry to /play/ and keep game assets out of the landing entry.
+
 - Preserve uploaded text line breaks by padding to 80-character book lines; retain tab removal, blank lines, validation and fixed book length. Add full-book upload fixtures under test_book.
 
 - Fit all 570 book slots between shelf uprights without changing book identities. Share spacing across detailed meshes, impostors, picking, highlighting and target navigation.

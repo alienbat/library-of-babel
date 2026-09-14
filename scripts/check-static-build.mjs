@@ -4,12 +4,15 @@ import { resolve } from 'node:path';
 
 const directory = resolve('dist/github'),
   base = process.env.STATIC_BASE_PATH ?? '/library-of-babel/';
-const html = await readFile(`${directory}/index.html`, 'utf8');
+for(const entry of ['index.html','play/index.html']){
+const html = await readFile(`${directory}/${entry}`, 'utf8');
 assert.ok(html.includes('The Library of Babel'), 'Missing page title');
 assert.ok(!html.includes('/main.tsx'), 'Unbuilt source entry');
 for (const [, url] of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
+  if(url.startsWith('https://')||url.startsWith('#'))continue;
   assert.ok(url.startsWith(base), `Asset is outside deployment base: ${url}`);
   await access(resolve(directory, url.slice(base.length)));
+}
 }
 const files = await readdir(`${directory}/assets`);
 const worker = files.find((name) => /^book-worker-.*\.js$/.test(name));
@@ -50,3 +53,18 @@ for(const name of ['ShelfBoard','ShelfUpright','ShelfModule','ShelfModuleStart',
   const file=files.find(f=>f.startsWith(name+'-')&&f.endsWith('.glb'));
   assert.ok(file&&scripts.some(s=>s.includes(`${base}assets/${file}`)),`${name} must be emitted and use the deployment base`);
 }
+
+// Landing must remain independently loadable, without the game's large bundle.
+const manifest=JSON.parse(await readFile(`${directory}/.vite/manifest.json`,'utf8'));
+const landing=Object.values(manifest).find(entry=>entry.isEntry&&entry.src==='index.html');
+assert.ok(landing,'Landing entry missing');
+const visited=new Set();let landingBytes=0;
+async function checkLanding(entry){
+ if(visited.has(entry.file))return;visited.add(entry.file);
+ const content=await readFile(`${directory}/${entry.file}`,'utf8');landingBytes+=Buffer.byteLength(content);
+ assert.ok(!content.includes('WebGLRenderer')&&!content.includes('.glb'),'Landing imports game code/assets');
+ for(const key of entry.imports??[])await checkLanding(manifest[key]);
+}
+await checkLanding(landing);
+assert.ok(landingBytes<500000,'Landing JavaScript exceeds its lightweight budget');
+assert.ok((await readFile(`${directory}/index.html`,'utf8')).includes('Every possibility.'),'Landing content must be prerendered');

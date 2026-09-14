@@ -18,8 +18,10 @@ export default defineConfig({
   build: {
     outDir: fileURLToPath(new URL('./dist/github', import.meta.url)),
     emptyOutDir: true,
+    manifest: true,
     assetsInlineLimit: 0, // Keep even tiny shared GLBs cacheable as model assets.
     target: 'es2020',
+    rolldownOptions: {input: {landing: fileURLToPath(new URL('./static/index.html', import.meta.url)), play: fileURLToPath(new URL('./static/play/index.html', import.meta.url))}},
   },
   worker: { format: 'es' },
 });
