@@ -5,6 +5,8 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Open Settings beside the main menu, gate debug teleport behind an off-by-default Cheat toggle, and download raw books as text using bookmark names or content SHA-1 filenames.
+
 - Add a prerendered React project landing page; move the static game entry to /play/ and keep game assets out of the landing entry.
 
 - Preserve uploaded text line breaks by padding to 80-character book lines; retain tab removal, blank lines, validation and fixed book length. Add full-book upload fixtures under test_book.

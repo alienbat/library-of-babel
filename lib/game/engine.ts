@@ -35,7 +35,7 @@ import {createBookClient} from './book-client';
 import {newFrame,shiftFrame,frameLimits,type GlobalFrame} from './global-books';
 import {destinationState,type Destination} from './destinations';
 
-type Settings={sound:boolean;motion:boolean;fov:number;sensitivity:number;quality:string};
+type Settings={cheat:boolean;sound:boolean;motion:boolean;fov:number;sensitivity:number;quality:string};
 export type GameStats={navigation?:NavigationHint|null;floor:string;distance:string;libraryClock?:string;libraryDays?:string;savedAt?:number;mode:TravelMode;fallSpeed:number};
 type Callbacks={onDebugMenu:(open:boolean)=>void;onBookmarks:(records:Bookmark[])=>void;onPause:()=>void;onStats:(s:GameStats)=>void;onFallback:()=>void;onError:(s:string)=>void;onTarget:(b:BookLocation|null)=>void;onBook:(b:BookLocation|null)=>void;onPage:(delta:number)=>void;onStorageWarning:()=>void;onGameMenu:(open:boolean)=>void;onDestination:(destination:Destination)=>void};
 export type GameHandle=ReturnType<typeof createGame>;
@@ -66,7 +66,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   let gameMenu=false,menuKind:'game'|'debug'='game',walkBusy=false,limits:WorldLimits=restored?.limits??frameLimits(globalFrame);
   function closeMenu(resume=true){if(walkBusy&&resume)return;gameMenu=false;callbacks.onDebugMenu(false);clearKeys();callbacks.onGameMenu(false);if(resume&&active)start();}
   function toggleMenu(kind:'game'|'debug'='game'){
-    if(!active||walkBusy)return;
+    if(!active||walkBusy||(kind==='debug'&&!config.cheat))return;
     if(gameMenu&&menuKind===kind){closeMenu();return;}
     closeBook(false);gameMenu=true;menuKind=kind;clearKeys();dragId=null;setTarget(null);callbacks.onGameMenu(kind==='game');callbacks.onDebugMenu(kind==='debug');
     if(document.pointerLockElement===canvas)document.exitPointerLock();
@@ -113,7 +113,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   let takeoffTime=0;
   let mode:TravelMode=restored?.mode??'walking',fallSpeed=restored?.fallSpeed??0;
   let distanceMm=BigInt(restored?.distanceMm??'0'),distanceRemainder=0,artificialMs=restored?.artificialMs??'0',startedAt=restored?.startedAt??0,savedAt=restored?.savedAt??0;
-  let config:Settings={sound:true,motion:false,fov:75,sensitivity:1,quality:'low'};
+  let config:Settings={cheat:false,sound:true,motion:false,fov:75,sensitivity:1,quality:'low'};
   const keys=new Set<string>();let lastStats=0,lastTime=performance.now(),frame=0,stepDistance=0,bob=0;
   let audio:AudioContext|undefined,master:GainNode|undefined,windGain:GainNode|undefined,windFilter:BiquadFilterNode|undefined,stepBuffer:AudioBuffer|undefined;
   function soundStart(){
@@ -190,7 +190,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
     closeMenu();
   }
   function toggleFlight(){if(reading||gameMenu)return;if(mode==='flying'){mode='falling';takeoffTime=0;}else{if(mode==='walking'){takeoffTime=.5;fallSpeed=0;}mode='flying';}stepDistance=0;emitStats();}
-  const keydown=(e:KeyboardEvent)=>{if(!active||walkBusy)return;if(e.code==='KeyM'&&!reading&&!(e.target instanceof HTMLElement&&e.target.closest('input,textarea,select,[contenteditable]'))){e.preventDefault();if(!e.repeat)pause();return;}if(e.code==='Backquote'){e.preventDefault();if(!e.repeat)toggleMenu('debug');return;}if(e.code==='KeyT'){e.preventDefault();if(!e.repeat)toggleMenu();return;}if(gameMenu){if(e.code==='Escape'){e.preventDefault();closeMenu();}return;}if(reading){if(['ArrowLeft','ArrowRight','Escape','Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();if(e.code==='ArrowRight')callbacks.onPage(1);else if(e.code==='ArrowLeft')callbacks.onPage(-1);else if(e.code==='Escape')closeBook();return;}if(e.code==='Escape'){pause();return;}if(e.code==='Space'){e.preventDefault();if(!e.repeat)toggleFlight();return;}if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}};
+  const keydown=(e:KeyboardEvent)=>{if(!active||walkBusy)return;if(e.code==='KeyM'&&!reading&&!(e.target instanceof HTMLElement&&e.target.closest('input,textarea,select,[contenteditable]'))){e.preventDefault();if(!e.repeat)pause();return;}if(e.code==='Backquote'&&config.cheat){e.preventDefault();if(!e.repeat)toggleMenu('debug');return;}if(e.code==='KeyT'){e.preventDefault();if(!e.repeat)toggleMenu();return;}if(gameMenu){if(e.code==='Escape'){e.preventDefault();closeMenu();}return;}if(reading){if(['ArrowLeft','ArrowRight','Escape','Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();if(e.code==='ArrowRight')callbacks.onPage(1);else if(e.code==='ArrowLeft')callbacks.onPage(-1);else if(e.code==='Escape')closeBook();return;}if(e.code==='Escape'){pause();return;}if(e.code==='Space'){e.preventDefault();if(!e.repeat)toggleFlight();return;}if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}};
   const keyup=(e:KeyboardEvent)=>{keys.delete(e.code);};
   function look(dx:number,dy:number){yaw-=dx*.0018*config.sensitivity;pitch=T.MathUtils.clamp(pitch-dy*.0018*config.sensitivity,-1.48,1.48);}
   const mousemove=(e:MouseEvent)=>{if(active&&!reading&&!gameMenu&&document.pointerLockElement===canvas)look(e.movementX,e.movementY);};
@@ -261,7 +261,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   const handle = {saveProgress,timedWalk,teleportToTarget,
     getBookmark:(book:BookLocation)=>books.getBookmark(book),saveBookmark:(book:BookLocation,name:string,page:number)=>books.saveBookmark(book,name,page),deleteBookmark:(book:BookLocation)=>books.deleteBookmark(book),trackBookmark:(id:string)=>books.trackBookmark(id),
     uploadBook:(text:string)=>books.uploadBook(text),searchBooks:(prefix:string)=>books.search(prefix),clearSearch:()=>books.clearTarget(),
-    start,pause,toggleFlight,openBook,closeBook,toggleMenu,teleport,closeMenu,readPage:(book:BookLocation,page:number)=>books.page(book,page),
+    start,pause,toggleFlight,openBook,closeBook,toggleMenu,teleport,closeMenu,readPage:(book:BookLocation,page:number)=>books.page(book,page),readBook:(book:BookLocation)=>books.raw(book),
     reset(){teleport('arrival');},
     async startOver(){
       // Stop all writers before clearing progress, preferences, and legacy keys.
@@ -271,7 +271,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
       window.location.reload();
     },
     touchMove(direction:string,pressed:boolean){const code=({forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'} as Record<string,string>)[direction];if(pressed)keys.add(code);else keys.delete(code);},
-    configure(next:Settings){config=next;world.setDetail(next.quality);camera.fov=next.fov;camera.updateProjectionMatrix();renderer.setPixelRatio(window.devicePixelRatio||1);renderer.setSize(host.clientWidth,host.clientHeight);if(master&&audio)master.gain.setTargetAtTime(next.sound&&active?.13:0,audio.currentTime,.1);},
+    configure(next:Settings){config=next;if(!next.cheat&&gameMenu&&menuKind==='debug')closeMenu();world.setDetail(next.quality);camera.fov=next.fov;camera.updateProjectionMatrix();renderer.setPixelRatio(window.devicePixelRatio||1);renderer.setSize(host.clientWidth,host.clientHeight);if(master&&audio)master.gain.setTargetAtTime(next.sound&&active?.13:0,audio.currentTime,.1);},
     dispose(save=true){if(disposed)return;if(save)autoSave();clearInterval(saveTimer);clearInterval(timeTimer);window.removeEventListener('pagehide',autoSave);books.dispose();lifecycle.abort();disposed=true;cancelAnimationFrame(frame);observer.disconnect();events.forEach(([target,name,listener])=>target.removeEventListener(name,listener));if(document.pointerLockElement===canvas)document.exitPointerLock();void audio?.close();world.dispose();highlightGeometry.dispose();highlightEdges.dispose();highlightMaterial.dispose();renderer.dispose();canvas.remove();},
   };
   type ModelContext={registerTool:(tool:{name:string;description:string;inputSchema:object;annotations:{readOnlyHint:boolean};execute:(input:unknown)=>unknown},options:{signal:AbortSignal})=>void|Promise<void>};

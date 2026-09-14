@@ -1,4 +1,5 @@
 'use client';
+import {DownloadBook} from '../components/game/download-book';
 import {DETAIL_STORAGE,readDetail} from '../lib/game/preferences';
 import {fallSpeedLabel} from '../lib/game/fall-display';
 import {WalkingPanel} from '../components/game/walking-panel';
@@ -28,6 +29,7 @@ export default function Home() {
   const [confirmReset,setConfirmReset]=useState(false),[resetError,setResetError]=useState('');
   const resetDialog=useRef<HTMLDialogElement>(null);
   useEffect(()=>{if(confirmReset)resetDialog.current?.showModal();},[confirmReset]);
+  const [cheat,setCheat]=useState(false);
   const [settings,setSettings]=useState(false),[sound,setSound]=useState(true),[motion,setMotion]=useState(false),[fov,setFov]=useState(75),[sensitivity,setSensitivity]=useState(1),[quality,setQuality]=useState('low');
   const [stats,setStats]=useState<GameStats>({floor:'0',distance:'0',mode:'walking',fallSpeed:0}),[drag,setDrag]=useState(false);
   const [target,setTarget]=useState<BookLocation|null>(null),[book,setBook]=useState<BookLocation|null>(null),[page,setPage]=useState(0),[storageWarning,setStorageWarning]=useState(false);
@@ -54,7 +56,7 @@ export default function Home() {
     }).catch(()=>setError('The library could not load. Please refresh to try again.'));
     return ()=>{disposed=true;game.current?.dispose();game.current=null;};
   },[]);
-  useEffect(()=>{game.current?.configure({sound,motion,fov,sensitivity,quality});},[ready,sound,motion,fov,sensitivity,quality]);
+  useEffect(()=>{game.current?.configure({cheat,sound,motion,fov,sensitivity,quality});},[ready,cheat,sound,motion,fov,sensitivity,quality]);
   const restoreBookmarkPage=useCallback((savedPage:number)=>setPage(current=>current===0?savedPage:current),[]);
   const enter=()=>{game.current?.start();setEntered(true);setPlaying(true);setSettings(false);};
   useEffect(()=>{
@@ -119,10 +121,11 @@ export default function Home() {
       {storageWarning&&<p className="error" role="alert">Browser storage is unavailable or full. Progress and bookmarks may only last for this session.</p>}
       {saveNotice&&<output className="save-notice">{saveNotice}</output>}
       {error&&<p className="error" role="alert">{error}</p>}
-      {settings&&<div className="settings"><label>Field of view <span>{fov}°</span><input type="range" min="55" max="100" value={fov} onChange={e=>setFov(+e.target.value)}/></label><label>Mouse sensitivity <span>{sensitivity.toFixed(1)}</span><input type="range" min="0.3" max="2.5" step="0.1" value={sensitivity} onChange={e=>setSensitivity(+e.target.value)}/></label><label className="inline-label">Gentle walking motion<input type="checkbox" checked={motion} onChange={e=>setMotion(e.target.checked)}/></label><label className="inline-label">Detail<select value={quality} onChange={e=>changeDetail(e.target.value)}><option value="low">Low — 32 m</option><option value="high">High — 100 m</option></select></label><button className="danger-button" onClick={()=>{setResetError('');setConfirmReset(true);}}>Start Over</button></div>}
+
       <div className="instructions"><span><kbd>W A S D</kbd> Move</span><span><kbd>MOUSE</kbd> Look</span><span><kbd>SHIFT</kbd> Move faster</span><span><kbd>SPACE</kbd> Toggle flight</span><span><kbd>LEFT CLICK</kbd> Read a book</span><span><kbd>T</kbd> Actions</span><span><kbd>M / ESC</kbd> Game Menu</span></div>
       <p className="mobile-instructions">Use the left pad to move. Drag on the right to look. Tap Fly to take off.</p>
     </section>}
+      {!playing&&settings&&<section className="settings" aria-label="Settings"><h2>Settings</h2><label>Field of view <span>{fov}°</span><input type="range" min="55" max="100" value={fov} onChange={e=>setFov(+e.target.value)}/></label><label>Mouse sensitivity <span>{sensitivity.toFixed(1)}</span><input type="range" min="0.3" max="2.5" step="0.1" value={sensitivity} onChange={e=>setSensitivity(+e.target.value)}/></label><label className="inline-label">Gentle walking motion<input type="checkbox" checked={motion} onChange={e=>setMotion(e.target.checked)}/></label><label className="inline-label">Detail<select value={quality} onChange={e=>changeDetail(e.target.value)}><option value="low">Low — 32 m</option><option value="high">High — 100 m</option></select></label><label className="inline-label">Cheat<input type="checkbox" role="switch" aria-checked={cheat} checked={cheat} onChange={e=>setCheat(e.target.checked)}/></label>{cheat&&<p className="cheat-hint">Open cheat menu by pressing <kbd>`</kbd>.</p>}<button className="danger-button" onClick={()=>{setResetError('');setConfirmReset(true);}}>Start Over</button></section>}
     {confirmReset&&<dialog ref={resetDialog} className="reset-dialog" aria-labelledby="reset-title" aria-describedby="reset-description" onCancel={event=>{event.preventDefault();setConfirmReset(false);}}>
       <h2 id="reset-title">Start over?</h2>
       <p id="reset-description">This deletes all saved app data in this browser, including your location, journey, bookmarks, opened-book history, and settings. A new journey starts at zero. This cannot be undone.</p>
@@ -169,10 +172,10 @@ export default function Home() {
       <p className="eyebrow">DEBUG / TELEPORT</p><h2>Teleport</h2><p>Jump to a library boundary, your original starting point, or the tracked book. Journey distance and elapsed time are preserved.</p>
       <div className="teleport-grid">{DESTINATIONS.map(place=><button key={place} disabled={teleportBusy} onClick={()=>game.current?.teleport(place)}>{DESTINATION_LABELS[place]}</button>)}<button disabled={teleportBusy||!stats.navigation} onClick={()=>void teleportTarget()}>{teleportBusy?'Finding target…':'Target Book'}</button></div>
       {teleportError&&<p className="error" role="alert">{teleportError}</p>}
-      <button className="teleport-cancel" onClick={()=>game.current?.closeMenu()}>Close <kbd>`</kbd></button>
+      <button className="teleport-cancel" onClick={()=>game.current?.closeMenu()}>Close</button>
     </dialog>}
     {book&&<dialog ref={reader} className="book-reader" onCancel={e=>{e.preventDefault();game.current?.closeBook();}} aria-modal="true" aria-label="Open library book">
-      <div className="reader-toolbar"><span>THE LIBRARY OF BABEL <small>410 PAGES · 40 LINES · 80 CHARACTERS</small></span><button onClick={()=>game.current?.closeBook()}>Return to shelf <kbd>RIGHT CLICK</kbd></button></div>
+      <div className="reader-toolbar"><span>THE LIBRARY OF BABEL <small>410 PAGES · 40 LINES · 80 CHARACTERS</small></span><div className="reader-tools"><DownloadBook key={bookId(book)} game={game} book={book}/><button onClick={()=>game.current?.closeBook()}>Return to shelf <kbd>RIGHT CLICK</kbd></button></div></div>
       <div className="book-scroll"><article className="book-page" key={`${bookId(book)}:${page}`}>
         <div className="page-running-head">{opening.book===book?bookOpeningTitle(opening.text):' '}</div>
         <pre className="book-text" aria-label={`Page ${page+1} content`}>{pageText||(pageError||'Preparing this book…')}</pre>

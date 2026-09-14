@@ -65,3 +65,13 @@
 
 /* Keep breathing room when the pause menu omits its introductory paragraph. */
 .menu h1 + .menu-actions{margin-top:36px}
+
+/* Settings has its own column rather than extending the paused menu. */
+.game > .settings{position:absolute;left:calc(7.5vw + 520px);top:18vh;width:350px;max-width:calc(92.5vw - 540px);max-height:72dvh;overflow-y:auto;margin:0;z-index:5}
+.settings h2{font:28px Georgia,serif;margin:0}.cheat-hint{margin:0;color:#c2c8b8;font-size:12px;line-height:1.8}
+.game:has(> .settings) .menu{width:480px}
+.reader-tools{display:flex;align-items:center;gap:16px}.book-download{position:relative}
+.reader-toolbar .download-link{border:0;padding:10px 0;text-decoration:underline;text-underline-offset:3px}
+.book-download [role=alert]{position:absolute;right:0;top:100%;width:280px;padding:12px;background:#19231f;color:#ffb7a8;letter-spacing:0;z-index:2}
+@media(max-width:1000px){.game > .settings{left:auto;right:24px;width:350px;max-width:calc(100vw - 48px);top:15vh;background:#19231f;box-shadow:0 10px 60px #0009}.game:has(> .settings) .menu{width:min(480px,85vw)}}
+@media(max-width:650px){.reader-toolbar{flex-wrap:wrap;gap:4px}.reader-tools{margin-left:auto;gap:12px}}
