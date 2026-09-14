@@ -31,6 +31,7 @@ export default function Home() {
   const [confirmReset,setConfirmReset]=useState(false),[resetError,setResetError]=useState('');
   const resetDialog=useRef<HTMLDialogElement>(null);
   useEffect(()=>{if(confirmReset)resetDialog.current?.showModal();},[confirmReset]);
+  const [showYearsLater,setShowYearsLater]=useState(true);
   const [cheat,setCheat]=useState(false);
   const [settings,setSettings]=useState(false),[sound,setSound]=useState(true),[motion,setMotion]=useState(false),[fov,setFov]=useState(75),[sensitivity,setSensitivity]=useState(1),[quality,setQuality]=useState('low');
   const [stats,setStats]=useState<GameStats>({floor:'0',distance:'0',mode:'walking',fallSpeed:0}),[drag,setDrag]=useState(false);
@@ -58,7 +59,7 @@ export default function Home() {
     }).catch(()=>setError('The library could not load. Please refresh to try again.'));
     return ()=>{disposed=true;game.current?.dispose();game.current=null;};
   },[]);
-  useEffect(()=>{game.current?.configure({cheat,sound,motion,fov,sensitivity,quality});},[ready,cheat,sound,motion,fov,sensitivity,quality]);
+  useEffect(()=>{game.current?.configure({showYearsLater,cheat,sound,motion,fov,sensitivity,quality});},[ready,showYearsLater,cheat,sound,motion,fov,sensitivity,quality]);
   const restoreBookmarkPage=useCallback((savedPage:number)=>setPage(current=>current===0?savedPage:current),[]);
   const enter=()=>{game.current?.start();setEntered(true);setPlaying(true);setSettings(false);};
   useEffect(()=>{
@@ -127,7 +128,7 @@ export default function Home() {
       <div className="instructions"><span><kbd>W A S D</kbd> Move</span><span><kbd>MOUSE</kbd> Look</span><span><kbd>SHIFT</kbd> Move faster</span><span><kbd>SPACE</kbd> Toggle flight</span><span><kbd>LEFT CLICK</kbd> Read a book</span><span><kbd>T</kbd> Actions</span><span><kbd>M / ESC</kbd> Game Menu</span></div>
       <p className="mobile-instructions">Use the left pad to move. Drag on the right to look. Tap Fly to take off.</p>
     </section>}
-      {!playing&&settings&&<section className="settings" aria-label="Settings"><h2>Settings</h2><label>Field of view <span>{fov}°</span><input type="range" min="55" max="100" value={fov} onChange={e=>setFov(+e.target.value)}/></label><label>Mouse sensitivity <span>{sensitivity.toFixed(1)}</span><input type="range" min="0.3" max="2.5" step="0.1" value={sensitivity} onChange={e=>setSensitivity(+e.target.value)}/></label><label className="inline-label">Gentle walking motion<input type="checkbox" checked={motion} onChange={e=>setMotion(e.target.checked)}/></label><label className="inline-label">Detail<select value={quality} onChange={e=>changeDetail(e.target.value)}><option value="low">Low — 32 m</option><option value="high">High — 100 m</option></select></label><label className="inline-label">Cheat<input type="checkbox" role="switch" aria-checked={cheat} checked={cheat} onChange={e=>setCheat(e.target.checked)}/></label>{cheat&&<p className="cheat-hint">Open cheat menu by pressing <kbd>`</kbd>.</p>}<button className="danger-button" onClick={()=>{setResetError('');setConfirmReset(true);}}>Start Over</button></section>}
+      {!playing&&settings&&<section className="settings" aria-label="Settings"><h2>Settings</h2><label>Field of view <span>{fov}°</span><input type="range" min="55" max="100" value={fov} onChange={e=>setFov(+e.target.value)}/></label><label>Mouse sensitivity <span>{sensitivity.toFixed(1)}</span><input type="range" min="0.3" max="2.5" step="0.1" value={sensitivity} onChange={e=>setSensitivity(+e.target.value)}/></label><label className="inline-label">Gentle walking motion<input type="checkbox" checked={motion} onChange={e=>setMotion(e.target.checked)}/></label><label className="inline-label">Detail<select value={quality} onChange={e=>changeDetail(e.target.value)}><option value="low">Low — 32 m</option><option value="high">High — 100 m</option></select></label><label className="inline-label">Years later announcement<input type="checkbox" role="switch" aria-checked={showYearsLater} checked={showYearsLater} onChange={e=>{setShowYearsLater(e.target.checked);setWalkAnnouncement(null);}}/></label><label className="inline-label">Cheat<input type="checkbox" role="switch" aria-checked={cheat} checked={cheat} onChange={e=>setCheat(e.target.checked)}/></label>{cheat&&<p className="cheat-hint">Open cheat menu by pressing <kbd>`</kbd>.</p>}<button className="danger-button" onClick={()=>{setResetError('');setConfirmReset(true);}}>Start Over</button></section>}
     {confirmReset&&<dialog ref={resetDialog} className="reset-dialog" aria-labelledby="reset-title" aria-describedby="reset-description" onCancel={event=>{event.preventDefault();setConfirmReset(false);}}>
       <h2 id="reset-title">Start over?</h2>
       <p id="reset-description">This deletes all saved app data in this browser, including your location, journey, bookmarks, opened-book history, and settings. A new journey starts at zero. This cannot be undone.</p>
@@ -186,7 +187,7 @@ export default function Home() {
       <nav className="reader-navigation" aria-label="Book pages"><button disabled={page===0} onClick={()=>setPage(p=>turnPage(p,-1))}>← Previous</button><span aria-live="polite">Page {page+1} of {PAGE_COUNT}</span><button disabled={page===PAGE_COUNT-1} onClick={()=>setPage(p=>turnPage(p,1))}>Next →</button></nav>
       <BookmarkEditor key={bookId(book)} game={game} book={book} page={page} onRestore={restoreBookmarkPage}/>
     </dialog>}
-    {walkAnnouncement&&<output key={walkAnnouncement.id} className="walk-announcement" onAnimationEnd={()=>setWalkAnnouncement(null)}>
+    {showYearsLater&&walkAnnouncement&&<output key={walkAnnouncement.id} className="walk-announcement" onAnimationEnd={()=>setWalkAnnouncement(null)}>
       <strong>{walkAnnouncement.years}</strong>
       <span>{walkAnnouncement.years==='1'?'YEAR LATER':'YEARS LATER'}</span>
     </output>}

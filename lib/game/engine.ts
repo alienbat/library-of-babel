@@ -35,7 +35,7 @@ import {createBookClient} from './book-client';
 import {newFrame,shiftFrame,frameLimits,type GlobalFrame} from './global-books';
 import {destinationState,type Destination} from './destinations';
 
-type Settings={cheat:boolean;sound:boolean;motion:boolean;fov:number;sensitivity:number;quality:string};
+type Settings={showYearsLater:boolean;cheat:boolean;sound:boolean;motion:boolean;fov:number;sensitivity:number;quality:string};
 export type GameStats={navigation?:NavigationHint|null;floor:string;distance:string;libraryClock?:string;libraryDays?:string;savedAt?:number;mode:TravelMode;fallSpeed:number};
 type Callbacks={onWalkComplete?:(years:string)=>void;onDebugMenu:(open:boolean)=>void;onBookmarks:(records:Bookmark[])=>void;onPause:()=>void;onStats:(s:GameStats)=>void;onFallback:()=>void;onError:(s:string)=>void;onTarget:(b:BookLocation|null)=>void;onBook:(b:BookLocation|null)=>void;onPage:(delta:number)=>void;onStorageWarning:()=>void;onGameMenu:(open:boolean)=>void;onDestination:(destination:Destination)=>void};
 export type GameHandle=ReturnType<typeof createGame>;
@@ -113,7 +113,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   let takeoffTime=0;
   let mode:TravelMode=restored?.mode??'walking',fallSpeed=restored?.fallSpeed??0;
   let distanceMm=BigInt(restored?.distanceMm??'0'),distanceRemainder=0,artificialMs=restored?.artificialMs??'0',startedAt=restored?.startedAt??0,savedAt=restored?.savedAt??0;
-  let config:Settings={cheat:false,sound:true,motion:false,fov:75,sensitivity:1,quality:'low'};
+  let config:Settings={showYearsLater:true,cheat:false,sound:true,motion:false,fov:75,sensitivity:1,quality:'low'};
   const keys=new Set<string>();let lastStats=0,lastTime=performance.now(),frame=0,stepDistance=0,bob=0;
   let audio:AudioContext|undefined,master:GainNode|undefined,windGain:GainNode|undefined,windFilter:BiquadFilterNode|undefined,stepBuffer:AudioBuffer|undefined;
   function soundStart(){
@@ -175,7 +175,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
       await curtain.animate([{opacity:1},{opacity:0}],{duration:750,fill:'forwards'}).finished.catch(()=>{});
       curtain.close();curtain.remove();walkBusy=false;
       if(!disposed&&active&&!gameMenu)start();
-      if(!disposed&&completedYears!==undefined)callbacks.onWalkComplete?.(completedYears);
+      if(!disposed&&config.showYearsLater&&completedYears!==undefined)callbacks.onWalkComplete?.(completedYears);
     }
   }
   async function teleportToTarget(){
