@@ -5,6 +5,8 @@ record; older entries are grouped milestones rather than released version number
 
 ## Unreleased
 
+- Add static canonical URLs, social preview cards, game structured data and a sitemap for the GitHub Pages landing page.
+
 - Open Settings beside the main menu, gate debug teleport behind an off-by-default Cheat toggle, and download raw books as text using bookmark names or content SHA-1 filenames.
 
 - Add a prerendered React project landing page; move the static game entry to /play/ and keep game assets out of the landing entry.
