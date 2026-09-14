@@ -6,7 +6,7 @@ import type {NavigationAnchor} from './search.ts';
 import {globalBook,newFrame,type GlobalBook,type GlobalFrame} from './global-books.ts';
 import {loadOpened,type BookLocation} from './books.ts';
 const STORAGE='babel-global-opened-v2';
-type Reply={id:number;frame?:GlobalFrame;landing?:TargetLanding;journeyWalk?:WalkResult;bookmarks?:Bookmark[];bookmark?:Bookmark|null;navigation?:NavigationAnchor|null;foundPrefix?:string;text?:string;opened:string[];history?:GlobalBook[];error?:string};
+type Reply={id:number;raw?:Uint8Array;frame?:GlobalFrame;landing?:TargetLanding;journeyWalk?:WalkResult;bookmarks?:Bookmark[];bookmark?:Bookmark|null;navigation?:NavigationAnchor|null;foundPrefix?:string;text?:string;opened:string[];history?:GlobalBook[];error?:string};
 export function createBookClient(onHistory:(ids:string[])=>void,onStorageWarning:()=>void,workerUrl:string,onNavigation:(anchor:NavigationAnchor|null)=>void=()=>{},onBookmarks:(records:Bookmark[])=>void=()=>{}){
   let frame=newFrame(),sequence=0,frameVersion=0,failure:Error|undefined;
   const pending=new Map<number,{resolve:(r:Reply)=>void;reject:(e:Error)=>void;version:number}>();
@@ -64,6 +64,7 @@ export function createBookClient(onHistory:(ids:string[])=>void,onStorageWarning
     async deleteBookmark(book:BookLocation){await request('bookmark-delete',{book:globalBook(book,book.frame??frame)});},
     async trackBookmark(bookmarkId:string){const version=frameVersion;await request('bookmark-track',{bookmarkId});if(version!==frameVersion)await request('history');},
     clearTarget(){onNavigation(null);void request('clear-target').catch(()=>{});},
+    async raw(book:BookLocation){return (await request('raw-book',{book:globalBook(book,book.frame??frame)})).raw!;},
     async page(book:BookLocation,page:number){const reply=await request('page',{book:globalBook(book,book.frame??frame),page});return reply.text!;},
     dispose(){worker?.terminate();for(const request of pending.values())request.reject(new Error('Reader closed'));pending.clear();},
   };

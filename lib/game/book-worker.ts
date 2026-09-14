@@ -1,3 +1,4 @@
+import {rawBookBytes} from './book-download.ts';
 import {loadLocations,persistLocations} from './location-store';
 import {bookmarkName,bookmarkPage,upsertBookmark,type Bookmark} from './bookmarks.ts';
 import {matchingOrdinalDigits,uploadedContent,exactOrdinalDigits,MAX_PREFIX,type SearchAddress} from './search.ts';
@@ -73,8 +74,8 @@ function handle(event:MessageEvent,{referenceFrame,frameForAddress,targetLanding
       records=[];for(const record of history as GlobalBook[]){try{const normalized={...record,frame:referenceFrame(record.frame)};bookOrdinal(normalized);records.push(normalized);}catch{/* Ignore malformed or unavailable old locations. */}}
       records.forEach(record=>knownExpressions.add(bookId(record)));projectionDirty=true;changed=true;
     }
-    let text:string|undefined;
-    if(action==='page'){
+    let text:string|undefined,raw:Uint8Array|undefined;
+    if(action==='page'||action==='raw-book'){
       const expression=bookId(book);
       if(expression!==cachedExpression){
         const index=bookOrdinal(book);
@@ -86,13 +87,13 @@ function handle(event:MessageEvent,{referenceFrame,frameForAddress,targetLanding
           knownExpressions.add(expression);
         }
       }
-      text=textPage(cached!,page);
+      if(action==='raw-book')raw=rawBookBytes(cached!);else text=textPage(cached!,page);
     }
     const frameKey=JSON.stringify(frame);
     if(projectionDirty||frameKey!==projectionFrame){
       projected=records.map(record=>projectBook(record,frame as GlobalFrame)).filter(b=>b!==null).map(localBookId);
       projectionFrame=frameKey;projectionDirty=false;
     }
-    return {id,text,foundPrefix,...(action==='reference-frame'?{frame}:{}),...(landing?{landing}:{}),...(journeyWalk?{journeyWalk}:{}),...(bookmark!==undefined?{bookmark}:{}),...(bookmarksChanged?{bookmarks}:{}),...(['upload-book','search','history','clear-target','bookmark-track'].includes(action)?{navigation:targetAddress?navigation(targetAddress,frame):null}:{}),opened:projected,...(changed?{history:records}:{})};
+    return {id,text,raw,foundPrefix,...(action==='reference-frame'?{frame}:{}),...(landing?{landing}:{}),...(journeyWalk?{journeyWalk}:{}),...(bookmark!==undefined?{bookmark}:{}),...(bookmarksChanged?{bookmarks}:{}),...(['upload-book','search','history','clear-target','bookmark-track'].includes(action)?{navigation:targetAddress?navigation(targetAddress,frame):null}:{}),opened:projected,...(changed?{history:records}:{})};
   }catch(error){return {id,error:error instanceof Error?error.message:'Book generation failed'};}
 };
