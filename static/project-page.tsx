@@ -1,3 +1,30 @@
+import { useEffect, useRef, useState } from 'react';
+
+/** Account for the image's full cover scale, including pixels cropped out of view.
+ * The browser combines this CSS-pixel size with devicePixelRatio to pick a source.
+ */
+function SceneImage({ base, name, alt, eager = false }: {
+  base: string; name: string; alt: string; eager?: boolean;
+}) {
+  const ref = useRef<HTMLImageElement>(null);
+  const [sizes, setSizes] = useState('100vw');
+  useEffect(() => {
+    const img = ref.current!;
+    const update = () => {
+      const { width, height } = img.getBoundingClientRect();
+      setSizes(`${Math.ceil(Math.max(width, height * 16 / 9))}px`);
+    };
+    const observer = new ResizeObserver(update);
+    observer.observe(img);
+    update();
+    return () => observer.disconnect();
+  }, []);
+  return <img ref={ref} src={`${base}${name}-1920.webp`}
+    srcSet={[960, 1920, 2560, 3840].map(w => `${base}${name}-${w}.webp ${w}w`).join(', ')}
+    sizes={sizes} width={3840} height={2160} alt={alt}
+    loading={eager ? 'eager' : 'lazy'} fetchPriority={eager ? 'high' : 'auto'} decoding="async" />;
+}
+
 const repo = 'https://github.com/alienbat/library-of-babel';
 const specs: [string, string][] = [
   ['Layout', 'Two parallel galleries facing across a chasm, repeated floor over floor to finite boundaries'],
@@ -34,7 +61,7 @@ export default function ProjectPage({ base }: { base: string }) {
       </header>
       <main>
         <section className="hero" aria-label="Introduction">
-          <div className="hero-art"><img src={`${base}hero.webp`} alt="" /></div>
+          <div className="hero-art"><SceneImage base={base} name="hero" alt="" eager /></div>
           <div className="hero-scrim" aria-hidden="true" />
           <div className="hero-copy">
             <p className="eyebrow eyebrow-light">A LIBRARY OF EVERY POSSIBLE BOOK</p>
@@ -67,7 +94,7 @@ export default function ProjectPage({ base }: { base: string }) {
           </div>
           <div className="library-detail">
             <figure className="art">
-              <img src={`${base}galleries.webp`} alt="The two galleries seen from a walkway, shelves receding to the horizon" />
+              <SceneImage base={base} name="galleries" alt="The two galleries seen from a walkway, shelves receding to the horizon" />
               <figcaption className="art-caption">TWO GALLERIES. A NEAR-ENDLESS HORIZON.</figcaption>
             </figure>
             <dl className="specs">
