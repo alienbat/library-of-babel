@@ -68,3 +68,26 @@ async function checkLanding(entry){
 await checkLanding(landing);
 assert.ok(landingBytes<500000,'Landing JavaScript exceeds its lightweight budget');
 assert.ok((await readFile(`${directory}/index.html`,'utf8')).includes('Every possibility.'),'Landing content must be prerendered');
+
+// SEO is present in static HTML, before JavaScript executes.
+const {siteUrls,seoTitle,seoDescription}=await import('./landing-seo.mjs');
+const urls=siteUrls(base,process.env.STATIC_SITE_ORIGIN);
+for(const [entry,url] of [['index.html',urls.home],['play/index.html',urls.play]]){
+ const html=await readFile(`${directory}/${entry}`,'utf8');
+ assert.equal([...html.matchAll(/rel="canonical"/g)].length,1,'Exactly one canonical per page');
+ assert.ok(html.includes(`rel="canonical" href="${url}"`),'Canonical must match published location');
+ assert.ok(html.includes(`property="og:url" content="${url}"`),'Social URL must match canonical');
+ assert.ok(html.includes(`property="og:image" content="${urls.image}"`),'Social image must be absolute');
+ assert.ok(html.includes('name="twitter:card" content="summary_large_image"'));
+ assert.ok(html.includes(`name="description" content="${seoDescription}"`));
+}
+const html=await readFile(`${directory}/index.html`,'utf8');
+assert.ok(html.includes(`<title>${seoTitle}</title>`));
+const schema=JSON.parse(html.match(/<script type="application\/ld\+json">([^<]+)<\/script>/)[1]);
+assert.equal(schema['@graph'][0].url,urls.home);
+assert.equal(schema['@graph'][1].url,urls.play);
+assert.ok(schema['@graph'][1].isAccessibleForFree);
+const sitemap=await readFile(`${directory}/sitemap.xml`,'utf8');
+assert.ok(sitemap.includes(`<loc>${urls.home}</loc>`)&&sitemap.includes(`<loc>${urls.play}</loc>`));
+await access(`${directory}/social-preview.jpg`);
+console.log('Canonical URLs, social metadata, structured data and sitemap verified');
