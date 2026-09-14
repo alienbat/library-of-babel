@@ -37,7 +37,7 @@ import {destinationState,type Destination} from './destinations';
 
 type Settings={cheat:boolean;sound:boolean;motion:boolean;fov:number;sensitivity:number;quality:string};
 export type GameStats={navigation?:NavigationHint|null;floor:string;distance:string;libraryClock?:string;libraryDays?:string;savedAt?:number;mode:TravelMode;fallSpeed:number};
-type Callbacks={onDebugMenu:(open:boolean)=>void;onBookmarks:(records:Bookmark[])=>void;onPause:()=>void;onStats:(s:GameStats)=>void;onFallback:()=>void;onError:(s:string)=>void;onTarget:(b:BookLocation|null)=>void;onBook:(b:BookLocation|null)=>void;onPage:(delta:number)=>void;onStorageWarning:()=>void;onGameMenu:(open:boolean)=>void;onDestination:(destination:Destination)=>void};
+type Callbacks={onWalkComplete?:(years:string)=>void;onDebugMenu:(open:boolean)=>void;onBookmarks:(records:Bookmark[])=>void;onPause:()=>void;onStats:(s:GameStats)=>void;onFallback:()=>void;onError:(s:string)=>void;onTarget:(b:BookLocation|null)=>void;onBook:(b:BookLocation|null)=>void;onPage:(delta:number)=>void;onStorageWarning:()=>void;onGameMenu:(open:boolean)=>void;onDestination:(destination:Destination)=>void};
 export type GameHandle=ReturnType<typeof createGame>;
 export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   let renderer:T.WebGLRenderer;
@@ -157,6 +157,7 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
   function emitStats(){const time=libraryTime(startedAt||Date.now(),artificialMs);callbacks.onStats({navigation:navigationAnchor?coarseNavigation(navigationAnchor,p,yaw,pitch):null,floor:bigCount(BigInt(Math.round(p.y/HEIGHT))+BigInt(globalFrame.floorOffset)),distance:bigCount(distanceMm/1000n),libraryClock:time.clock,libraryDays:time.days,savedAt,mode,fallSpeed});}
   async function timedWalk(direction:WalkDirection,years:string){
     if(walkBusy)throw new Error('A walk is already in progress.');walkBusy=true;clearKeys();
+    let completedYears:string|undefined;
     const curtain=document.createElement('dialog');
     curtain.className='walk-curtain';curtain.setAttribute('aria-label','Walking through the library');
     curtain.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;max-width:none;max-height:none;margin:0;padding:0;border:0;background:black;opacity:0;outline:none';
@@ -168,11 +169,13 @@ export function createGame(host:HTMLDivElement, callbacks:Callbacks) {
       distanceMm+=BigInt(result.distanceCm)*10n;artificialMs=(BigInt(artificialMs)+BigInt(result.elapsedMs)).toString();takeoffTime=0;mode='walking';fallSpeed=0;stepDistance=0;bob=0;setTarget(null);emitStats();
       try{saveProgress();}catch{callbacks.onStorageWarning();}
       closeMenu(false);
+      completedYears=(BigInt(result.elapsedMs)/31_536_000_000n).toLocaleString('en-US');
       return result;
     }finally{
       await curtain.animate([{opacity:1},{opacity:0}],{duration:750,fill:'forwards'}).finished.catch(()=>{});
       curtain.close();curtain.remove();walkBusy=false;
       if(!disposed&&active&&!gameMenu)start();
+      if(!disposed&&completedYears!==undefined)callbacks.onWalkComplete?.(completedYears);
     }
   }
   async function teleportToTarget(){

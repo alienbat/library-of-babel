@@ -14,6 +14,8 @@ import {bookId,bookOpeningTitle,turnPage,PAGE_COUNT,type BookLocation} from '../
 import {DESTINATIONS,DESTINATION_LABELS} from '../lib/game/destinations';
 
 export default function Home() {
+  const [walkAnnouncement,setWalkAnnouncement]=useState<{years:string;id:number}|null>(null);
+  const walkAnnouncementId=useRef(0);
   const [uploadFile,setUploadFile]=useState<File|null>(null);
   const [prefix,setPrefix]=useState(''),[searchBusy,setSearchBusy]=useState(false),[searchError,setSearchError]=useState(''),[foundPrefix,setFoundPrefix]=useState('');
   const [bookmarks,setBookmarks]=useState<Bookmark[]>([]),[trackedId,setTrackedId]=useState('');
@@ -51,7 +53,7 @@ export default function Home() {
     import('../lib/game/engine').then(({createGame})=>{
       if(disposed||!viewport.current)return;
       try{setQuality(readDetail(localStorage));}catch{setStorageWarning(true);}
-      try {game.current=createGame(viewport.current,{onBookmarks:setBookmarks,onPause:()=>setPlaying(false),onStats:next=>{setStats(next);if(next.savedAt)setEntered(true);},onFallback:()=>setDrag(true),onError:setError,onTarget:setTarget,onBook:b=>{setBook(b);setPage(0);},onPage:delta=>setPage(p=>turnPage(p,delta)),onStorageWarning:()=>setStorageWarning(true),onGameMenu:setMenuOpen,onDebugMenu:setDebugOpen,onDestination:()=>{}});setReady(true);}
+      try {game.current=createGame(viewport.current,{onWalkComplete:years=>setWalkAnnouncement({years,id:++walkAnnouncementId.current}),onBookmarks:setBookmarks,onPause:()=>setPlaying(false),onStats:next=>{setStats(next);if(next.savedAt)setEntered(true);},onFallback:()=>setDrag(true),onError:setError,onTarget:setTarget,onBook:b=>{setBook(b);setPage(0);},onPage:delta=>setPage(p=>turnPage(p,delta)),onStorageWarning:()=>setStorageWarning(true),onGameMenu:setMenuOpen,onDebugMenu:setDebugOpen,onDestination:()=>{}});setReady(true);}
       catch(error) {console.error('Library startup failed:',error);setError(error instanceof Error?error.message:'The library could not start. Please reload to try again.');}
     }).catch(()=>setError('The library could not load. Please refresh to try again.'));
     return ()=>{disposed=true;game.current?.dispose();game.current=null;};
@@ -184,6 +186,10 @@ export default function Home() {
       <nav className="reader-navigation" aria-label="Book pages"><button disabled={page===0} onClick={()=>setPage(p=>turnPage(p,-1))}>← Previous</button><span aria-live="polite">Page {page+1} of {PAGE_COUNT}</span><button disabled={page===PAGE_COUNT-1} onClick={()=>setPage(p=>turnPage(p,1))}>Next →</button></nav>
       <BookmarkEditor key={bookId(book)} game={game} book={book} page={page} onRestore={restoreBookmarkPage}/>
     </dialog>}
+    {walkAnnouncement&&<output key={walkAnnouncement.id} className="walk-announcement" onAnimationEnd={()=>setWalkAnnouncement(null)}>
+      <strong>{walkAnnouncement.years}</strong>
+      <span>{walkAnnouncement.years==='1'?'YEAR LATER':'YEARS LATER'}</span>
+    </output>}
     <footer><span>{playing?(stats.mode==='flying'?'FLYING':stats.mode==='falling'?fallSpeedLabel(stats.fallSpeed):'WALKING'):''}</span><div><span className="library-clock">{stats.libraryClock}</span><span>LEVEL <b>{stats.floor==='0'?'0':`${stats.floor.startsWith('-')?'':'+'}${stats.floor}`}</b></span><span><b>{stats.distance.toLocaleString()}</b> m travelled total</span></div></footer>
   </main>;
 }
