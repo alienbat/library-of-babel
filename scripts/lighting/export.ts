@@ -1,4 +1,5 @@
 /** Export actual repeating architecture and fixture transforms for offline Cycles. */
+import {GALLERY_TRANSPORT_PERIOD} from '../../lib/game/gallery-fixtures.ts';
 import * as T from 'three';
 import {writeFileSync,mkdirSync} from 'node:fs';
 import {createWorld} from '../../lib/game/world.ts';
@@ -31,5 +32,5 @@ for(const variant of ['normal','top','bottom']){
    return {color,name:m.name};
   })});
  });
- writeFileSync(`scripts/lighting/generated/${variant}.json`,JSON.stringify({meshes,lights}));world.dispose();
+ writeFileSync(`scripts/lighting/generated/${variant}.json`,JSON.stringify({meshes,lights,transportPeriod:GALLERY_TRANSPORT_PERIOD}));world.dispose();
 }

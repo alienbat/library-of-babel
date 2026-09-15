@@ -40,7 +40,7 @@ result is the route to validating convergence, rather than claiming exact infini
 - Probe patches have separate UV tiles; four texels are averaged per direction.
 - Gallery probes stay at least 6 cm in front of the shelf mass; room probes stay inside their compartment. Probes are moved out of solid geometry before baking to reduce black interpolation
   at joints. Room samples cover the full storey, including stair passages.
-- Identical periodic sample planes share values after baking. The top room and
+- Room boundary sample planes share values after baking. The top room and
   final flight share their interface samples, avoiding Monte Carlo noise seams.
 - A three-tap Gaussian filters the linear irradiance before quantization, separately within each room compartment. It reduces noise without adding ambient energy or blurring through walls.
 - No additional AO multiplier is applied. Visibility comes from the path tracing.
@@ -61,7 +61,7 @@ and falls back to CPU otherwise. `BAKE_SAMPLES` defaults to 2048. The exported s
 JSON under `scripts/lighting/generated/` is temporary and ignored; committed
 `lib/game/baked/*.json` assets let normal builds work without Blender.
 
-Gallery resolution is 64 × 32 × 16. Room fields are 160 × 32 × 32. Irradiance is
+Gallery resolution is 256 × 32 × 16. Room fields are 160 × 32 × 32. Irradiance is
 linear, quantized to 8 bits over [0, 4]. More samples reduce Monte Carlo noise;
 more probes improve spatial detail. Neither fixes an incorrect model or can recover
 features smaller than the field spacing. A future RGB field or surface lightmap
@@ -71,3 +71,10 @@ Changes to room geometry, fixtures or transport reflectances require a fresh bak
 The checked-in metadata records Cycles samples, bounce depth, bake duration and the SHA-256 of the exported transport scene.
 
 Gallery fixtures are 0.8 m long, centred on each of the eight 2.8575 m shelf units per bay. Room fixtures retain their 1.6 m length. Distant fixture textures and horizon luminous-area averages use the same layout constants.
+
+## Railing shadow repeat
+
+Gallery lighting uses the shared 11.43 m repeat of four lamps and three posts,
+not the 2.8575 m lamp spacing alone. Floor/ceiling boundary fields use the same
+repeat. See [the baking guide](RAYTRACE_BAKING_GUIDE.md#railing-shadow-repeat)
+for grid sizes, targeted bake commands and validation.

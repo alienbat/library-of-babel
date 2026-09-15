@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased — railing shadow alignment
+
+- Correct the gallery lighting repeat to match both ceiling lamps and railing posts.
+- Rebake gallery and adjoining floor/ceiling transport with unchanged probe spacing and sample quality.
+
 Curated changes to The Library of Babel. Git history contains the full development
 record; older entries are grouped milestones rather than released version numbers.
 

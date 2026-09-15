@@ -107,13 +107,13 @@ rebuild all fields rather than publish a mixture.
 
 | Field | Transport variant | Grid (X × Y × Z) |
 | --- | --- | --- |
-| `gallery` | normal | 64 × 32 × 16 |
+| `gallery` | normal | 256 × 32 × 16 |
 | `rooms` | normal | 160 × 32 × 32 |
 | `top` | top | 160 × 32 × 32 |
 | `final` | top; final ascending flight below the top | 160 × 32 × 32 |
 | `bottom` | bottom | 160 × 32 × 32 |
-| `boundaryFloor` | bottom | 32 × 1 × 128 |
-| `boundaryCeiling` | top | 32 × 1 × 128 |
+| `boundaryFloor` | bottom | 128 × 1 × 128 |
+| `boundaryCeiling` | top | 128 × 1 × 128 |
 | `boundaryWall` | normal | 32 × 1 × 128 |
 
 Changes to fixtures, architecture, transport reflectance, sample placement, or
@@ -145,7 +145,7 @@ Corridor fixtures are currently 0.8 m long, one per 2.8575 m shelf subdivision
 its brightness per unit area; increasing count changes total emitted power.
 Do not assume geometry alone preserves luminous output.
 
-Keep runtime fixture instances, gallery sampling period, distant fixture texture
+Keep runtime fixture instances, the shared lamp/post transport period, distant fixture texture
 repeats and horizon luminous-area averages consistent. Some sampling coordinates
 are Python literals; changing the TypeScript constants alone is insufficient.
 
@@ -188,7 +188,7 @@ After all selected bakes complete, run:
 python3 scripts/lighting/seal.py
 ```
 
-This stage averages gallery X endpoint planes and ordinary-room Y endpoint planes,
+This stage averages ordinary-room Y endpoint planes,
 shares the top/final-flight interface, and copies enclosed bedroom/bathroom data
 from ordinary rooms into terminal variants. Terminal bakes deliberately omit
 non-stair receivers to save time; their empty cells are not valid for deployment
@@ -196,8 +196,7 @@ until this copy has happened.
 
 Metadata records samples, bounce count, elapsed bake time, filtering and the
 SHA-256 of the exported transport scene. The scene hash **does not hash the bake
-script or prove all assets are fresh**. Sealing can stamp the current export hash
-onto an older asset. Review source changes, logs and regenerated outputs together;
+script or prove all assets are fresh**. The hash is recorded when a field is baked; sealing preserves it. Review source changes, logs and regenerated outputs together;
 do not use the hash as the sole freshness test.
 
 ## Diagnosing artifacts
@@ -302,7 +301,7 @@ stale preview are especially easy to mistake for a completed deployment.
 
 The inter-gallery floor, ceiling and end walls have no fixtures, including no
 procedural emissive lenses in the horizon shader. Their fields contain corridor
-illumination and bounce only. Floor/ceiling X repeats every 2.8575 m; end-wall Y
+illumination and bounce only. Floor/ceiling X repeats every 11.43 m; end-wall Y
 repeats every 3.96 m, with several neighboring storeys present in the transport
 scene. The wall exporter excludes geometry and lights behind the end wall.
 
@@ -319,3 +318,30 @@ This remains a repeated interior end-wall approximation: the wall field does not
 resolve the loss of neighboring floors immediately beside a terminal ceiling or
 floor. Floor and ceiling fields themselves use the corresponding terminal scene.
 Exact corner interreflection would require additional terminal wall fields.
+
+## Railing shadow repeat
+
+The lamps repeat every 2.8575 m (eight per bay), but railing posts repeat every
+3.81 m (six per bay). Gallery transport therefore uses their shared **11.43 m**
+repeat, exported as `transportPeriod` from `gallery-fixtures.ts`. Using the lamp
+period for transport repeats post shadows at positions with no post.
+
+Gallery probes use 256 × 32 × 16 samples over this longer span, retaining the
+previous spatial density. The boundary floor and ceiling use 128 × 1 × 128;
+the end wall retains 32 × 1 × 128 and its 3.96 m vertical repeat. Runtime packing
+resamples that wall channel to the wider texture without changing its period.
+
+Gallery and boundary samples are cell-centered along the repeat axis. Filter
+with wrapped neighbors; do not average first and last samples as if they were
+the same position. `bake.py` records the scene hash for each field it actually
+rebakes. `seal.py` only joins room interfaces and must not relabel untouched bakes.
+
+For a targeted railing-transport rebake:
+
+```sh
+node --experimental-strip-types scripts/lighting/export.ts
+/Applications/Blender.app/Contents/MacOS/Blender --background --python-exit-code 1 --python scripts/lighting/bake.py -- gallery boundaryFloor boundaryCeiling
+```
+
+Keep 2048 samples and six diffuse bounces. Verify post contact shadows across
+several lamp/post spacings, on both galleries, and check bottom/top boundaries.

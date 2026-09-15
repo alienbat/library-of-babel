@@ -1,4 +1,4 @@
-import {GALLERY_LIGHT_COUNT,GALLERY_LIGHT_LENGTH,GALLERY_LIGHT_PERIOD} from './gallery-fixtures.ts';
+import {GALLERY_POST_COUNT,GALLERY_LIGHT_COUNT,GALLERY_LIGHT_LENGTH,GALLERY_LIGHT_PERIOD} from './gallery-fixtures.ts';
 import {createCeilingLights} from './ceiling-lights.ts';
 import {createShelfFrame} from './shelf-frame.ts';
 import {createBathroomFixtures,type BathroomPlacement} from './bathroom-fixtures.ts';
@@ -269,7 +269,7 @@ export function createWorld(scene: T.Scene, opened:ReadonlySet<string>=new Set()
       if(cornerLimits.maxY!==undefined&&Math.abs(y+HEIGHT-.34-cornerLimits.maxY)<.001)
         slabs.push([x+BAY/2,y+HEIGHT-.17,z,BAY,.34,3.6576]);
       rails.push([x+BAY/2,y+1.2192,side*(INNER+RAIL_OFFSET),BAY,0,0],[x+BAY/2,y+.55,side*(INNER+RAIL_OFFSET),BAY,0,0]);
-      for(let j=0;j<6;j++)rails.push([x+j*BAY/6,y+.6,side*(INNER+RAIL_OFFSET),0,1.2,0]);
+      for(let j=0;j<GALLERY_POST_COUNT;j++)rails.push([x+j*BAY/GALLERY_POST_COUNT,y+.6,side*(INNER+RAIL_OFFSET),0,1.2,0]);
       for(let j=0;j<GALLERY_LIGHT_COUNT;j++)lamps.push([x+(j+.5)*GALLERY_LIGHT_PERIOD,y+HEIGHT-.38,z,GALLERY_LIGHT_LENGTH,.035,.28]);
       if(!amenity) {
         shelves.push([x+BAY/2,y+1.62,side*(OUTER+.02),BAY,3.18,.62]);
