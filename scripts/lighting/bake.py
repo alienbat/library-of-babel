@@ -2,7 +2,7 @@
 Receivers are UV-isolated white diffuse patches invisible to transport rays.
 The exported runtime architecture is the occluder, including terminal stair shells.
 """
-import bpy,json,math,time,base64,sys
+import bpy,json,math,time,base64,sys,hashlib
 import numpy as np
 from pathlib import Path
 from mathutils import Vector,Matrix
@@ -11,7 +11,7 @@ ROOT=Path(__file__).resolve().parents[2]
 OUT=ROOT/'lib/game/baked';OUT.mkdir(exist_ok=True)
 SAMPLES=int(__import__('os').environ.get('BAKE_SAMPLES','2048'))
 H=3.96;INNER=15.24;OUTER=18.8976
-configs={'gallery':('normal',(64,32,16)), 'rooms':('normal',(160,32,32)), 'top':('top',(160,32,32)), 'final':('top',(160,32,32)), 'bottom':('bottom',(160,32,32)), 'boundaryFloor':('bottom',(32,1,128)), 'boundaryCeiling':('top',(32,1,128)), 'boundaryWall':('normal',(32,1,128))}
+configs={'gallery':('normal',(256,32,16)), 'rooms':('normal',(160,32,32)), 'top':('top',(160,32,32)), 'final':('top',(160,32,32)), 'bottom':('bottom',(160,32,32)), 'boundaryFloor':('bottom',(128,1,128)), 'boundaryCeiling':('top',(128,1,128)), 'boundaryWall':('normal',(32,1,128))}
 selected=sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else configs
 for name in selected:
  variant,grid=configs[name];start=time.time()
@@ -25,7 +25,9 @@ for name in selected:
   for d in prefs.devices:d.use=d.type=='METAL'
   scene.cycles.device='GPU'
  except Exception:scene.cycles.device='CPU'
- source=json.loads((ROOT/f'scripts/lighting/generated/{variant}.json').read_text())
+ source_path=ROOT/f'scripts/lighting/generated/{variant}.json'
+ source=json.loads(source_path.read_text())
+ period=source['transportPeriod']
  verts=[];faces=[];mat_indices=[];materials=[]
  def convert(p):return (p[0],-p[2],p[1])
  # Mirror Three Y-up to Blender Z-up with a proper rotation.
@@ -77,8 +79,8 @@ for name in selected:
    for x in range(nx):
     if name in ['top','final','bottom'] and x/(nx-1)*32>=15.5:continue # enclosed rooms reuse their shared ordinary bake
     if name.startswith('boundary'):
-     p=(.025,(x+.5)/nx*H,z/(nz-1)*(OUTER-.06)) if name=='boundaryWall' else (45.72+(x+.5)/nx*2.8575,3.595 if name=='boundaryCeiling' else .025,z/(nz-1)*INNER)
-    elif name=='gallery':p=((x+.5)/nx*2.8575+45.72,min(3.54,max(.06,y/(ny-1)*H)),min(OUTER-.35,INNER+z/(nz-1)*(OUTER-INNER)))
+     p=(.025,(x+.5)/nx*H,z/(nz-1)*(OUTER-.06)) if name=='boundaryWall' else (45.72+(x+.5)/nx*period,3.595 if name=='boundaryCeiling' else .025,z/(nz-1)*INNER)
+    elif name=='gallery':p=((x+.5)/nx*period+45.72,min(3.54,max(.06,y/(ny-1)*H)),min(OUTER-.35,INNER+z/(nz-1)*(OUTER-INNER)))
     else:p=(x/(nx-1)*32,y/(ny-1)*H-(H if name=='final' else 0),OUTER+z/(nz-1)*6.5)
     if not name.startswith('boundary') and name!='gallery':
      px,py,pz=p
@@ -116,7 +118,7 @@ for name in selected:
  for lo,hi in ranges:
   block=radiance[:,:,lo:hi,:].copy()
   for axis in range(3):
-   pad=[(0,0)]*4;pad[axis]=(1,1);padded=np.pad(block,pad,mode='wrap' if name.startswith('boundary') and axis==2 else 'edge')
+   pad=[(0,0)]*4;pad[axis]=(1,1);padded=np.pad(block,pad,mode='wrap' if (name.startswith('boundary') or name=='gallery') and axis==2 else 'edge')
    slices=[slice(None)]*4;slices[axis]=slice(0,-2);a=padded[tuple(slices)]
    slices[axis]=slice(1,-1);b=padded[tuple(slices)]
    slices[axis]=slice(2,None);c=padded[tuple(slices)]
@@ -125,7 +127,9 @@ for name in selected:
  for probe,lobes in enumerate(radiance.reshape((-1,6))):
   for axis,value in enumerate(lobes):(positive if axis<3 else negative)[probe*4+axis%3]=round(min(4,float(value))/4*255)
  result={'grid':grid,'range':4,'positive':base64.b64encode(positive).decode(),'negative':base64.b64encode(negative).decode(),'samples':SAMPLES,'diffuseBounces':6,'seconds':round(time.time()-start,2),'engine':'Blender Cycles','extraAO':False,'filter':'compartment-separated 3-tap Gaussian in linear light','probeClearance':0.06}
+ result['sceneSHA256']=hashlib.sha256(source_path.read_bytes()).hexdigest()
+ if name=='gallery':result['repeatPeriod']=period
  if name.startswith('boundary'):
-  result.update(boundaryFixtures=False,repeatPeriod=H if name=='boundaryWall' else 2.8575,transverseSpan=OUTER-.06 if name=='boundaryWall' else INNER)
+  result.update(boundaryFixtures=False,repeatPeriod=H if name=='boundaryWall' else period,transverseSpan=OUTER-.06 if name=='boundaryWall' else INNER)
  (OUT/f'{name}.json').write_text(json.dumps(result,separators=(',',':')))
  print('DONE',name,result['seconds'],max(positive),flush=True)

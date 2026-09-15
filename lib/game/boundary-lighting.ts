@@ -3,13 +3,13 @@ import ceilingField from './baked/boundaryCeiling.json' with {type:'json'};
 import wallField from './baked/boundaryWall.json' with {type:'json'};
 import * as T from 'three';
 import {BAY,HEIGHT,INNER,OUTER} from './physics.ts';
-import {GALLERY_LIGHT_PERIOD} from './gallery-fixtures.ts';
+import {GALLERY_TRANSPORT_PERIOD} from './gallery-fixtures.ts';
 export const BOUNDARY_GLSL=`
  uniform sampler2D boundaryCarpet,boundaryLight;
  uniform vec3 boundaryLightMean;
  uniform vec3 boundaryFloorColor,boundaryCeilingColor,boundaryWallColor;
  vec3 boundaryShade(vec3 p,float kind){
-   vec2 cell=kind>1.5?vec2(p.y/${HEIGHT},abs(p.z)/${OUTER-.06}):vec2(p.x/${GALLERY_LIGHT_PERIOD},abs(p.z)/${INNER});
+   vec2 cell=kind>1.5?vec2(p.y/${HEIGHT},abs(p.z)/${OUTER-.06}):vec2(p.x/${GALLERY_TRANSPORT_PERIOD},abs(p.z)/${INNER});
    vec2 footprint=fwidth(cell);
    vec3 illumination=texture2D(boundaryLight,vec2(cell.x,(clamp(cell.y,0.0,1.0)*127.0+.5)/128.0)).rgb*4.0;
    illumination=mix(illumination,boundaryLightMean,smoothstep(.2,1.0,max(footprint.x,footprint.y)));
@@ -21,12 +21,20 @@ export const BOUNDARY_GLSL=`
  }
 `;
 export function createBoundaryLighting(carpet:T.Texture,lightStrength=1){
-  const width=32,height=128,data=new Uint8Array(width*height*4),mean=new T.Vector3();
+  const width=floorField.grid[0],height=128,data=new Uint8Array(width*height*4),mean=new T.Vector3();
   const fields=[floorField,ceilingField,wallField];
   fields.forEach((field,c)=>{
     const bytes=atob(c===1?field.negative:field.positive),axis=c===2?0:1;
     let sum=0;
-    for(let i=0;i<width*height;i++){const value=Math.min(255,Math.round(bytes.charCodeAt(i*4+axis)*Math.max(0,lightStrength)));data[i*4+c]=value;data[i*4+3]=255;sum+=value*4/255;}
+    // Wall transport retains its vertical period and original resolution.
+    // Resample at cell centers when packing beside the wider floor fields.
+    const sourceWidth=field.grid[0];
+    for(let z=0;z<height;z++)for(let x=0;x<width;x++){
+      const u=(x+.5)*sourceWidth/width-.5,lo=Math.floor(u),t=u-lo;
+      const sample=(j:number)=>bytes.charCodeAt((z*sourceWidth+(j+sourceWidth)%sourceWidth)*4+axis);
+      const value=Math.min(255,Math.round((sample(lo)*(1-t)+sample(lo+1)*t)*Math.max(0,lightStrength)));
+      const i=z*width+x;data[i*4+c]=value;data[i*4+3]=255;sum+=value*4/255;
+    }
     mean.setComponent(c,sum/(width*height));
   });
   const light=new T.DataTexture(data,width,height);light.wrapS=T.RepeatWrapping;light.wrapT=T.ClampToEdgeWrapping;light.minFilter=T.LinearMipmapLinearFilter;light.magFilter=T.LinearFilter;light.generateMipmaps=true;light.needsUpdate=true;

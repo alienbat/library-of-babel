@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as T from 'three';
+import {GALLERY_LIGHT_PERIOD,GALLERY_TRANSPORT_PERIOD} from '../lib/game/gallery-fixtures.ts';
 import {bakeGalleryLighting} from '../lib/game/lighting.ts';
 void test('baked volume is bounded, filtered, periodic and brighter beneath fixtures',()=>{
   const bake=bakeGalleryLighting();
@@ -11,8 +12,15 @@ void test('baked volume is bounded, filtered, periodic and brighter beneath fixt
     assert.equal(bake.positive.wrapS,T.RepeatWrapping);
     assert.equal(bake.positive.minFilter,T.LinearFilter);
     const sample=(x:number,y:number,z:number,axis:number)=>data[((z*height+y)*width+x)*4+axis];
-    assert.ok(sample(width/2,0,depth/2,1)>sample(0,0,depth/2,1),'ceiling fixture creates a stable floor light pool');
-    for(let y=0;y<height;y++)for(let z=0;z<depth;z++)for(let axis=0;axis<3;axis++)assert.ok(Math.abs(sample(0,y,z,axis)-sample(width-1,y,z,axis))<12,'repeat boundary is smooth');
+    const firstLamp=Math.floor((GALLERY_LIGHT_PERIOD/2)/GALLERY_TRANSPORT_PERIOD*width);
+    assert.ok(sample(firstLamp,0,depth/2,1)>sample(0,0,depth/2,1),'ceiling fixture creates a stable floor light pool');
+    // The seam straddles a post, so directional occlusion can change between
+    // its neighboring cell centers. It must not jump more than interior cells.
+    for(let y=0;y<height;y++)for(let z=0;z<depth;z++)for(let axis=0;axis<3;axis++){
+      let interiorStep=0;
+      for(let x=1;x<width;x++)interiorStep=Math.max(interiorStep,Math.abs(sample(x,y,z,axis)-sample(x-1,y,z,axis)));
+      assert.ok(Math.abs(sample(0,y,z,axis)-sample(width-1,y,z,axis))<=interiorStep+2,'repeat boundary adds no exceptional lighting jump');
+    }
     const material=bake.material({color:'#987953'});
     const shader={uniforms:{},vertexShader:T.ShaderLib.basic.vertexShader,fragmentShader:T.ShaderLib.basic.fragmentShader} as T.WebGLProgramParametersWithUniforms;
     material.onBeforeCompile(shader,{} as T.WebGLRenderer);

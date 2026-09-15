@@ -42,12 +42,35 @@ void test('boundary fields use corridor periods and cannot wrap across the chasm
  for(const name of ['boundaryFloor','boundaryCeiling','boundaryWall']){
   const f=JSON.parse(readFileSync(new URL(`../lib/game/baked/${name}.json`,import.meta.url),'utf8'));
   assert.equal(f.boundaryFixtures,false);
-  assert.equal(f.repeatPeriod,name==='boundaryWall'?3.96:2.8575);
+  assert.equal(f.repeatPeriod,name==='boundaryWall'?3.96:11.43);
   assert.ok(Math.abs(f.transverseSpan-(name==='boundaryWall'?18.8376:15.24))<1e-8);
-  assert.deepEqual(f.grid,[32,1,128]);
+  assert.deepEqual(f.grid,[name==='boundaryWall'?32:128,1,128]);
  }
  const bake=createBoundaryLighting(new T.Texture());
  assert.equal(bake.uniforms.boundaryLight.value.wrapS,T.RepeatWrapping);
  assert.equal(bake.uniforms.boundaryLight.value.wrapT,T.ClampToEdgeWrapping);
+ bake.dispose();
+});
+
+void test('gallery transport repeats both lamps and posts without reducing probe density',async()=>{
+ const {GALLERY_LIGHT_PERIOD,GALLERY_POST_COUNT,GALLERY_TRANSPORT_PERIOD}=await import('../lib/game/gallery-fixtures.ts');
+ const {BAY}=await import('../lib/game/physics.ts');
+ const {LIGHT_PERIOD}=await import('../lib/game/lighting.ts');
+ const field=JSON.parse(readFileSync(new URL('../lib/game/baked/gallery.json',import.meta.url),'utf8'));
+ assert.equal(GALLERY_TRANSPORT_PERIOD/GALLERY_LIGHT_PERIOD,4);
+ assert.equal(GALLERY_TRANSPORT_PERIOD/(BAY/GALLERY_POST_COUNT),3);
+ assert.equal(LIGHT_PERIOD,field.repeatPeriod);
+ assert.equal(field.repeatPeriod,GALLERY_TRANSPORT_PERIOD);
+ assert.equal(field.grid[0]/field.repeatPeriod,64/GALLERY_LIGHT_PERIOD);
+});
+void test('packing boundary fields resamples wall cells without changing their repeat',()=>{
+ const field=JSON.parse(readFileSync(new URL('../lib/game/baked/boundaryWall.json',import.meta.url),'utf8'));
+ const source=Buffer.from(field.positive,'base64'),bake=createBoundaryLighting(new T.Texture());
+ const texture=bake.uniforms.boundaryLight.value,width=texture.image.width,data=texture.image.data!;
+ assert.equal(width,128);
+ for(let z=0;z<128;z++)for(let x=0;x<32;x++){
+  const here=source[(z*32+x)*4],next=source[(z*32+(x+1)%32)*4];
+  assert.equal(data[(z*width+x*4+2)*4+2],Math.round(here*.875+next*.125));
+ }
  bake.dispose();
 });
